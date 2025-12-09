@@ -2,22 +2,37 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+
 import {
   fetchInvoice,
   fetchInvoiceWebhooks,
   dispatchInvoiceWebhooks,
+  runInvoiceAmlCheck,
   type Invoice,
   type WebhookEvent,
   type WebhookDispatchResult,
 } from "@/lib/pspApi";
+
 import { InvoiceHeader } from "@/components/invoice-details/InvoiceHeader";
 import { OverviewCard } from "@/components/invoice-details/OverviewCard";
 import { BlockchainCard } from "@/components/invoice-details/BlockchainCard";
 import { WebhooksCard } from "@/components/invoice-details/WebhooksCard";
 
+function formatDateTime(iso: string | null | undefined) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return d.toLocaleString("de-CH", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default function InvoiceDetailsPage() {
-  const params = useParams();
   const router = useRouter();
+  const params = useParams();
 
   const idParam = params?.id;
   const invoiceId =
@@ -32,11 +47,13 @@ export default function InvoiceDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [webhooksLoading, setWebhooksLoading] = useState(false);
   const [dispatching, setDispatching] = useState(false);
+  const [amlLoading, setAmlLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [webhookInfo, setWebhookInfo] = useState<WebhookDispatchResult | null>(
     null
   );
 
+  // 🔁 начальная загрузка инвойса + вебхуков
   useEffect(() => {
     if (!invoiceId) return;
 
@@ -62,6 +79,7 @@ export default function InvoiceDetailsPage() {
     load();
   }, [invoiceId]);
 
+  // 🔁 обновить только webhooks
   async function reloadWebhooks() {
     if (!invoiceId) return;
     try {
@@ -75,6 +93,7 @@ export default function InvoiceDetailsPage() {
     }
   }
 
+  // 🚚 отправка pending webhooks
   async function handleDispatchWebhooks() {
     if (!invoiceId) return;
     try {
@@ -90,51 +109,72 @@ export default function InvoiceDetailsPage() {
     }
   }
 
+  // ✅ запуск AUTO AML проверки
+  async function handleRunAml() {
+    if (!invoiceId || !invoice) return;
+
+    try {
+      setAmlLoading(true);
+      setError(null);
+
+      const updated = await runInvoiceAmlCheck(invoice.id);
+      setInvoice(updated);
+    } catch (err: any) {
+      setError(err?.message || "Failed to run AML check");
+    } finally {
+      setAmlLoading(false);
+    }
+  }
+
+  const handleBack = () => {
+    router.push("/invoices");
+  };
+
   if (!invoiceId) {
     return (
-      <main className="min-h-screen bg-page-gradient px-4 py-6 text-slate-900 md:px-8 md:py-8">
+      <main className="min-h-screen bg-page-gradient px-4 py-6 text-slate-50 md:px-8 md:py-8">
         <div className="mx-auto max-w-5xl">
-          <p className="text-sm text-slate-500">Invoice id is missing.</p>
+          <p className="text-sm text-slate-400">Invoice id is missing.</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-page-gradient px-4 py-6 text-slate-900 md:px-8 md:py-8">
+    <main className="min-h-screen bg-page-gradient px-4 py-6 text-slate-50 md:px-8 md:py-8">
       <div className="mx-auto flex max-w-5xl flex-col gap-4 md:gap-6">
-        {/* Header */}
-        <InvoiceHeader
-          invoice={invoice}
-          onBack={() => router.push("/invoices")}
-        />
+        <InvoiceHeader invoice={invoice} onBack={handleBack} />
 
-        {/* Loading */}
         {loading && (
-          <section className="apple-card apple-card-content px-4 py-6 md:px-6 md:py-8">
-            <p className="text-sm text-slate-500">Loading invoice…</p>
+          <section className="apple-card px-4 py-6 md:px-6 md:py-8">
+            <p className="text-sm text-slate-400">Loading invoice…</p>
           </section>
         )}
 
-        {/* Error */}
         {!loading && error && (
-          <section className="apple-card apple-card-content px-4 py-6 md:px-6 md:py-8">
+          <section className="apple-card px-4 py-6 md:px-6 md:py-8">
             <p className="text-sm text-rose-200">{error}</p>
           </section>
         )}
 
-        {/* Content */}
         {!loading && !error && invoice && (
           <>
-            <OverviewCard invoice={invoice} />
+            <OverviewCard
+              invoice={invoice}
+              onRunAml={handleRunAml}
+              amlLoading={amlLoading}
+            />
+
             <BlockchainCard invoice={invoice} />
+
             <WebhooksCard
               webhooks={webhooks}
               webhookInfo={webhookInfo}
-              webhooksLoading={webhooksLoading}
+              loading={webhooksLoading}
               dispatching={dispatching}
               onReload={reloadWebhooks}
               onDispatch={handleDispatchWebhooks}
+              formatDateTime={formatDateTime}
             />
           </>
         )}

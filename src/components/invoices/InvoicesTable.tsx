@@ -88,21 +88,25 @@ export function InvoicesTable({
               <td className="max-w-[260px] truncate px-3 py-3 font-mono text-[11px] text-slate-300">
                 {inv.id}
               </td>
+
               <td className="px-3 py-3 text-[11px] text-slate-400">
                 <div>{formatDate(inv.createdAt)}</div>
                 <div className="mt-0.5 text-[10px] text-slate-500">
                   Expires: {formatDate(inv.expiresAt)}
                 </div>
               </td>
+
               <td className="whitespace-nowrap px-3 py-3 text-right text-xs font-semibold text-slate-50">
                 <div>{formatAmount(inv.fiatAmount, inv.fiatCurrency)}</div>
                 <div className="mt-0.5 text-[10px] text-slate-500">
                   {formatAmount(inv.cryptoAmount, inv.cryptoCurrency)}
                 </div>
               </td>
+
               <td className="px-3 py-3">
                 <StatusBadge status={inv.status} />
               </td>
+
               <td className="px-3 py-3 align-top">
                 <AmlBadge
                   amlStatus={inv.amlStatus ?? null}
@@ -111,6 +115,7 @@ export function InvoicesTable({
                   assetRiskScore={inv.assetRiskScore ?? null}
                 />
               </td>
+
               <td className="px-3 py-3 text-[11px] text-slate-400">
                 {inv.network ? (
                   <div className="flex flex-col gap-0.5">
@@ -127,12 +132,13 @@ export function InvoicesTable({
                   <span className="text-xs text-slate-500">—</span>
                 )}
               </td>
+
               <td className="px-3 py-3">
                 <a
                   href={inv.paymentUrl}
                   target="_blank"
                   rel="noreferrer"
-                  onClick={(e) => e.stopPropagation()} // чтобы клик по кнопке не открывал детальную страницу
+                  onClick={(e) => e.stopPropagation()}
                   className="inline-flex items-center rounded-full bg-slate-800/70 px-3 py-1 text-[11px] font-medium text-slate-50 ring-1 ring-slate-700/80 transition hover:bg-slate-700 hover:ring-slate-500"
                 >
                   Open payment page

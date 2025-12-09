@@ -3,6 +3,12 @@
 import type { Invoice } from "@/lib/pspApi";
 import { AmlBadge } from "@/components/invoices/AmlBadge";
 
+interface OverviewCardProps {
+  invoice: Invoice;
+  onRunAml: () => void;
+  amlLoading: boolean;
+}
+
 function formatDateTime(iso: string | null | undefined) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -19,73 +25,103 @@ function formatAmount(amount: number, currency: string) {
   return `${amount.toFixed(2)} ${currency}`;
 }
 
-export function OverviewCard({ invoice }: { invoice: Invoice }) {
+export function OverviewCard({
+  invoice,
+  onRunAml,
+  amlLoading,
+}: OverviewCardProps) {
   return (
-    <section className="apple-card apple-card-content p-4 md:p-6">
+    <section className="apple-card p-4 md:p-6">
       <div className="flex flex-col gap-6 md:flex-row">
-        {/* LEFT */}
+        {/* LEFT: суммы и время */}
         <div className="flex-1 space-y-4">
-          <h2 className="section-title">Overview</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+            Overview
+          </h2>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {/* Fiat */}
-            <div className="card-field">
-              <p className="label">Fiat amount</p>
-              <p className="value">
+            <div className="rounded-2xl bg-slate-900/60 p-3 ring-1 ring-slate-800/80">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                Fiat amount
+              </p>
+              <p className="mt-1 text-base font-semibold text-slate-50">
                 {formatAmount(invoice.fiatAmount, invoice.fiatCurrency)}
               </p>
             </div>
 
-            {/* Crypto */}
-            <div className="card-field">
-              <p className="label">Crypto amount</p>
-              <p className="value">
+            <div className="rounded-2xl bg-slate-900/60 p-3 ring-1 ring-slate-800/80">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                Crypto amount
+              </p>
+              <p className="mt-1 text-base font-semibold text-slate-50">
                 {formatAmount(invoice.cryptoAmount, invoice.cryptoCurrency)}
               </p>
             </div>
 
-            {/* Created */}
-            <div className="card-field">
-              <p className="label">Created at</p>
-              <p className="value-sm">{formatDateTime(invoice.createdAt)}</p>
+            <div className="rounded-2xl bg-slate-900/60 p-3 ring-1 ring-slate-800/80">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                Created at
+              </p>
+              <p className="mt-1 text-xs text-slate-100">
+                {formatDateTime(invoice.createdAt)}
+              </p>
             </div>
 
-            {/* Expires */}
-            <div className="card-field">
-              <p className="label">Expires at</p>
-              <p className="value-sm">{formatDateTime(invoice.expiresAt)}</p>
+            <div className="rounded-2xl bg-slate-900/60 p-3 ring-1 ring-slate-800/80">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                Expires at
+              </p>
+              <p className="mt-1 text-xs text-slate-100">
+                {formatDateTime(invoice.expiresAt)}
+              </p>
             </div>
           </div>
 
-          <p className="meta">
+          <div className="mt-2 text-[11px] text-slate-500">
             Merchant:{" "}
-            <span className="font-mono text-slate-200">
+            <span className="font-mono text-slate-300">
               {invoice.merchantId ?? "—"}
             </span>
-          </p>
+          </div>
 
-          <p className="meta">
+          <div className="mt-1 text-[11px] text-slate-500">
             Payment page:{" "}
             <a
               href={invoice.paymentUrl}
               target="_blank"
-              className="payment-link"
+              rel="noreferrer"
+              className="break-all font-mono text-[11px] text-emerald-300 hover:underline"
             >
               {invoice.paymentUrl}
             </a>
-          </p>
+          </div>
         </div>
 
-        {/* RIGHT */}
+        {/* RIGHT: AML статус + кнопка */}
         <div className="w-full max-w-xs">
-          <h2 className="section-title">AML status</h2>
-          <div className="mt-3">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+            AML status
+          </h2>
+
+          <div className="mt-3 space-y-3">
             <AmlBadge
               amlStatus={invoice.amlStatus ?? null}
               riskScore={invoice.riskScore ?? null}
               assetStatus={invoice.assetStatus ?? null}
               assetRiskScore={invoice.assetRiskScore ?? null}
             />
+
+            <button
+              type="button"
+              onClick={onRunAml}
+              disabled={amlLoading}
+              className="inline-flex items-center justify-center rounded-full border border-slate-600/70
+                         bg-slate-900/70 px-3 py-1.5 text-[11px] font-medium text-slate-50
+                         shadow-sm transition hover:bg-slate-800 hover:border-slate-400
+                         disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {amlLoading ? "Checking AML…" : "Run AML check"}
+            </button>
           </div>
         </div>
       </div>

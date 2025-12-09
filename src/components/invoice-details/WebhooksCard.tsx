@@ -5,19 +5,21 @@ import type { WebhookEvent, WebhookDispatchResult } from "@/lib/pspApi";
 interface Props {
   webhooks: WebhookEvent[];
   webhookInfo: WebhookDispatchResult | null;
-  webhooksLoading: boolean;
+  loading: boolean; // 👈 совпадает с loading={webhooksLoading}
   dispatching: boolean;
   onReload: () => void;
   onDispatch: () => void;
+  formatDateTime: (iso: string | null | undefined) => string;
 }
 
 export function WebhooksCard({
   webhooks,
   webhookInfo,
-  webhooksLoading,
+  loading,
   dispatching,
   onReload,
   onDispatch,
+  formatDateTime,
 }: Props) {
   return (
     <section className="apple-card apple-card-content p-4 md:p-6">
@@ -32,16 +34,18 @@ export function WebhooksCard({
 
         <div className="flex flex-wrap items-center gap-2 text-[11px]">
           <button
+            type="button"
             onClick={onReload}
-            disabled={webhooksLoading || dispatching}
+            disabled={loading || dispatching}
             className="rounded-full bg-slate-800/70 px-3 py-1 text-slate-100 
                        ring-1 ring-slate-600/80 transition hover:bg-slate-700 
                        disabled:opacity-60"
           >
-            {webhooksLoading ? "Reloading…" : "Reload"}
+            {loading ? "Reloading…" : "Reload"}
           </button>
 
           <button
+            type="button"
             onClick={onDispatch}
             disabled={dispatching}
             className="rounded-full bg-emerald-500/20 px-3 py-1 text-emerald-100 
@@ -57,7 +61,7 @@ export function WebhooksCard({
       {webhookInfo && (
         <div
           className="mt-3 rounded-2xl bg-slate-900/70 p-3 
-                        text-[11px] text-slate-200 ring-1 ring-slate-700/80"
+                     text-[11px] text-slate-200 ring-1 ring-slate-700/80"
         >
           <p>
             Processed:{" "}
@@ -98,13 +102,7 @@ export function WebhooksCard({
                   <td className="px-2 py-2 text-slate-300">{wh.status}</td>
                   <td className="px-2 py-2 text-slate-300">{wh.retryCount}</td>
                   <td className="px-2 py-2 text-slate-400">
-                    {new Date(wh.createdAt).toLocaleString("de-CH", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {formatDateTime(wh.createdAt)}
                   </td>
                 </tr>
               ))}

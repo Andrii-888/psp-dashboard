@@ -4,14 +4,15 @@ export type AmlStatus = "clean" | "warning" | "risky";
 export type AssetStatus = "clean" | "suspicious" | "blocked";
 
 interface AmlBadgeProps {
-  amlStatus: AmlStatus | null;
+  // приходят из Invoice как string | null
+  amlStatus: string | null;
   riskScore: number | null;
-  assetStatus?: AssetStatus | null;
+  assetStatus?: string | null;
   assetRiskScore?: number | null;
 }
 
 // Цвета для статуса AML
-function getAmlClasses(status: AmlStatus | null) {
+function getAmlClasses(status: string | null) {
   switch (status) {
     case "clean":
       return "bg-emerald-500/15 text-emerald-100 border border-emerald-500/40 shadow-[0_14px_40px_rgba(16,185,129,0.45)]";
@@ -25,7 +26,7 @@ function getAmlClasses(status: AmlStatus | null) {
 }
 
 // Цвета для статуса «чистоты актива»
-function getAssetClasses(status: AssetStatus | null | undefined) {
+function getAssetClasses(status: string | null | undefined) {
   switch (status) {
     case "clean":
       return "bg-emerald-500/10 text-emerald-100 border border-emerald-500/40";
