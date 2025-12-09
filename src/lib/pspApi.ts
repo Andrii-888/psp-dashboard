@@ -51,6 +51,18 @@ export interface WebhookDispatchResult {
   failed: number;
 }
 
+/**
+ * Параметры фильтрации списка инвойсов (для /invoices)
+ * Используется в /src/app/invoices/page.tsx
+ */
+export type FetchInvoicesParams = {
+  status?: InvoiceStatus;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+};
+
 async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`);
   if (!res.ok) {
@@ -82,9 +94,24 @@ async function apiPost<T>(
 
 /**
  * Список инвойсов (для таблицы)
+ * Поддерживает фильтры и пагинацию.
  */
-export async function fetchInvoices(): Promise<Invoice[]> {
-  return apiGet<Invoice[]>("/invoices");
+export async function fetchInvoices(
+  params: FetchInvoicesParams = {}
+): Promise<Invoice[]> {
+  const qs = new URLSearchParams();
+
+  if (params.status) qs.set("status", params.status);
+  if (params.from) qs.set("from", params.from);
+  if (params.to) qs.set("to", params.to);
+  if (typeof params.limit === "number") qs.set("limit", String(params.limit));
+  if (typeof params.offset === "number")
+    qs.set("offset", String(params.offset));
+
+  const query = qs.toString();
+  const path = query ? `/invoices?${query}` : "/invoices";
+
+  return apiGet<Invoice[]>(path);
 }
 
 /**
