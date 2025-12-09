@@ -2,84 +2,125 @@
 
 export type InvoiceStatus = "waiting" | "confirmed" | "expired" | "rejected";
 
+export type AmlStatus = "clean" | "warning" | "risky" | null;
+export type AssetStatus = "clean" | "suspicious" | "blocked" | null;
+
 export interface Invoice {
   id: string;
   createdAt: string;
   expiresAt: string;
+
   fiatAmount: number;
   fiatCurrency: string;
+
   cryptoAmount: number;
   cryptoCurrency: string;
+
   status: InvoiceStatus;
   paymentUrl: string;
 
-  network?: string | null;
-  txHash?: string | null;
-  walletAddress?: string | null;
-  riskScore?: number | null;
-  amlStatus?: string | null;
-  merchantId?: string | null;
+  // blockchain
+  network: string | null;
+  txHash: string | null;
+  walletAddress: string | null;
+
+  // AML по инвойсу (общий риск)
+  riskScore: number | null;
+  amlStatus: AmlStatus;
+
+  // «чистота актива» (то, что считает AmlService по стейблкоину)
+  assetRiskScore: number | null;
+  assetStatus: AssetStatus;
+
+  // merchant
+  merchantId: string | null;
 }
 
 export interface FetchInvoicesParams {
-  status?: InvoiceStatus | "all";
-  from?: string; // ISO date
-  to?: string; // ISO date
+  status?: InvoiceStatus;
+  from?: string;
+  to?: string;
   limit?: number;
   offset?: number;
 }
 
-/**
- * Base URL для psp-core backend.
- * В dev: http://localhost:3000 (из .env.local)
- */
-function getPspBaseUrl(): string {
-  const base = process.env.NEXT_PUBLIC_PSP_CORE_URL ?? "http://localhost:3000";
+const API_BASE =
+  process.env.NEXT_PUBLIC_PSP_CORE_API ?? "http://localhost:3000";
 
-  // На всякий случай убираем лишний слэш в конце
-  return base.replace(/\/+$/, "");
+async function handleResponse<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `PSP-core API error: ${res.status} ${res.statusText} – ${text}`
+    );
+  }
+  return (await res.json()) as T;
 }
 
-/**
- * Загружает список инвойсов из psp-core.
- * Использует GET /invoices с опциональными query-параметрами.
- */
+// 🔹 Список инвойсов
 export async function fetchInvoices(
   params: FetchInvoicesParams = {}
 ): Promise<Invoice[]> {
-  const baseUrl = getPspBaseUrl();
+  const url = new URL("/invoices", API_BASE);
 
-  const url = new URL("/invoices", baseUrl);
-
-  if (params.status && params.status !== "all") {
-    url.searchParams.set("status", params.status);
-  }
-
-  if (params.from) {
-    url.searchParams.set("from", params.from);
-  }
-
-  if (params.to) {
-    url.searchParams.set("to", params.to);
-  }
-
-  if (typeof params.limit === "number") {
+  if (params.status) url.searchParams.set("status", params.status);
+  if (params.from) url.searchParams.set("from", params.from);
+  if (params.to) url.searchParams.set("to", params.to);
+  if (typeof params.limit === "number")
     url.searchParams.set("limit", String(params.limit));
-  }
-
-  if (typeof params.offset === "number") {
+  if (typeof params.offset === "number")
     url.searchParams.set("offset", String(params.offset));
-  }
 
   const res = await fetch(url.toString(), {
-    // Важно для dashboard — всегда актуальные данные
     cache: "no-store",
   });
 
-  if (!res.ok) {
-    throw new Error(`PSP core error: ${res.status} ${res.statusText}`);
-  }
+  return handleResponse<Invoice[]>(res);
+}
 
-  const data = (await res.json()) as Invoice[];
-  return data;
+// 🔹 Один инвойс
+export async function fetchInvoice(id: string): Promise<Invoice> {
+  const res = await fetch(`${API_BASE}/invoices/${id}`, {
+    cache: "no-store",
+  });
+
+  return handleResponse<Invoice>(res);
+}
+
+// 🔹 Webhooks (для страницы деталей)
+export interface WebhookEvent {
+  id: string;
+  invoiceId: string;
+  eventType: string;
+  payloadJson: string;
+  status: "pending" | "sent" | "failed";
+  retryCount: number;
+  lastAttemptAt: string | null;
+  createdAt: string;
+}
+
+export interface WebhookDispatchResult {
+  processed: number;
+  sent: number;
+  failed: number;
+}
+
+export async function fetchInvoiceWebhooks(
+  id: string
+): Promise<WebhookEvent[]> {
+  const res = await fetch(`${API_BASE}/invoices/${id}/webhooks`, {
+    cache: "no-store",
+  });
+
+  return handleResponse<WebhookEvent[]>(res);
+}
+
+export async function dispatchInvoiceWebhooks(
+  id: string
+): Promise<WebhookDispatchResult> {
+  const res = await fetch(`${API_BASE}/invoices/${id}/webhooks/dispatch`, {
+    method: "POST",
+  });
+
+  return handleResponse<WebhookDispatchResult>(res);
 }

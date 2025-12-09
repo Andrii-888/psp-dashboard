@@ -1,209 +1,189 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import FiltersBar, { InvoiceFilters } from "@/components/FiltersBar";
-
-type InvoiceStatus = "waiting" | "confirmed" | "expired" | "rejected";
-
-type Invoice = {
-  id: string;
-  createdAt: string;
-  expiresAt: string;
-  fiatAmount: number;
-  fiatCurrency: string;
-  cryptoAmount: number;
-  cryptoCurrency: string;
-  status: InvoiceStatus;
-  paymentUrl: string;
-  network?: string | null;
-  txHash?: string | null;
-  walletAddress?: string | null;
-  riskScore?: number | null;
-  amlStatus?: string | null;
-  merchantId?: string | null;
-};
-
-// URL твоего NestJS-бэка (psp-core)
-const PSP_CORE_URL =
-  process.env.NEXT_PUBLIC_PSP_CORE_URL ?? "http://localhost:3000";
+import { FiltersBar } from "@/components/FiltersBar";
+import {
+  fetchInvoices,
+  type Invoice,
+  type FetchInvoicesParams,
+} from "@/lib/pspApi";
+import { InvoicesTable } from "@/components/invoices/InvoicesTable";
 
 export default function InvoicesPage() {
-  const [filters, setFilters] = useState<InvoiceFilters>({});
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [limit] = useState(20);
-  const [offset, setOffset] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [amlFilter, setAmlFilter] = useState<string>("all");
+  const [search, setSearch] = useState<string>("");
 
-  async function loadInvoices(options?: { resetOffset?: boolean }) {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const currentOffset = options?.resetOffset === true ? 0 : offset;
-
-      const params = new URLSearchParams();
-      if (filters.status) params.set("status", filters.status);
-      params.set("limit", String(limit));
-      params.set("offset", String(currentOffset));
-
-      const res = await fetch(`${PSP_CORE_URL}/invoices?${params.toString()}`);
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      const data = (await res.json()) as Invoice[];
-
-      if (options?.resetOffset) {
-        setOffset(0);
-      }
-
-      setInvoices(data);
-    } catch (err: any) {
-      setError(err.message ?? "Failed to load invoices");
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  // новые фильтры по сумме
+  const [minAmount, setMinAmount] = useState<string>("");
+  const [maxAmount, setMaxAmount] = useState<string>("");
 
   useEffect(() => {
-    // первый загруз
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    loadInvoices({ resetOffset: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    async function loadInvoices() {
+      try {
+        setLoading(true);
+        setError(null);
 
-  const handleApplyFilters = () => {
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    loadInvoices({ resetOffset: true });
-  };
+        const params: FetchInvoicesParams = {
+          limit: 20,
+        };
 
-  const handleResetFilters = () => {
-    setFilters({});
-    setOffset(0);
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    loadInvoices({ resetOffset: true });
-  };
+        if (statusFilter && statusFilter !== "all") {
+          params.status = statusFilter as FetchInvoicesParams["status"];
+        }
 
-  const handleNextPage = () => {
-    const newOffset = offset + limit;
-    setOffset(newOffset);
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        const data = await fetchInvoices(params);
+
+        const filtered = data.filter((inv) => {
+          // поиск по id
+          const matchSearch = search
+            ? inv.id.toLowerCase().includes(search.toLowerCase())
+            : true;
+
+          // фильтр по AML
+          const matchAml =
+            amlFilter === "all"
+              ? true
+              : amlFilter === "none"
+              ? inv.amlStatus == null
+              : inv.amlStatus === amlFilter;
+
+          // фильтр по сумме (fiatAmount)
+          let matchAmount = true;
+
+          const min = minAmount
+            ? Number(minAmount.replace(",", "."))
+            : undefined;
+          const max = maxAmount
+            ? Number(maxAmount.replace(",", "."))
+            : undefined;
+
+          if (typeof min === "number" && !Number.isNaN(min)) {
+            if (inv.fiatAmount < min) matchAmount = false;
+          }
+
+          if (typeof max === "number" && !Number.isNaN(max)) {
+            if (inv.fiatAmount > max) matchAmount = false;
+          }
+
+          return matchSearch && matchAml && matchAmount;
+        });
+
+        setInvoices(filtered);
+      } catch (err: any) {
+        setError(err?.message || "Failed to load invoices");
+      } finally {
+        setLoading(false);
+      }
+    }
+
     loadInvoices();
-  };
+  }, [statusFilter, amlFilter, search, minAmount, maxAmount]);
 
-  const handlePrevPage = () => {
-    const newOffset = Math.max(0, offset - limit);
-    setOffset(newOffset);
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    loadInvoices();
-  };
+  // summary для верхнего блока (по текущему списку)
+  const totalCount = invoices.length;
+  const confirmedCount = invoices.filter(
+    (inv) => inv.status === "confirmed"
+  ).length;
+  const waitingCount = invoices.filter(
+    (inv) => inv.status === "waiting"
+  ).length;
+  const highRiskCount = invoices.filter(
+    (inv) => inv.amlStatus === "risky"
+  ).length;
 
   return (
-    <div className="min-h-screen bg-[#050711] text-white px-6 py-6">
-      <div className="max-w-6xl mx-auto">
+    <main className="min-h-screen bg-slate-950 px-4 py-6 text-slate-50 md:px-8 md:py-8">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 md:gap-6">
         {/* Header */}
-        <header className="mb-6 flex items-center justify-between">
+        <header className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
           <div>
-            <h1 className="text-2xl font-semibold">CryptoPay PSP — Invoices</h1>
-            <p className="text-sm text-gray-400 mt-1">
-              Internal dashboard for the Swiss payment partner.
+            <h1 className="text-xl font-semibold tracking-tight text-slate-50 md:text-2xl">
+              PSP Core — Invoices
+            </h1>
+            <p className="mt-1 text-sm text-slate-400">
+              Internal dashboard for your Swiss crypto PSP core.
             </p>
+          </div>
+
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-1.5 text-xs text-emerald-200 shadow-[0_12px_35px_rgba(16,185,129,0.45)] backdrop-blur-md">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.45)]" />
+            <span className="font-medium">Connected to PSP-core API</span>
           </div>
         </header>
 
         {/* Filters */}
-        <FiltersBar
-          value={filters}
-          onChange={setFilters}
-          onApply={handleApplyFilters}
-          onReset={handleResetFilters}
-        />
+        <section className="apple-card-section">
+          <FiltersBar
+            status={statusFilter}
+            onStatusChange={setStatusFilter}
+            amlStatus={amlFilter}
+            onAmlStatusChange={setAmlFilter}
+            search={search}
+            onSearchChange={setSearch}
+            minAmount={minAmount}
+            maxAmount={maxAmount}
+            onMinAmountChange={setMinAmount}
+            onMaxAmountChange={setMaxAmount}
+          />
+        </section>
 
-        {/* Table */}
-        <div className="bg-[#10131A] border border-neutral-800 rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-neutral-800 flex items-center justify-between">
-            <span className="text-sm text-gray-300">
-              Results: {invoices.length}
-            </span>
-            <span className="text-xs text-gray-500">
-              Limit {limit}, offset {offset}
-            </span>
+        {/* Main card with summary + table */}
+        <section className="apple-card overflow-hidden">
+          <div className="border-b border-slate-800/70 px-4 py-4 md:px-6 md:py-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-slate-400">
+                  Invoices
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Showing latest records from your PSP core.
+                </p>
+              </div>
+
+              {/* summary-плашки справа */}
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                <span className="rounded-full bg-slate-800/70 px-3 py-1">
+                  Total:{" "}
+                  <span className="font-semibold text-slate-50">
+                    {totalCount}
+                  </span>
+                </span>
+                <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-emerald-200">
+                  Confirmed:{" "}
+                  <span className="font-semibold text-emerald-100">
+                    {confirmedCount}
+                  </span>
+                </span>
+                <span className="rounded-full bg-amber-500/10 px-3 py-1 text-amber-200">
+                  Waiting:{" "}
+                  <span className="font-semibold text-amber-100">
+                    {waitingCount}
+                  </span>
+                </span>
+                <span className="rounded-full bg-rose-500/12 px-3 py-1 text-rose-200 ring-1 ring-rose-500/40">
+                  High-risk:{" "}
+                  <span className="font-semibold text-rose-100">
+                    {highRiskCount}
+                  </span>
+                </span>
+              </div>
+            </div>
           </div>
 
-          {isLoading ? (
-            <div className="p-6 text-sm text-gray-400">Loading…</div>
-          ) : error ? (
-            <div className="p-6 text-sm text-red-400">Error: {error}</div>
-          ) : invoices.length === 0 ? (
-            <div className="p-6 text-sm text-gray-400">No invoices found.</div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-[#0B0E15] text-gray-400 text-xs uppercase">
-                <tr>
-                  <th className="px-4 py-3 text-left">ID</th>
-                  <th className="px-4 py-3 text-left">Created</th>
-                  <th className="px-4 py-3 text-left">Fiat</th>
-                  <th className="px-4 py-3 text-left">Crypto</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-left">AML</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.map((inv) => (
-                  <tr
-                    key={inv.id}
-                    className="border-t border-neutral-800 hover:bg-[#141824] transition"
-                  >
-                    <td className="px-4 py-3 font-mono text-xs max-w-[220px] truncate">
-                      {inv.id}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-300">
-                      {new Date(inv.createdAt).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      {inv.fiatAmount} {inv.fiatCurrency}
-                    </td>
-                    <td className="px-4 py-3">
-                      {inv.cryptoAmount} {inv.cryptoCurrency}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center rounded-full px-2 py-1 text-xs capitalize bg-neutral-800">
-                        {inv.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-300">
-                      {inv.amlStatus ?? "-"}{" "}
-                      {typeof inv.riskScore === "number"
-                        ? `(score ${inv.riskScore})`
-                        : ""}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* Pagination */}
-        <div className="mt-4 flex justify-between items-center">
-          <button
-            onClick={handlePrevPage}
-            disabled={offset === 0}
-            className="px-4 py-2 rounded-lg text-sm bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Previous
-          </button>
-          <button
-            onClick={handleNextPage}
-            className="px-4 py-2 rounded-lg text-sm bg-neutral-800"
-          >
-            Next
-          </button>
-        </div>
+          <div className="px-3 py-3 md:px-4 md:py-4">
+            <InvoicesTable
+              invoices={invoices}
+              loading={loading}
+              error={error}
+            />
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

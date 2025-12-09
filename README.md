@@ -1,36 +1,195 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+📊 PSP Dashboard — Admin Panel for CryptoPay PSP Core
 
-## Getting Started
+Frontend dashboard for the internal operations of a Swiss-grade crypto payment processor (PSP).
+The panel connects to the psp-core backend and displays invoices, payment statuses, AML results and basic network/transaction data.
 
-First, run the development server:
+It is intended as an internal tool for operator / compliance / partner who processes crypto payments via CryptoPay.
 
-```bash
+✅ Current Status (MVP)
+
+Currently implemented:
+
+/invoices page — main invoices table:
+
+Invoice ID (with link to hosted payment page)
+
+Created & expires timestamps
+
+Fiat and stablecoin amount (EUR / USDT)
+
+Status: waiting, confirmed, expired, rejected
+
+AML status: clean, warning, risky (if available)
+
+Network / tx hash (if transaction is attached)
+
+Header banner with PSP Core API connectivity info
+
+Backend-driven filtering & pagination via query params:
+
+status filter (waiting, confirmed, …)
+
+limit, offset for pagination
+
+Responsive dark fintech UI (Next.js + Tailwind)
+
+The project is ready for demo to investors / partners when used together with the psp-core backend.
+
+🧩 Tech Stack
+
+Next.js 15 (App Router, src/app)
+
+React 19
+
+TypeScript
+
+Tailwind CSS (global styles + utility classes)
+
+Async requests to backend via fetch and a small pspApi helper
+
+📁 Project Structure
+
+Key files:
+
+psp-dashboard/
+├─ src/
+│ ├─ app/
+│ │ ├─ layout.tsx # Global layout (theme, fonts, background)
+│ │ └─ invoices/
+│ │ └─ page.tsx # Main invoices page
+│ ├─ components/
+│ │ └─ FiltersBar.tsx # Filters / controls bar
+│ └─ lib/
+│ └─ pspApi.ts # Client for psp-core API
+├─ package.json
+├─ tsconfig.json
+└─ README.md # This file
+
+🔧 Requirements
+
+Node.js 20+
+
+npm / pnpm / yarn (examples use npm)
+
+Running psp-core backend (NestJS), accessible locally or over the network
+
+⚙️ Environment Setup
+
+Create .env.local in the project root and set the base URL of PSP Core API:
+
+NEXT_PUBLIC_PSP_CORE_API_BASE_URL=http://localhost:3000
+
+If the backend is hosted elsewhere (Render / Railway / custom domain):
+
+NEXT_PUBLIC_PSP_CORE_API_BASE_URL=https://psp-core.your-domain.com
+
+🚀 Run Locally
+
+# 1. Install dependencies
+
+npm install
+
+# 2. Start dev server
+
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+By default, Next.js exposes the app at:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+http://localhost:3000
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Main dashboard page:
 
-## Learn More
+http://localhost:3000/invoices
 
-To learn more about Next.js, take a look at the following resources:
+🔌 Backend Integration (psp-core)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The frontend expects the psp-core backend to expose:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+GET /invoices
+Query parameters:
 
-## Deploy on Vercel
+status (optional) — filter (waiting, confirmed, expired, rejected)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+limit (optional) — page size (default 100)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+offset (optional) — pagination offset
+
+Response: array of Invoice objects:
+
+{
+"id": "inv*...",
+"createdAt": "2025-12-07T09:33:31.822Z",
+"expiresAt": "2025-12-07T09:48:31.822Z",
+"fiatAmount": 150,
+"fiatCurrency": "EUR",
+"cryptoAmount": 150,
+"cryptoCurrency": "USDT",
+"status": "confirmed",
+"paymentUrl": "https://demo.your-cryptopay.com/open/pay/inv*...",
+"network": "ETH",
+"txHash": "0x....",
+"walletAddress": "0x....",
+"riskScore": 10,
+"amlStatus": "clean",
+"merchantId": null
+}
+
+All API calls are encapsulated in src/lib/pspApi.ts.
+
+🖥 How to Use the Dashboard
+
+Ensure the psp-core backend is running and reachable at the URL defined in .env.local.
+
+Start the frontend (npm run dev) and open /invoices.
+
+The table will display:
+
+list of invoices,
+
+creation & expiration times,
+
+amounts & currencies,
+
+status,
+
+AML results (if any),
+
+network / transaction data (if any).
+
+Filtering by status and pagination are controlled via FiltersBar (will be extended in next steps).
+
+🛣 Roadmap for Frontend
+
+Planned improvements on the path to a production-ready PSP dashboard:
+
+Advanced Filters:
+
+date range (from / to);
+
+AML status filter (clean, warning, risky);
+
+search by invoice ID / merchantId.
+
+Invoice Details Page:
+
+dedicated /invoices/[id] page with full data;
+
+webhook event history per invoice;
+
+“force dispatch webhooks” button.
+
+Merchant Mode:
+
+show only invoices for a specific merchant;
+
+basic auth (token / API key).
+
+UI/UX Enhancements:
+
+skeletons, loading and error states;
+
+dark/light mode toggle;
+
+better mobile / tablet layout.
+
+This dashboard is a showcase for partners and investors, demonstrating how an operator’s workspace of a Swiss crypto PSP may look and function.

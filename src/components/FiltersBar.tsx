@@ -1,80 +1,147 @@
 "use client";
 
-import { useState } from "react";
-
-export type InvoiceFilters = {
-  status?: string;
-};
+import type { ChangeEvent } from "react";
 
 interface FiltersBarProps {
-  value: InvoiceFilters;
-  onChange: (next: InvoiceFilters) => void;
-  onApply: () => void;
-  onReset: () => void;
+  status: string;
+  onStatusChange: (value: string) => void;
+  amlStatus: string;
+  onAmlStatusChange: (value: string) => void;
+  search: string;
+  onSearchChange: (value: string) => void;
+  minAmount: string;
+  maxAmount: string;
+  onMinAmountChange: (value: string) => void;
+  onMaxAmountChange: (value: string) => void;
 }
 
-export default function FiltersBar({
-  value,
-  onChange,
-  onApply,
-  onReset,
+const STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "waiting", label: "Waiting" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "expired", label: "Expired" },
+  { value: "rejected", label: "Rejected" },
+];
+
+const AML_OPTIONS: { value: string; label: string }[] = [
+  { value: "all", label: "AML: All" },
+  { value: "clean", label: "Clean" },
+  { value: "warning", label: "Warning" },
+  { value: "risky", label: "High-risk" },
+  { value: "none", label: "No AML" },
+];
+
+export function FiltersBar({
+  status,
+  onStatusChange,
+  amlStatus,
+  onAmlStatusChange,
+  search,
+  onSearchChange,
+  minAmount,
+  maxAmount,
+  onMinAmountChange,
+  onMaxAmountChange,
 }: FiltersBarProps) {
-  const [localStatus, setLocalStatus] = useState(value.status ?? "");
+  const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
+    onSearchChange(e.target.value);
+  };
 
-  const statuses = [
-    { label: "All", value: "" },
-    { label: "Waiting", value: "waiting" },
-    { label: "Confirmed", value: "confirmed" },
-    { label: "Expired", value: "expired" },
-    { label: "Rejected", value: "rejected" },
-  ];
+  const handleMinAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
+    onMinAmountChange(e.target.value);
+  };
 
-  function applyFilters() {
-    onChange({
-      status: localStatus || undefined,
-    });
-    onApply();
-  }
-
-  function resetFilters() {
-    setLocalStatus("");
-    onReset();
-  }
+  const handleMaxAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
+    onMaxAmountChange(e.target.value);
+  };
 
   return (
-    <div className="w-full mb-4 flex items-center justify-between bg-[#10131A] border border-neutral-800 rounded-xl px-4 py-3">
-      {/* Status dropdown */}
-      <div className="flex gap-3 items-center">
-        <label className="text-sm text-gray-400">Status:</label>
+    <div className="flex flex-col gap-3 px-3 py-3 md:flex-row md:items-center md:justify-between md:px-4 md:py-3">
+      {/* Левая часть: статусы */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 px-1.5 py-1 text-[11px] text-slate-300 ring-1 ring-slate-700/80">
+          {STATUS_OPTIONS.map((opt) => {
+            const active = opt.value === status;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onStatusChange(opt.value)}
+                className={[
+                  "rounded-full px-2 py-0.5 transition",
+                  active
+                    ? "bg-slate-100 text-slate-900 shadow-sm"
+                    : "text-slate-400 hover:bg-slate-800/90 hover:text-slate-100",
+                ].join(" ")}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
 
-        <select
-          className="bg-[#0D0F15] border border-neutral-700 rounded-lg px-3 py-2 text-sm text-white"
-          value={localStatus}
-          onChange={(e) => setLocalStatus(e.target.value)}
-        >
-          {statuses.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+        <div className="inline-flex items-center gap-1 rounded-full bg-slate-900/80 px-1.5 py-1 text-[11px] text-slate-300 ring-1 ring-slate-700/80">
+          {AML_OPTIONS.map((opt) => {
+            const active = opt.value === amlStatus;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onAmlStatusChange(opt.value)}
+                className={[
+                  "rounded-full px-2 py-0.5 transition",
+                  active
+                    ? "bg-emerald-400 text-slate-950 shadow-sm"
+                    : "text-slate-400 hover:bg-slate-800/90 hover:text-slate-100",
+                ].join(" ")}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Buttons */}
-      <div className="flex gap-3">
-        <button
-          onClick={applyFilters}
-          className="px-4 py-2 text-sm rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition"
-        >
-          Apply
-        </button>
+      {/* Правая часть: суммы + поиск */}
+      <div className="flex flex-wrap items-center gap-2 md:justify-end">
+        {/* Min / Max amount */}
+        <div className="flex items-center gap-1 rounded-2xl bg-slate-900/80 px-2 py-1.5 text-[11px] text-slate-300 ring-1 ring-slate-700/80">
+          <span className="px-1 text-slate-500">Amount</span>
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="Min"
+              value={minAmount}
+              onChange={handleMinAmountChange}
+              className="w-16 rounded-xl border border-slate-700/70 bg-slate-950/70 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-600 focus:border-emerald-400/70 focus:outline-none focus:ring-1 focus:ring-emerald-400/70"
+            />
+            <span className="text-slate-600">–</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="Max"
+              value={maxAmount}
+              onChange={handleMaxAmountChange}
+              className="w-16 rounded-xl border border-slate-700/70 bg-slate-950/70 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-600 focus:border-emerald-400/70 focus:outline-none focus:ring-1 focus:ring-emerald-400/70"
+            />
+            <span className="pl-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">
+              FIAT
+            </span>
+          </div>
+        </div>
 
-        <button
-          onClick={resetFilters}
-          className="px-4 py-2 text-sm rounded-lg bg-neutral-700 text-white hover:bg-neutral-600 transition"
-        >
-          Reset
-        </button>
+        {/* Search by ID */}
+        <div className="flex items-center gap-1 rounded-2xl bg-slate-900/80 px-2 py-1.5 text-[11px] text-slate-300 ring-1 ring-slate-700/80">
+          <span className="px-1 text-slate-500">Search</span>
+          <input
+            type="text"
+            placeholder="Invoice ID…"
+            value={search}
+            onChange={handleSearchChange}
+            className="w-40 rounded-xl border border-slate-700/70 bg-slate-950/70 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-600 focus:border-emerald-400/70 focus:outline-none focus:ring-1 focus:ring-emerald-400/70 md:w-56"
+          />
+        </div>
       </div>
     </div>
   );
