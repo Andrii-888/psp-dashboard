@@ -97,7 +97,7 @@ export function OverviewCard({
           </div>
         </div>
 
-        {/* RIGHT: AML статус + кнопка */}
+        {/* RIGHT: AML + статусные кнопки */}
         <div className="w-full max-w-xs">
           <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
             AML status
@@ -111,17 +111,57 @@ export function OverviewCard({
               assetRiskScore={invoice.assetRiskScore ?? null}
             />
 
+            {/* Кнопка запуска AML */}
             <button
               type="button"
               onClick={onRunAml}
               disabled={amlLoading}
-              className="inline-flex items-center justify-center rounded-full border border-slate-600/70
+              className="inline-flex w-full items-center justify-center rounded-full border border-slate-600/70
                          bg-slate-900/70 px-3 py-1.5 text-[11px] font-medium text-slate-50
                          shadow-sm transition hover:bg-slate-800 hover:border-slate-400
                          disabled:cursor-not-allowed disabled:opacity-60"
             >
               {amlLoading ? "Checking AML…" : "Run AML check"}
             </button>
+
+            {/* Вариант A: три кнопки статуса в одну линию */}
+            <div className="mt-1 flex flex-wrap gap-2 text-[11px]">
+              <button
+                type="button"
+                className="inline-flex flex-1 items-center justify-center rounded-full
+                           bg-emerald-500/15 px-3 py-1.5 font-medium text-emerald-100
+                           ring-1 ring-emerald-500/40 transition hover:bg-emerald-500/25"
+                onClick={() => {
+                  // TODO: connect to /confirm
+                }}
+              >
+                Confirm
+              </button>
+
+              <button
+                type="button"
+                className="inline-flex flex-1 items-center justify-center rounded-full
+                           bg-amber-500/15 px-3 py-1.5 font-medium text-amber-100
+                           ring-1 ring-amber-500/40 transition hover:bg-amber-500/25"
+                onClick={() => {
+                  // TODO: connect to /expire
+                }}
+              >
+                Expire
+              </button>
+
+              <button
+                type="button"
+                className="inline-flex flex-1 items-center justify-center rounded-full
+                           bg-rose-500/15 px-3 py-1.5 font-medium text-rose-100
+                           ring-1 ring-rose-500/40 transition hover:bg-rose-500/25"
+                onClick={() => {
+                  // TODO: connect to /reject
+                }}
+              >
+                Reject
+              </button>
+            </div>
           </div>
         </div>
       </div>

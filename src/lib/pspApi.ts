@@ -52,16 +52,25 @@ export interface WebhookDispatchResult {
 }
 
 /**
- * Параметры фильтрации списка инвойсов (для /invoices)
- * Используется в /src/app/invoices/page.tsx
+ * Параметры для запроса списка инвойсов с backend-а
+ * (используются в /invoices/page.tsx)
  */
-export type FetchInvoicesParams = {
+export interface FetchInvoicesParams {
   status?: InvoiceStatus;
   from?: string;
   to?: string;
   limit?: number;
   offset?: number;
-};
+}
+
+/**
+ * Payload для привязки blockchain-транзакции
+ */
+export interface AttachTransactionPayload {
+  network?: string;
+  walletAddress?: string;
+  txHash?: string;
+}
 
 async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`);
@@ -94,22 +103,31 @@ async function apiPost<T>(
 
 /**
  * Список инвойсов (для таблицы)
- * Поддерживает фильтры и пагинацию.
+ * Если params не передать — будет просто GET /invoices
  */
 export async function fetchInvoices(
-  params: FetchInvoicesParams = {}
+  params?: FetchInvoicesParams
 ): Promise<Invoice[]> {
-  const qs = new URLSearchParams();
+  let path = "/invoices";
 
-  if (params.status) qs.set("status", params.status);
-  if (params.from) qs.set("from", params.from);
-  if (params.to) qs.set("to", params.to);
-  if (typeof params.limit === "number") qs.set("limit", String(params.limit));
-  if (typeof params.offset === "number")
-    qs.set("offset", String(params.offset));
+  if (params) {
+    const search = new URLSearchParams();
 
-  const query = qs.toString();
-  const path = query ? `/invoices?${query}` : "/invoices";
+    if (params.status) search.set("status", params.status);
+    if (params.from) search.set("from", params.from);
+    if (params.to) search.set("to", params.to);
+    if (typeof params.limit === "number") {
+      search.set("limit", String(params.limit));
+    }
+    if (typeof params.offset === "number") {
+      search.set("offset", String(params.offset));
+    }
+
+    const qs = search.toString();
+    if (qs) {
+      path += `?${qs}`;
+    }
+  }
 
   return apiGet<Invoice[]>(path);
 }
@@ -140,8 +158,39 @@ export async function dispatchInvoiceWebhooks(
 }
 
 /**
- * ✅ Новый метод: запустить AUTO AML-проверку инвойса
+ * ✅ Запустить AUTO AML-проверку инвойса
  */
 export async function runInvoiceAmlCheck(id: string): Promise<Invoice> {
   return apiPost<Invoice>(`/invoices/${id}/aml/check`);
+}
+
+/**
+ * ✅ Оператор: подтвердить инвойс
+ */
+export async function confirmInvoice(id: string): Promise<Invoice> {
+  return apiPost<Invoice>(`/invoices/${id}/confirm`);
+}
+
+/**
+ * ✅ Оператор: пометить как истёкший
+ */
+export async function expireInvoice(id: string): Promise<Invoice> {
+  return apiPost<Invoice>(`/invoices/${id}/expire`);
+}
+
+/**
+ * ✅ Оператор: отклонить инвойс
+ */
+export async function rejectInvoice(id: string): Promise<Invoice> {
+  return apiPost<Invoice>(`/invoices/${id}/reject`);
+}
+
+/**
+ * ✅ Оператор: прикрепить blockchain-транзакцию
+ */
+export async function attachInvoiceTransaction(
+  id: string,
+  payload: AttachTransactionPayload
+): Promise<Invoice> {
+  return apiPost<Invoice>(`/invoices/${id}/tx`, payload);
 }

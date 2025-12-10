@@ -5,21 +5,19 @@ import type { WebhookEvent, WebhookDispatchResult } from "@/lib/pspApi";
 interface Props {
   webhooks: WebhookEvent[];
   webhookInfo: WebhookDispatchResult | null;
-  loading: boolean; // 👈 совпадает с loading={webhooksLoading}
+  webhooksLoading: boolean;
   dispatching: boolean;
   onReload: () => void;
   onDispatch: () => void;
-  formatDateTime: (iso: string | null | undefined) => string;
 }
 
 export function WebhooksCard({
   webhooks,
   webhookInfo,
-  loading,
+  webhooksLoading,
   dispatching,
   onReload,
   onDispatch,
-  formatDateTime,
 }: Props) {
   return (
     <section className="apple-card apple-card-content p-4 md:p-6">
@@ -36,12 +34,12 @@ export function WebhooksCard({
           <button
             type="button"
             onClick={onReload}
-            disabled={loading || dispatching}
+            disabled={webhooksLoading || dispatching}
             className="rounded-full bg-slate-800/70 px-3 py-1 text-slate-100 
                        ring-1 ring-slate-600/80 transition hover:bg-slate-700 
                        disabled:opacity-60"
           >
-            {loading ? "Reloading…" : "Reload"}
+            {webhooksLoading ? "Reloading…" : "Reload"}
           </button>
 
           <button
@@ -65,8 +63,8 @@ export function WebhooksCard({
         >
           <p>
             Processed:{" "}
-            <span className="font-semibold">{webhookInfo.processed}</span> •
-            Sent: <span className="font-semibold">{webhookInfo.sent}</span> •
+            <span className="font-semibold">{webhookInfo.processed}</span> •{" "}
+            Sent: <span className="font-semibold">{webhookInfo.sent}</span> •{" "}
             Failed: <span className="font-semibold">{webhookInfo.failed}</span>
           </p>
         </div>
@@ -102,7 +100,13 @@ export function WebhooksCard({
                   <td className="px-2 py-2 text-slate-300">{wh.status}</td>
                   <td className="px-2 py-2 text-slate-300">{wh.retryCount}</td>
                   <td className="px-2 py-2 text-slate-400">
-                    {formatDateTime(wh.createdAt)}
+                    {new Date(wh.createdAt).toLocaleString("de-CH", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </td>
                 </tr>
               ))}

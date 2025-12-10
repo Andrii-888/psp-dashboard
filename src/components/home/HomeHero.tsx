@@ -9,7 +9,7 @@ export function HomeHero() {
       <div className="text-center">
         {/* Заголовок */}
         <h1 className="text-4xl font-semibold text-white md:text-5xl">
-          PSP Dashboard
+          Swiss PSP Dashboard
         </h1>
 
         {/* Кнопка как у Apple */}
@@ -25,7 +25,7 @@ export function HomeHero() {
             hover:bg-white/90
           "
         >
-          Open invoices →
+          Open...
         </Link>
       </div>
     </section>

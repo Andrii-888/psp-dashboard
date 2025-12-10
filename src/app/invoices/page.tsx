@@ -1,12 +1,9 @@
+// src/app/invoices/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { FiltersBar } from "@/components/FiltersBar";
-import {
-  fetchInvoices,
-  type Invoice,
-  type FetchInvoicesParams,
-} from "@/lib/pspApi";
+import { fetchInvoices, type Invoice } from "@/lib/pspApi";
 import { InvoicesTable } from "@/components/invoices/InvoicesTable";
 
 export default function InvoicesPage() {
@@ -28,23 +25,20 @@ export default function InvoicesPage() {
         setLoading(true);
         setError(null);
 
-        const params: FetchInvoicesParams = {
-          limit: 20,
-        };
-
-        if (statusFilter && statusFilter !== "all") {
-          params.status = statusFilter as FetchInvoicesParams["status"];
-        }
-
-        const data = await fetchInvoices(params);
+        // забираем все инвойсы с бэка (для MVP)
+        const data = await fetchInvoices();
 
         const filtered = data.filter((inv) => {
-          // поиск по id
+          // 1) фильтр по статусу
+          const matchStatus =
+            statusFilter === "all" ? true : inv.status === statusFilter;
+
+          // 2) поиск по id
           const matchSearch = search
             ? inv.id.toLowerCase().includes(search.toLowerCase())
             : true;
 
-          // фильтр по AML
+          // 3) фильтр по AML
           const matchAml =
             amlFilter === "all"
               ? true
@@ -52,7 +46,7 @@ export default function InvoicesPage() {
               ? inv.amlStatus == null
               : inv.amlStatus === amlFilter;
 
-          // фильтр по сумме (fiatAmount)
+          // 4) фильтр по сумме (fiatAmount)
           let matchAmount = true;
 
           const min = minAmount
@@ -70,7 +64,7 @@ export default function InvoicesPage() {
             if (inv.fiatAmount > max) matchAmount = false;
           }
 
-          return matchSearch && matchAml && matchAmount;
+          return matchStatus && matchSearch && matchAml && matchAmount;
         });
 
         setInvoices(filtered);

@@ -8,6 +8,9 @@ import {
   fetchInvoiceWebhooks,
   dispatchInvoiceWebhooks,
   runInvoiceAmlCheck,
+  confirmInvoice,
+  expireInvoice,
+  rejectInvoice,
   type Invoice,
   type WebhookEvent,
   type WebhookDispatchResult,
@@ -52,6 +55,9 @@ export default function InvoiceDetailsPage() {
   const [webhookInfo, setWebhookInfo] = useState<WebhookDispatchResult | null>(
     null
   );
+
+  // отдельный флаг для статус-действий (confirm/expire/reject)
+  const [statusActionLoading, setStatusActionLoading] = useState(false);
 
   // 🔁 начальная загрузка инвойса + вебхуков
   useEffect(() => {
@@ -126,6 +132,57 @@ export default function InvoiceDetailsPage() {
     }
   }
 
+  // 🔄 Сменить статус на CONFIRMED
+  async function handleConfirm() {
+    if (!invoiceId) return;
+    try {
+      setStatusActionLoading(true);
+      setError(null);
+
+      const updated = await confirmInvoice(invoiceId);
+      setInvoice(updated);
+      await reloadWebhooks();
+    } catch (err: any) {
+      setError(err?.message || "Failed to confirm invoice");
+    } finally {
+      setStatusActionLoading(false);
+    }
+  }
+
+  // 🔄 Сменить статус на EXPIRED
+  async function handleExpire() {
+    if (!invoiceId) return;
+    try {
+      setStatusActionLoading(true);
+      setError(null);
+
+      const updated = await expireInvoice(invoiceId);
+      setInvoice(updated);
+      await reloadWebhooks();
+    } catch (err: any) {
+      setError(err?.message || "Failed to expire invoice");
+    } finally {
+      setStatusActionLoading(false);
+    }
+  }
+
+  // 🔄 Сменить статус на REJECTED
+  async function handleReject() {
+    if (!invoiceId) return;
+    try {
+      setStatusActionLoading(true);
+      setError(null);
+
+      const updated = await rejectInvoice(invoiceId);
+      setInvoice(updated);
+      await reloadWebhooks();
+    } catch (err: any) {
+      setError(err?.message || "Failed to reject invoice");
+    } finally {
+      setStatusActionLoading(false);
+    }
+  }
+
   const handleBack = () => {
     router.push("/invoices");
   };
@@ -163,6 +220,8 @@ export default function InvoiceDetailsPage() {
               invoice={invoice}
               onRunAml={handleRunAml}
               amlLoading={amlLoading}
+              // эти обработчики мы подключим в UI на следующем шаге
+              // (пока OverviewCard их не принимает, поэтому НЕ передаём)
             />
 
             <BlockchainCard invoice={invoice} />
@@ -170,11 +229,10 @@ export default function InvoiceDetailsPage() {
             <WebhooksCard
               webhooks={webhooks}
               webhookInfo={webhookInfo}
-              loading={webhooksLoading}
+              webhooksLoading={webhooksLoading}
               dispatching={dispatching}
               onReload={reloadWebhooks}
               onDispatch={handleDispatchWebhooks}
-              formatDateTime={formatDateTime}
             />
           </>
         )}
