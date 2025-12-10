@@ -1,3 +1,4 @@
+// src/app/invoices/[id]/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -20,18 +21,7 @@ import { InvoiceHeader } from "@/components/invoice-details/InvoiceHeader";
 import { OverviewCard } from "@/components/invoice-details/OverviewCard";
 import { BlockchainCard } from "@/components/invoice-details/BlockchainCard";
 import { WebhooksCard } from "@/components/invoice-details/WebhooksCard";
-
-function formatDateTime(iso: string | null | undefined) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleString("de-CH", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import { OperatorActionsCard } from "@/components/invoice-details/OperatorActionsCard";
 
 export default function InvoiceDetailsPage() {
   const router = useRouter();
@@ -51,15 +41,13 @@ export default function InvoiceDetailsPage() {
   const [webhooksLoading, setWebhooksLoading] = useState(false);
   const [dispatching, setDispatching] = useState(false);
   const [amlLoading, setAmlLoading] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [webhookInfo, setWebhookInfo] = useState<WebhookDispatchResult | null>(
     null
   );
 
-  // отдельный флаг для статус-действий (confirm/expire/reject)
-  const [statusActionLoading, setStatusActionLoading] = useState(false);
-
-  // 🔁 начальная загрузка инвойса + вебхуков
+  // 🔁 начальная загрузка инвойса + webhooks
   useEffect(() => {
     if (!invoiceId) return;
 
@@ -75,8 +63,12 @@ export default function InvoiceDetailsPage() {
 
         setInvoice(inv);
         setWebhooks(wh);
-      } catch (err: any) {
-        setError(err?.message || "Failed to load invoice");
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("Failed to load invoice");
+        }
       } finally {
         setLoading(false);
       }
@@ -92,8 +84,12 @@ export default function InvoiceDetailsPage() {
       setWebhooksLoading(true);
       const wh = await fetchInvoiceWebhooks(invoiceId);
       setWebhooks(wh);
-    } catch (err: any) {
-      setError(err?.message || "Failed to load webhooks");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to load webhooks");
+      }
     } finally {
       setWebhooksLoading(false);
     }
@@ -108,8 +104,12 @@ export default function InvoiceDetailsPage() {
       const result = await dispatchInvoiceWebhooks(invoiceId);
       setWebhookInfo(result);
       await reloadWebhooks();
-    } catch (err: any) {
-      setError(err?.message || "Failed to dispatch webhooks");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to dispatch webhooks");
+      }
     } finally {
       setDispatching(false);
     }
@@ -125,61 +125,51 @@ export default function InvoiceDetailsPage() {
 
       const updated = await runInvoiceAmlCheck(invoice.id);
       setInvoice(updated);
-    } catch (err: any) {
-      setError(err?.message || "Failed to run AML check");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to run AML check");
+      }
     } finally {
       setAmlLoading(false);
     }
   }
 
-  // 🔄 Сменить статус на CONFIRMED
-  async function handleConfirm() {
+  // ✅ операторские действия: Confirm / Expire / Reject
+  async function handleStatusChange(
+    action: "confirm" | "expire" | "reject"
+  ): Promise<void> {
     if (!invoiceId) return;
+
     try {
-      setStatusActionLoading(true);
+      setStatusUpdating(true);
       setError(null);
 
-      const updated = await confirmInvoice(invoiceId);
+      let apiFn: (id: string) => Promise<Invoice>;
+
+      switch (action) {
+        case "confirm":
+          apiFn = confirmInvoice;
+          break;
+        case "expire":
+          apiFn = expireInvoice;
+          break;
+        case "reject":
+          apiFn = rejectInvoice;
+          break;
+      }
+
+      const updated = await apiFn(invoiceId);
       setInvoice(updated);
-      await reloadWebhooks();
-    } catch (err: any) {
-      setError(err?.message || "Failed to confirm invoice");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to update invoice status");
+      }
     } finally {
-      setStatusActionLoading(false);
-    }
-  }
-
-  // 🔄 Сменить статус на EXPIRED
-  async function handleExpire() {
-    if (!invoiceId) return;
-    try {
-      setStatusActionLoading(true);
-      setError(null);
-
-      const updated = await expireInvoice(invoiceId);
-      setInvoice(updated);
-      await reloadWebhooks();
-    } catch (err: any) {
-      setError(err?.message || "Failed to expire invoice");
-    } finally {
-      setStatusActionLoading(false);
-    }
-  }
-
-  // 🔄 Сменить статус на REJECTED
-  async function handleReject() {
-    if (!invoiceId) return;
-    try {
-      setStatusActionLoading(true);
-      setError(null);
-
-      const updated = await rejectInvoice(invoiceId);
-      setInvoice(updated);
-      await reloadWebhooks();
-    } catch (err: any) {
-      setError(err?.message || "Failed to reject invoice");
-    } finally {
-      setStatusActionLoading(false);
+      setStatusUpdating(false);
     }
   }
 
@@ -220,8 +210,14 @@ export default function InvoiceDetailsPage() {
               invoice={invoice}
               onRunAml={handleRunAml}
               amlLoading={amlLoading}
-              // эти обработчики мы подключим в UI на следующем шаге
-              // (пока OverviewCard их не принимает, поэтому НЕ передаём)
+            />
+
+            <OperatorActionsCard
+              invoice={invoice}
+              loading={statusUpdating}
+              onConfirm={() => handleStatusChange("confirm")}
+              onExpire={() => handleStatusChange("expire")}
+              onReject={() => handleStatusChange("reject")}
             />
 
             <BlockchainCard invoice={invoice} />

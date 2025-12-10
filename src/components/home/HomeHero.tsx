@@ -8,8 +8,8 @@ export function HomeHero() {
     <section className="flex h-[85vh] w-full items-center justify-center bg-[#0A0A0A] px-4">
       <div className="text-center">
         {/* Заголовок */}
-        <h1 className="text-4xl font-semibold text-white md:text-5xl">
-          Swiss PSP Dashboard
+        <h1 className="text-2xl font-semibold text-white md:text-2xl">
+          psp-dashboard
         </h1>
 
         {/* Кнопка как у Apple */}

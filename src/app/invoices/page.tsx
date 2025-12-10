@@ -1,4 +1,3 @@
-// src/app/invoices/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -25,20 +24,19 @@ export default function InvoicesPage() {
         setLoading(true);
         setError(null);
 
-        // забираем все инвойсы с бэка (для MVP)
         const data = await fetchInvoices();
 
         const filtered = data.filter((inv) => {
-          // 1) фильтр по статусу
-          const matchStatus =
-            statusFilter === "all" ? true : inv.status === statusFilter;
-
-          // 2) поиск по id
+          // поиск по id
           const matchSearch = search
             ? inv.id.toLowerCase().includes(search.toLowerCase())
             : true;
 
-          // 3) фильтр по AML
+          // фильтр по статусу
+          const matchStatus =
+            statusFilter === "all" ? true : inv.status === statusFilter;
+
+          // фильтр по AML
           const matchAml =
             amlFilter === "all"
               ? true
@@ -46,7 +44,7 @@ export default function InvoicesPage() {
               ? inv.amlStatus == null
               : inv.amlStatus === amlFilter;
 
-          // 4) фильтр по сумме (fiatAmount)
+          // фильтр по сумме (fiatAmount)
           let matchAmount = true;
 
           const min = minAmount
@@ -64,12 +62,14 @@ export default function InvoicesPage() {
             if (inv.fiatAmount > max) matchAmount = false;
           }
 
-          return matchStatus && matchSearch && matchAml && matchAmount;
+          return matchSearch && matchStatus && matchAml && matchAmount;
         });
 
         setInvoices(filtered);
-      } catch (err: any) {
-        setError(err?.message || "Failed to load invoices");
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Failed to load invoices";
+        setError(message);
       } finally {
         setLoading(false);
       }
