@@ -1,195 +1,187 @@
 📊 PSP Dashboard — Admin Panel for CryptoPay PSP Core
 
-Frontend dashboard for the internal operations of a Swiss-grade crypto payment processor (PSP).
-The panel connects to the psp-core backend and displays invoices, payment statuses, AML results and basic network/transaction data.
+A frontend dashboard for internal operations of a Swiss-grade crypto payment processor (PSP).
+The dashboard connects to psp-core backend and displays invoices, payment statuses, AML results, blockchain data, and webhook events.
 
-It is intended as an internal tool for operator / compliance / partner who processes crypto payments via CryptoPay.
+Designed as an internal tool for operators, compliance officers and partners working with CryptoPay.
 
 ✅ Current Status (MVP)
+✔ /invoices — main invoices table
 
-Currently implemented:
+Displays:
 
-/invoices page — main invoices table:
+Invoice ID + link to payment page
 
-Invoice ID (with link to hosted payment page)
+Created / expires timestamps
 
-Created & expires timestamps
+Fiat & crypto amount (EUR / CHF / USDT)
 
-Fiat and stablecoin amount (EUR / USDT)
+Status (waiting / confirmed / expired / rejected)
 
-Status: waiting, confirmed, expired, rejected
+AML results
 
-AML status: clean, warning, risky (if available)
+Network / tx hash / wallet
 
-Network / tx hash (if transaction is attached)
+Summary counters
 
-Header banner with PSP Core API connectivity info
+“Open payment page” button
 
-Backend-driven filtering & pagination via query params:
+✔ Filtering & search
 
-status filter (waiting, confirmed, …)
+status filter
 
-limit, offset for pagination
+AML filter
 
-Responsive dark fintech UI (Next.js + Tailwind)
+ID search
 
-The project is ready for demo to investors / partners when used together with the psp-core backend.
+min/max fiat amount
+
+reactive updates
+
+✔ Invoice Details Page
+
+Includes:
+
+Overview
+
+AML block
+
+Operator actions (Confirm / Reject / Expire)
+
+Blockchain transaction section
+
+Webhook history + manual dispatch
+
+✔ API Client (pspApi.ts)
+
+Includes:
+
+fetchInvoices
+
+fetchInvoice
+
+runInvoiceAmlCheck
+
+confirmInvoice / rejectInvoice / expireInvoice
+
+attachInvoiceTransaction
+
+fetchInvoiceWebhooks
+
+dispatchInvoiceWebhooks
+
+✔ Fintech-grade UI
+
+Next.js 15
+
+React 19
+
+Tailwind CSS
+
+Apple-like cards
+
+Fully responsive
 
 🧩 Tech Stack
 
-Next.js 15 (App Router, src/app)
+Next.js 15 (App Router)
 
 React 19
 
 TypeScript
 
-Tailwind CSS (global styles + utility classes)
+Tailwind CSS
 
-Async requests to backend via fetch and a small pspApi helper
+Fetch API + custom API client
 
 📁 Project Structure
-
-Key files:
-
 psp-dashboard/
 ├─ src/
 │ ├─ app/
-│ │ ├─ layout.tsx # Global layout (theme, fonts, background)
-│ │ └─ invoices/
-│ │ └─ page.tsx # Main invoices page
 │ ├─ components/
-│ │ └─ FiltersBar.tsx # Filters / controls bar
 │ └─ lib/
-│ └─ pspApi.ts # Client for psp-core API
+├─ public/
 ├─ package.json
 ├─ tsconfig.json
-└─ README.md # This file
+└─ README.md
 
 🔧 Requirements
 
 Node.js 20+
 
-npm / pnpm / yarn (examples use npm)
+Running psp-core backend (NestJS)
 
-Running psp-core backend (NestJS), accessible locally or over the network
+⚙ Environment Setup
 
-⚙️ Environment Setup
+Create:
 
-Create .env.local in the project root and set the base URL of PSP Core API:
+.env.local
 
-NEXT_PUBLIC_PSP_CORE_API_BASE_URL=http://localhost:3000
+Set backend URL:
 
-If the backend is hosted elsewhere (Render / Railway / custom domain):
+NEXT_PUBLIC_PSP_API_URL=http://localhost:3000
 
-NEXT_PUBLIC_PSP_CORE_API_BASE_URL=https://psp-core.your-domain.com
+For remote server:
+
+NEXT_PUBLIC_PSP_API_URL=https://psp-core.your-domain.com
 
 🚀 Run Locally
-
-# 1. Install dependencies
-
 npm install
-
-# 2. Start dev server
-
 npm run dev
 
-By default, Next.js exposes the app at:
-
-http://localhost:3000
-
-Main dashboard page:
+Open:
 
 http://localhost:3000/invoices
 
-🔌 Backend Integration (psp-core)
+🔌 Backend Integration
 
-The frontend expects the psp-core backend to expose:
+Expected endpoints:
 
 GET /invoices
-Query parameters:
 
-status (optional) — filter (waiting, confirmed, expired, rejected)
+GET /invoices/:id
 
-limit (optional) — page size (default 100)
+POST /invoices/:id/aml/check
 
-offset (optional) — pagination offset
+POST /invoices/:id/confirm
 
-Response: array of Invoice objects:
+POST /invoices/:id/reject
 
-{
-"id": "inv*...",
-"createdAt": "2025-12-07T09:33:31.822Z",
-"expiresAt": "2025-12-07T09:48:31.822Z",
-"fiatAmount": 150,
-"fiatCurrency": "EUR",
-"cryptoAmount": 150,
-"cryptoCurrency": "USDT",
-"status": "confirmed",
-"paymentUrl": "https://demo.your-cryptopay.com/open/pay/inv*...",
-"network": "ETH",
-"txHash": "0x....",
-"walletAddress": "0x....",
-"riskScore": 10,
-"amlStatus": "clean",
-"merchantId": null
-}
+POST /invoices/:id/expire
 
-All API calls are encapsulated in src/lib/pspApi.ts.
+POST /invoices/:id/tx
 
-🖥 How to Use the Dashboard
+GET /invoices/:id/webhooks
 
-Ensure the psp-core backend is running and reachable at the URL defined in .env.local.
+POST /invoices/:id/webhooks/dispatch
 
-Start the frontend (npm run dev) and open /invoices.
+All handled inside pspApi.ts.
 
-The table will display:
+🛣 Roadmap — what’s needed for full production readiness
+🔜 1. Real FX / Exchange Rate API
 
-list of invoices,
+Consistent pricing for USDT → EUR / CHF / USD across CryptoPay and PSP Dashboard.
 
-creation & expiration times,
+🔜 2. Blockchain RPC integration
 
-amounts & currencies,
+Transaction verification & confirmations.
 
-status,
+🔜 3. Real AML provider integration
 
-AML results (if any),
+Chainalysis / Elliptic / Scorechain.
 
-network / transaction data (if any).
+🔜 4. Merchant Console
 
-Filtering by status and pagination are controlled via FiltersBar (will be extended in next steps).
+Separate restricted dashboard for merchants.
 
-🛣 Roadmap for Frontend
+🔜 5. Email / Notification system
 
-Planned improvements on the path to a production-ready PSP dashboard:
+Notify merchants/operators when invoice status changes.
 
-Advanced Filters:
+🔜 6. Advanced filtering
 
-date range (from / to);
+Date range, merchant filter, txHash search, etc.
 
-AML status filter (clean, warning, risky);
+🔜 7. Production deployment
 
-search by invoice ID / merchantId.
-
-Invoice Details Page:
-
-dedicated /invoices/[id] page with full data;
-
-webhook event history per invoice;
-
-“force dispatch webhooks” button.
-
-Merchant Mode:
-
-show only invoices for a specific merchant;
-
-basic auth (token / API key).
-
-UI/UX Enhancements:
-
-skeletons, loading and error states;
-
-dark/light mode toggle;
-
-better mobile / tablet layout.
-
-This dashboard is a showcase for partners and investors, demonstrating how an operator’s workspace of a Swiss crypto PSP may look and function.
+Vercel (frontend) + Render/Railway (backend).

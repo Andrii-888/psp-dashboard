@@ -5,6 +5,8 @@ import { FiltersBar } from "@/components/FiltersBar";
 import { fetchInvoices, type Invoice } from "@/lib/pspApi";
 import { InvoicesTable } from "@/components/invoices/InvoicesTable";
 
+type DatePreset = "all" | "today" | "7d" | "30d";
+
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(false);
@@ -14,9 +16,11 @@ export default function InvoicesPage() {
   const [amlFilter, setAmlFilter] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
 
-  // новые фильтры по сумме
   const [minAmount, setMinAmount] = useState<string>("");
   const [maxAmount, setMaxAmount] = useState<string>("");
+
+  // 🔹 новый state — как в банковских приложениях
+  const [datePreset, setDatePreset] = useState<DatePreset>("all");
 
   useEffect(() => {
     async function loadInvoices() {
@@ -25,6 +29,17 @@ export default function InvoicesPage() {
         setError(null);
 
         const data = await fetchInvoices();
+
+        const now = new Date();
+        const startOfToday = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          0,
+          0,
+          0,
+          0
+        );
 
         const filtered = data.filter((inv) => {
           // поиск по id
@@ -62,7 +77,37 @@ export default function InvoicesPage() {
             if (inv.fiatAmount > max) matchAmount = false;
           }
 
-          return matchSearch && matchStatus && matchAml && matchAmount;
+          // 🔹 фильтр по дате, как в банках
+          let matchDate = true;
+          const createdAt = new Date(inv.createdAt);
+
+          switch (datePreset) {
+            case "today": {
+              matchDate = createdAt >= startOfToday;
+              break;
+            }
+            case "7d": {
+              const sevenDaysAgo = new Date(
+                now.getTime() - 7 * 24 * 60 * 60 * 1000
+              );
+              matchDate = createdAt >= sevenDaysAgo;
+              break;
+            }
+            case "30d": {
+              const thirtyDaysAgo = new Date(
+                now.getTime() - 30 * 24 * 60 * 60 * 1000
+              );
+              matchDate = createdAt >= thirtyDaysAgo;
+              break;
+            }
+            case "all":
+            default:
+              matchDate = true;
+          }
+
+          return (
+            matchSearch && matchStatus && matchAml && matchAmount && matchDate
+          );
         });
 
         setInvoices(filtered);
@@ -76,7 +121,7 @@ export default function InvoicesPage() {
     }
 
     loadInvoices();
-  }, [statusFilter, amlFilter, search, minAmount, maxAmount]);
+  }, [statusFilter, amlFilter, search, minAmount, maxAmount, datePreset]);
 
   // summary для верхнего блока (по текущему списку)
   const totalCount = invoices.length;
@@ -123,6 +168,8 @@ export default function InvoicesPage() {
             maxAmount={maxAmount}
             onMinAmountChange={setMinAmount}
             onMaxAmountChange={setMaxAmount}
+            datePreset={datePreset}
+            onDatePresetChange={setDatePreset}
           />
         </section>
 

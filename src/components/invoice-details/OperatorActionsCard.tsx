@@ -5,7 +5,6 @@ import type { Invoice } from "@/lib/pspApi";
 
 interface OperatorActionsCardProps {
   invoice: Invoice;
-  loading: boolean;
   onConfirm: () => void;
   onExpire: () => void;
   onReject: () => void;
@@ -21,6 +20,10 @@ function getStatusLabel(status: Invoice["status"]): string {
       return "EXPIRED";
     case "rejected":
       return "REJECTED";
+
+    default:
+      console.warn("⚠️ Unknown invoice status received:", status);
+      return String(status).toUpperCase();
   }
 }
 
@@ -41,7 +44,6 @@ function getStatusDescription(status: Invoice["status"]): string {
 
 export function OperatorActionsCard({
   invoice,
-  loading,
   onConfirm,
   onExpire,
   onReject,
@@ -80,7 +82,7 @@ export function OperatorActionsCard({
         <button
           type="button"
           onClick={onConfirm}
-          disabled={loading || isConfirmed}
+          disabled={isConfirmed}
           className="inline-flex min-w-[90px] items-center justify-center rounded-full
                      border border-emerald-500/60 bg-emerald-500/10 px-4 py-1.5
                      text-[11px] font-medium text-emerald-100 shadow-sm
@@ -93,7 +95,7 @@ export function OperatorActionsCard({
         <button
           type="button"
           onClick={onExpire}
-          disabled={loading || isExpired}
+          disabled={isExpired}
           className="inline-flex min-w-[90px] items-center justify-center rounded-full
                      border border-amber-500/60 bg-amber-500/10 px-4 py-1.5
                      text-[11px] font-medium text-amber-100 shadow-sm
@@ -106,7 +108,7 @@ export function OperatorActionsCard({
         <button
           type="button"
           onClick={onReject}
-          disabled={loading || isRejected}
+          disabled={isRejected}
           className="inline-flex min-w-[90px] items-center justify-center rounded-full
                      border border-rose-500/70 bg-rose-500/12 px-4 py-1.5
                      text-[11px] font-medium text-rose-100 shadow-sm

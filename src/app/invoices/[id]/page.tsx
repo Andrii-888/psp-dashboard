@@ -1,4 +1,3 @@
-// src/app/invoices/[id]/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -9,12 +8,14 @@ import {
   fetchInvoiceWebhooks,
   dispatchInvoiceWebhooks,
   runInvoiceAmlCheck,
+  attachInvoiceTransaction,
   confirmInvoice,
-  expireInvoice,
   rejectInvoice,
+  expireInvoice,
   type Invoice,
   type WebhookEvent,
   type WebhookDispatchResult,
+  type AttachTransactionPayload,
 } from "@/lib/pspApi";
 
 import { InvoiceHeader } from "@/components/invoice-details/InvoiceHeader";
@@ -41,13 +42,14 @@ export default function InvoiceDetailsPage() {
   const [webhooksLoading, setWebhooksLoading] = useState(false);
   const [dispatching, setDispatching] = useState(false);
   const [amlLoading, setAmlLoading] = useState(false);
-  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [savingTx, setSavingTx] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [webhookInfo, setWebhookInfo] = useState<WebhookDispatchResult | null>(
     null
   );
 
-  // 🔁 начальная загрузка инвойса + webhooks
+  // =============== LOAD INVOICE + WEBHOOKS =================
+
   useEffect(() => {
     if (!invoiceId) return;
 
@@ -64,11 +66,9 @@ export default function InvoiceDetailsPage() {
         setInvoice(inv);
         setWebhooks(wh);
       } catch (err: unknown) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError("Failed to load invoice");
-        }
+        const message =
+          err instanceof Error ? err.message : "Failed to load invoice";
+        setError(message);
       } finally {
         setLoading(false);
       }
@@ -77,45 +77,47 @@ export default function InvoiceDetailsPage() {
     load();
   }, [invoiceId]);
 
-  // 🔁 обновить только webhooks
+  // ================= RELOAD WEBHOOKS =================
+
   async function reloadWebhooks() {
     if (!invoiceId) return;
+
     try {
       setWebhooksLoading(true);
       const wh = await fetchInvoiceWebhooks(invoiceId);
       setWebhooks(wh);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Failed to load webhooks");
-      }
+      const message =
+        err instanceof Error ? err.message : "Failed to load webhooks";
+      setError(message);
     } finally {
       setWebhooksLoading(false);
     }
   }
 
-  // 🚚 отправка pending webhooks
+  // ================= DISPATCH WEBHOOKS =================
+
   async function handleDispatchWebhooks() {
     if (!invoiceId) return;
     try {
       setDispatching(true);
       setWebhookInfo(null);
+
       const result = await dispatchInvoiceWebhooks(invoiceId);
       setWebhookInfo(result);
+
       await reloadWebhooks();
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Failed to dispatch webhooks");
-      }
+      const message =
+        err instanceof Error ? err.message : "Failed to dispatch webhooks";
+      setError(message);
     } finally {
       setDispatching(false);
     }
   }
 
-  // ✅ запуск AUTO AML проверки
+  // ================= AML CHECK =================
+
   async function handleRunAml() {
     if (!invoiceId || !invoice) return;
 
@@ -126,56 +128,82 @@ export default function InvoiceDetailsPage() {
       const updated = await runInvoiceAmlCheck(invoice.id);
       setInvoice(updated);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Failed to run AML check");
-      }
+      const message =
+        err instanceof Error ? err.message : "Failed to run AML check";
+      setError(message);
     } finally {
       setAmlLoading(false);
     }
   }
 
-  // ✅ операторские действия: Confirm / Expire / Reject
-  async function handleStatusChange(
-    action: "confirm" | "expire" | "reject"
-  ): Promise<void> {
+  // ================= ATTACH BLOCKCHAIN TX =================
+
+  async function handleAttachTx(payload: AttachTransactionPayload) {
     if (!invoiceId) return;
 
     try {
-      setStatusUpdating(true);
+      setSavingTx(true);
       setError(null);
 
-      let apiFn: (id: string) => Promise<Invoice>;
-
-      switch (action) {
-        case "confirm":
-          apiFn = confirmInvoice;
-          break;
-        case "expire":
-          apiFn = expireInvoice;
-          break;
-        case "reject":
-          apiFn = rejectInvoice;
-          break;
-      }
-
-      const updated = await apiFn(invoiceId);
+      const updated = await attachInvoiceTransaction(invoiceId, payload);
       setInvoice(updated);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Failed to update invoice status");
-      }
+      const message =
+        err instanceof Error ? err.message : "Failed to attach transaction";
+      setError(message);
     } finally {
-      setStatusUpdating(false);
+      setSavingTx(false);
     }
   }
+
+  // ================= OPERATOR ACTIONS =================
+
+  async function handleConfirm() {
+    if (!invoiceId) return;
+    try {
+      setError(null);
+      const updated = await confirmInvoice(invoiceId);
+      setInvoice(updated);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to confirm invoice";
+      setError(message);
+    }
+  }
+
+  async function handleReject() {
+    if (!invoiceId) return;
+    try {
+      setError(null);
+      const updated = await rejectInvoice(invoiceId);
+      setInvoice(updated);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to reject invoice";
+      setError(message);
+    }
+  }
+
+  async function handleExpire() {
+    if (!invoiceId) return;
+    try {
+      setError(null);
+      const updated = await expireInvoice(invoiceId);
+      setInvoice(updated);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to expire invoice";
+      setError(message);
+    }
+  }
+
+  // ================= NAVIGATION =================
 
   const handleBack = () => {
     router.push("/invoices");
   };
+
+  // ================= RENDER =================
 
   if (!invoiceId) {
     return (
@@ -214,13 +242,16 @@ export default function InvoiceDetailsPage() {
 
             <OperatorActionsCard
               invoice={invoice}
-              loading={statusUpdating}
-              onConfirm={() => handleStatusChange("confirm")}
-              onExpire={() => handleStatusChange("expire")}
-              onReject={() => handleStatusChange("reject")}
+              onConfirm={handleConfirm}
+              onReject={handleReject}
+              onExpire={handleExpire}
             />
 
-            <BlockchainCard invoice={invoice} />
+            <BlockchainCard
+              invoice={invoice}
+              savingTx={savingTx}
+              onAttachTx={handleAttachTx}
+            />
 
             <WebhooksCard
               webhooks={webhooks}

@@ -9,7 +9,7 @@ export function HomeHero() {
       <div className="text-center">
         {/* Заголовок */}
         <h1 className="text-2xl font-semibold text-white md:text-2xl">
-          psp-dashboard
+          PSP Dashboard - CryptoPay PSP Core
         </h1>
 
         {/* Кнопка как у Apple */}
