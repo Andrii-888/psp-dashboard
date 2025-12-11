@@ -24,6 +24,8 @@ import { BlockchainCard } from "@/components/invoice-details/BlockchainCard";
 import { WebhooksCard } from "@/components/invoice-details/WebhooksCard";
 import { OperatorActionsCard } from "@/components/invoice-details/OperatorActionsCard";
 
+const POLL_INTERVAL_MS = 15000; // 15 секунд
+
 export default function InvoiceDetailsPage() {
   const router = useRouter();
   const params = useParams();
@@ -48,7 +50,7 @@ export default function InvoiceDetailsPage() {
     null
   );
 
-  // =============== LOAD INVOICE + WEBHOOKS =================
+  // =============== LOAD INVOICE + WEBHOOKS (первичная загрузка) =================
 
   useEffect(() => {
     if (!invoiceId) return;
@@ -75,6 +77,25 @@ export default function InvoiceDetailsPage() {
     }
 
     load();
+  }, [invoiceId]);
+
+  // =============== AUTO-POLL ИНВОЙСА КАЖДЫЕ 15 СЕКУНД =================
+
+  useEffect(() => {
+    if (!invoiceId) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const latest = await fetchInvoice(invoiceId);
+        setInvoice(latest);
+      } catch {
+        // здесь тихо игнорируем, чтобы не спамить ошибками при временных сетевых проблемах
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      clearInterval(intervalId);
+    };
   }, [invoiceId]);
 
   // ================= RELOAD WEBHOOKS =================
