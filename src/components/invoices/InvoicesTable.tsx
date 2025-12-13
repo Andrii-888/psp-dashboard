@@ -33,8 +33,15 @@ export function InvoicesTable({
 }: InvoicesTableProps) {
   const router = useRouter();
 
-  const handleRowClick = (id: string) => {
+  const openDetails = (id: string) => {
     router.push(`/invoices/${id}`);
+  };
+
+  const onRowKeyDown = (e: React.KeyboardEvent, id: string) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openDetails(id);
+    }
   };
 
   if (loading) {
@@ -78,17 +85,24 @@ export function InvoicesTable({
             <th className="px-3 py-2 text-left">Actions</th>
           </tr>
         </thead>
+
         <tbody>
           {invoices.map((inv) => (
             <tr
               key={inv.id}
-              onClick={() => handleRowClick(inv.id)}
-              className="group cursor-pointer rounded-2xl bg-slate-900/60 text-xs text-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-all hover:bg-slate-900/90"
+              tabIndex={0}
+              role="button"
+              aria-label={`Open invoice ${inv.id}`}
+              onClick={() => openDetails(inv.id)}
+              onKeyDown={(e) => onRowKeyDown(e, inv.id)}
+              className="group cursor-pointer rounded-2xl bg-slate-900/60 text-xs text-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-all hover:bg-slate-900/90 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
             >
+              {/* ID */}
               <td className="max-w-[260px] truncate px-3 py-3 font-mono text-[11px] text-slate-300">
                 {inv.id}
               </td>
 
+              {/* Created / Expires */}
               <td className="px-3 py-3 text-[11px] text-slate-400">
                 <div>{formatDate(inv.createdAt)}</div>
                 <div className="mt-0.5 text-[10px] text-slate-500">
@@ -96,6 +110,7 @@ export function InvoicesTable({
                 </div>
               </td>
 
+              {/* Amounts */}
               <td className="whitespace-nowrap px-3 py-3 text-right text-xs font-semibold text-slate-50">
                 <div>{formatAmount(inv.fiatAmount, inv.fiatCurrency)}</div>
                 <div className="mt-0.5 text-[10px] text-slate-500">
@@ -103,10 +118,12 @@ export function InvoicesTable({
                 </div>
               </td>
 
+              {/* Status */}
               <td className="px-3 py-3">
                 <StatusBadge status={inv.status} />
               </td>
 
+              {/* AML */}
               <td className="px-3 py-3 align-top">
                 <AmlBadge
                   amlStatus={inv.amlStatus ?? null}
@@ -116,6 +133,7 @@ export function InvoicesTable({
                 />
               </td>
 
+              {/* Network / tx hash */}
               <td className="px-3 py-3 text-[11px] text-slate-400">
                 {inv.network ? (
                   <div className="flex flex-col gap-0.5">
@@ -133,6 +151,7 @@ export function InvoicesTable({
                 )}
               </td>
 
+              {/* Actions */}
               <td className="px-3 py-3">
                 <a
                   href={inv.paymentUrl}

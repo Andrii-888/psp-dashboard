@@ -1,6 +1,7 @@
 // src/lib/pspApi.ts
 
-const API_BASE = process.env.NEXT_PUBLIC_PSP_API_URL ?? "http://localhost:3000";
+const RAW_BASE = process.env.NEXT_PUBLIC_PSP_API_URL ?? "";
+const API_BASE = RAW_BASE.trim().replace(/\/+$/, "");
 
 export type InvoiceStatus = "waiting" | "confirmed" | "expired" | "rejected";
 
@@ -51,10 +52,6 @@ export interface WebhookDispatchResult {
   failed: number;
 }
 
-/**
- * Параметры для запроса списка инвойсов с backend-а
- * (используются в /invoices/page.tsx)
- */
 export interface FetchInvoicesParams {
   status?: InvoiceStatus;
   from?: string;
@@ -63,21 +60,109 @@ export interface FetchInvoicesParams {
   offset?: number;
 }
 
-/**
- * Payload для привязки blockchain-транзакции
- */
 export interface AttachTransactionPayload {
   network?: string;
   walletAddress?: string;
   txHash?: string;
 }
 
-async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`);
-  if (!res.ok) {
-    throw new Error(`GET ${path} failed with ${res.status}`);
+/**
+ * Унифицированная ошибка API (удобно для UI).
+ */
+export class PspApiError extends Error {
+  status: number;
+  url: string;
+  bodyText?: string;
+
+  constructor(
+    message: string,
+    args: { status: number; url: string; bodyText?: string }
+  ) {
+    super(message);
+    this.name = "PspApiError";
+    this.status = args.status;
+    this.url = args.url;
+    this.bodyText = args.bodyText;
   }
-  return res.json() as Promise<T>;
+}
+
+function assertApiBase() {
+  if (!API_BASE) {
+    throw new Error(
+      "NEXT_PUBLIC_PSP_API_URL is not set. Set it in .env.local / Vercel and restart/redeploy."
+    );
+  }
+  if (!/^https?:\/\//i.test(API_BASE)) {
+    throw new Error(
+      `NEXT_PUBLIC_PSP_API_URL must start with http:// or https:// (got: "${API_BASE}")`
+    );
+  }
+}
+
+async function readBodySafely(res: Response): Promise<string> {
+  try {
+    return await res.text();
+  } catch {
+    return "";
+  }
+}
+
+function looksLikeHtml(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return (
+    t.startsWith("<!doctype") || t.startsWith("<html") || t.startsWith("<")
+  );
+}
+
+async function parseJsonSafely<T>(res: Response): Promise<T> {
+  const contentType = res.headers.get("content-type") ?? "";
+  const raw = await readBodySafely(res);
+
+  if (!contentType.includes("application/json") || looksLikeHtml(raw)) {
+    throw new PspApiError("Expected JSON, got non-JSON response", {
+      status: res.status,
+      url: res.url,
+      bodyText: raw.slice(0, 400),
+    });
+  }
+
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    throw new PspApiError("Failed to parse JSON response", {
+      status: res.status,
+      url: res.url,
+      bodyText: raw.slice(0, 400),
+    });
+  }
+}
+
+function makeUrl(path: string): string {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE}${normalized}`;
+}
+
+async function apiGet<T>(path: string): Promise<T> {
+  assertApiBase();
+  const url = makeUrl(path);
+
+  const res = await fetch(url, {
+    cache: "no-store",
+    // ✅ ВАЖНО: пока нет auth/cookies — не отправляем credentials
+    credentials: "omit",
+    headers: { Accept: "application/json" },
+  });
+
+  if (!res.ok) {
+    const text = await readBodySafely(res);
+    throw new PspApiError(`GET ${path} failed`, {
+      status: res.status,
+      url,
+      bodyText: text.slice(0, 400),
+    });
+  }
+
+  return parseJsonSafely<T>(res);
 }
 
 async function apiPost<T>(
@@ -85,26 +170,41 @@ async function apiPost<T>(
   body?: unknown,
   method: "POST" | "PATCH" = "POST"
 ): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  assertApiBase();
+  const url = makeUrl(path);
+
+  const res = await fetch(url, {
     method,
+    cache: "no-store",
+    credentials: "omit",
     headers: {
       "Content-Type": "application/json",
+      Accept: "application/json",
     },
     body: body ? JSON.stringify(body) : undefined,
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`POST ${path} failed: ${res.status} ${text}`);
+    const text = await readBodySafely(res);
+    throw new PspApiError(`POST ${path} failed`, {
+      status: res.status,
+      url,
+      bodyText: text.slice(0, 400),
+    });
   }
 
-  return res.json() as Promise<T>;
+  return parseJsonSafely<T>(res);
 }
 
 /**
- * Список инвойсов (для таблицы)
- * Если params не передать — будет просто GET /invoices
+ * ✅ Быстрый чек “backend жив?”
+ * Проверяем JSON endpoint (а не "/")
  */
+export async function healthCheck(): Promise<{ ok: true }> {
+  await apiGet<unknown>("/invoices?limit=1&offset=0");
+  return { ok: true };
+}
+
 export async function fetchInvoices(
   params?: FetchInvoicesParams
 ): Promise<Invoice[]> {
@@ -116,81 +216,67 @@ export async function fetchInvoices(
     if (params.status) search.set("status", params.status);
     if (params.from) search.set("from", params.from);
     if (params.to) search.set("to", params.to);
-    if (typeof params.limit === "number") {
+    if (typeof params.limit === "number")
       search.set("limit", String(params.limit));
-    }
-    if (typeof params.offset === "number") {
+    if (typeof params.offset === "number")
       search.set("offset", String(params.offset));
-    }
 
     const qs = search.toString();
-    if (qs) {
-      path += `?${qs}`;
-    }
+    if (qs) path += `?${qs}`;
   }
 
   return apiGet<Invoice[]>(path);
 }
 
-/**
- * Один инвойс (для страницы /invoices/[id])
- */
 export async function fetchInvoice(id: string): Promise<Invoice> {
   return apiGet<Invoice>(`/invoices/${id}`);
 }
 
-/**
- * Webhook events по инвойсу
- */
 export async function fetchInvoiceWebhooks(
   id: string
 ): Promise<WebhookEvent[]> {
   return apiGet<WebhookEvent[]>(`/invoices/${id}/webhooks`);
 }
 
-/**
- * Отправить все pending webhooks по инвойсу
- */
 export async function dispatchInvoiceWebhooks(
   id: string
 ): Promise<WebhookDispatchResult> {
   return apiPost<WebhookDispatchResult>(`/invoices/${id}/webhooks/dispatch`);
 }
 
-/**
- * ✅ Запустить AUTO AML-проверку инвойса
- */
 export async function runInvoiceAmlCheck(id: string): Promise<Invoice> {
   return apiPost<Invoice>(`/invoices/${id}/aml/check`);
 }
 
-/**
- * ✅ Оператор: подтвердить инвойс
- */
 export async function confirmInvoice(id: string): Promise<Invoice> {
   return apiPost<Invoice>(`/invoices/${id}/confirm`);
 }
 
-/**
- * ✅ Оператор: пометить как истёкший
- */
 export async function expireInvoice(id: string): Promise<Invoice> {
   return apiPost<Invoice>(`/invoices/${id}/expire`);
 }
 
-/**
- * ✅ Оператор: отклонить инвойс
- */
 export async function rejectInvoice(id: string): Promise<Invoice> {
   return apiPost<Invoice>(`/invoices/${id}/reject`);
 }
 
-/**
- * ✅ Оператор: прикрепить blockchain-транзакцию
- */
 export async function attachInvoiceTransaction(
   id: string,
   payload: AttachTransactionPayload
 ): Promise<Invoice> {
   return apiPost<Invoice>(`/invoices/${id}/tx`, payload);
+}
+
+export type CreateInvoicePayload = {
+  fiatAmount: number;
+  fiatCurrency: string; // "CHF" | "EUR" | ...
+  cryptoCurrency: string; // "USDT" | "BTC" | ...
+  network?: string; // "TRON" | "ETH" | "BSC" ...
+  merchantId?: string | null;
+};
+
+export async function createInvoice(
+  payload: CreateInvoicePayload
+): Promise<Invoice> {
+  return apiPost<Invoice>("/invoices", payload, "POST");
 }
