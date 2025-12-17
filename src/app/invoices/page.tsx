@@ -240,7 +240,7 @@ export default function InvoicesPage() {
             ) : null}
 
             {apiOk === false && apiError ? (
-              <p className="max-w-[420px] truncate text-[11px] text-rose-200/80">
+              <p className="max-w-420px truncate text-[11px] text-rose-200/80">
                 {apiError}
               </p>
             ) : null}
