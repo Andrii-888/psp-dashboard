@@ -2,74 +2,65 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
-function timingSafeEqualHex(a: string, b: string) {
-  const aa = Buffer.from(a, "hex");
-  const bb = Buffer.from(b, "hex");
-  if (aa.length !== bb.length) return false;
-  return crypto.timingSafeEqual(aa, bb);
+function timingSafeEqualHex(aHex: string, bHex: string) {
+  const a = Buffer.from(aHex, "hex");
+  const b = Buffer.from(bHex, "hex");
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
-function parseSignatureHeader(
-  sig: string | null
-): { t: string; v1: string } | null {
-  if (!sig) return null;
-
-  // format: "t=..., v1=..."
-  const parts = sig.split(",").map((p) => p.trim());
-  const tPart = parts.find((p) => p.startsWith("t="));
-  const v1Part = parts.find((p) => p.startsWith("v1="));
-  if (!tPart || !v1Part) return null;
-
-  const t = tPart.slice(2);
-  const v1 = v1Part.slice(3);
+function parseSignatureHeader(header: string | null) {
+  // expected: "t=123, v1=abc..."
+  if (!header) return null;
+  const parts = header.split(",").map((p) => p.trim());
+  const t = parts.find((p) => p.startsWith("t="))?.slice(2);
+  const v1 = parts.find((p) => p.startsWith("v1="))?.slice(3);
   if (!t || !v1) return null;
-
   return { t, v1 };
 }
 
+function computeV1(secret: string, timestamp: string, bodyText: string) {
+  // payload to sign: `${timestamp}.${body}`
+  const signed = `${timestamp}.${bodyText}`;
+  return crypto.createHmac("sha256", secret).update(signed).digest("hex");
+}
+
 export async function POST(req: NextRequest) {
+  const secret = process.env.PSP_WEBHOOK_SECRET ?? "";
+  if (!secret.trim()) {
+    // misconfigured environment
+    return NextResponse.json(
+      { ok: false, error: "Missing PSP_WEBHOOK_SECRET" },
+      { status: 500 }
+    );
+  }
+
   const bodyText = await req.text();
 
-  const timestamp = req.headers.get("psp-timestamp") ?? "";
+  // Our sender sets these:
+  const timestamp = req.headers.get("psp-timestamp");
   const signature = req.headers.get("psp-signature");
+
   const parsed = parseSignatureHeader(signature);
-
-  const secret = process.env.PSP_WEBHOOK_SECRET ?? "";
-
-  // 1) must have secret + signature
-  if (!secret || !parsed || !timestamp) {
-    console.log("[WEBHOOK REJECTED]", {
-      reason: "missing secret/signature/timestamp",
-    });
+  if (!timestamp || !parsed || parsed.t !== timestamp) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  // 2) verify timestamp matches header (extra sanity)
-  // (your signer uses psp-timestamp header; signature contains t=... too)
-  if (parsed.t !== timestamp) {
-    console.log("[WEBHOOK REJECTED]", {
-      reason: "timestamp mismatch",
-      header: timestamp,
-      sigT: parsed.t,
-    });
+  // optional replay protection (5 minutes)
+  const now = Math.floor(Date.now() / 1000);
+  const ts = Number(timestamp);
+  if (!Number.isFinite(ts) || Math.abs(now - ts) > 5 * 60) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  // 3) compute expected signature: HMAC_SHA256(secret, `${t}.${body}`)
-  const signedPayload = `${parsed.t}.${bodyText}`;
-  const expected = crypto
-    .createHmac("sha256", secret)
-    .update(signedPayload)
-    .digest("hex");
-
-  const ok = timingSafeEqualHex(expected, parsed.v1);
+  const expectedV1 = computeV1(secret, timestamp, bodyText);
+  const ok = timingSafeEqualHex(expectedV1, parsed.v1);
 
   if (!ok) {
-    console.log("[WEBHOOK REJECTED]", { reason: "bad signature", t: parsed.t });
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  // ✅ accepted
+  // Logs in Vercel: Functions logs
   console.log("[WEBHOOK RECEIVED]", {
     at: new Date().toISOString(),
     timestamp,
