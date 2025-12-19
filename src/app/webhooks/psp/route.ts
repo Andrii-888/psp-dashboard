@@ -26,9 +26,8 @@ function computeV1(secret: string, timestamp: string, bodyText: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.PSP_WEBHOOK_SECRET ?? "";
-  if (!secret.trim()) {
-    // misconfigured environment
+  const secret = (process.env.PSP_WEBHOOK_SECRET ?? "").trim();
+  if (!secret) {
     return NextResponse.json(
       { ok: false, error: "Missing PSP_WEBHOOK_SECRET" },
       { status: 500 }
@@ -37,34 +36,67 @@ export async function POST(req: NextRequest) {
 
   const bodyText = await req.text();
 
-  // Our sender sets these:
-  const timestamp = req.headers.get("psp-timestamp");
+  // Sender header: "psp-signature: t=..., v1=..."
   const signature = req.headers.get("psp-signature");
-
   const parsed = parseSignatureHeader(signature);
-  if (!timestamp || !parsed || parsed.t !== timestamp) {
-    return NextResponse.json({ ok: false }, { status: 401 });
+  if (!parsed) {
+    return NextResponse.json(
+      { ok: false, error: "Missing/invalid signature" },
+      { status: 401 }
+    );
   }
 
-  // optional replay protection (5 minutes)
+  // Some senders also send "psp-timestamp", but it's optional
+  const headerTimestamp = req.headers.get("psp-timestamp");
+  const timestamp =
+    headerTimestamp && headerTimestamp.trim()
+      ? headerTimestamp.trim()
+      : parsed.t;
+
+  // if both exist, they must match
+  if (
+    headerTimestamp &&
+    headerTimestamp.trim() &&
+    headerTimestamp.trim() !== parsed.t
+  ) {
+    return NextResponse.json(
+      { ok: false, error: "Timestamp mismatch" },
+      { status: 401 }
+    );
+  }
+
+  // Replay protection (±5 minutes)
   const now = Math.floor(Date.now() / 1000);
   const ts = Number(timestamp);
   if (!Number.isFinite(ts) || Math.abs(now - ts) > 5 * 60) {
-    return NextResponse.json({ ok: false }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, error: "Stale timestamp" },
+      { status: 401 }
+    );
   }
 
   const expectedV1 = computeV1(secret, timestamp, bodyText);
   const ok = timingSafeEqualHex(expectedV1, parsed.v1);
 
   if (!ok) {
-    return NextResponse.json({ ok: false }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, error: "Bad signature" },
+      { status: 401 }
+    );
   }
 
-  // Logs in Vercel: Functions logs
+  // ✅ Optional: parse for nicer logs (не обязательно)
+  let parsedBody: any = null;
+  try {
+    parsedBody = JSON.parse(bodyText);
+  } catch {}
+
   console.log("[WEBHOOK RECEIVED]", {
     at: new Date().toISOString(),
     timestamp,
     signature,
+    eventType: parsedBody?.eventType ?? null,
+    invoiceId: parsedBody?.invoiceId ?? null,
     bodyPreview: bodyText.slice(0, 500),
   });
 

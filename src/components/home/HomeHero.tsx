@@ -16,7 +16,6 @@ export function HomeHero({ pspApiUrl }: HomeHeroProps) {
 
     (async () => {
       try {
-        setApiOk(null);
         await healthCheck();
         if (mounted) setApiOk(true);
       } catch {
@@ -33,8 +32,8 @@ export function HomeHero({ pspApiUrl }: HomeHeroProps) {
     apiOk === true
       ? "PSP Core connected"
       : apiOk === false
-      ? "PSP Core not reachable"
-      : "Checking PSP Core…";
+      ? "PSP Core unavailable"
+      : "Connecting to PSP Core…";
 
   const statusClasses =
     apiOk === true
@@ -52,9 +51,9 @@ export function HomeHero({ pspApiUrl }: HomeHeroProps) {
 
   return (
     <section className="relative flex h-[85vh] w-full items-center justify-center overflow-hidden px-4">
-      {/* CoinMarketCap-like purple background */}
+      {/* background */}
       <div className="absolute inset-0 bg-[radial-gradient(1200px_circle_at_50%_20%,rgba(139,92,246,0.25),transparent_60%),linear-gradient(180deg,#0b061a_0%,#05030d_100%)]" />
-      <div className="absolute -top-32 left-1/2 h-[420px] w-[680px] -translate-x-1/2 rounded-full bg-violet-600/20 blur-[120px]" />
+      <div className="absolute -top-32 left-1/2 h-420px w-680px -translate-x-1/2 rounded-full bg-violet-600/20 blur-[120px]" />
 
       <div className="relative z-10 space-y-7 text-center">
         <h1 className="text-2xl font-semibold text-white md:text-3xl">
@@ -83,21 +82,6 @@ export function HomeHero({ pspApiUrl }: HomeHeroProps) {
         >
           Open dashboard →
         </Link>
-
-        {/* если env вообще не задан — покажем подсказку */}
-        {apiOk !== true && (
-          <p className="text-xs text-slate-400">
-            Set{" "}
-            <code className="rounded bg-white/5 px-1 py-0.5 font-mono text-slate-300">
-              NEXT_PUBLIC_PSP_API_URL
-            </code>{" "}
-            in{" "}
-            <code className="rounded bg-white/5 px-1 py-0.5 font-mono text-slate-300">
-              .env.local
-            </code>{" "}
-            / Vercel and restart/redeploy
-          </p>
-        )}
       </div>
     </section>
   );
