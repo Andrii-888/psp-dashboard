@@ -39,6 +39,12 @@ interface UseInvoiceDetailsResult {
   handleExpire: () => Promise<void>;
 }
 
+function shouldPollInvoice(inv: Invoice | null) {
+  const status = inv?.status;
+  // poll только пока invoice "живой"
+  return status === "waiting";
+}
+
 export function useInvoiceDetails(
   invoiceId: string | null
 ): UseInvoiceDetailsResult {
@@ -56,11 +62,15 @@ export function useInvoiceDetails(
 
   // =============== LOAD INVOICE + WEBHOOKS (первичная загрузка) =================
   useEffect(() => {
+    let mounted = true;
+
     if (!invoiceId) {
       setInvoice(null);
       setWebhooks([]);
       setLoading(false);
-      return;
+      return () => {
+        mounted = false;
+      };
     }
 
     async function load(currentId: string) {
@@ -73,37 +83,50 @@ export function useInvoiceDetails(
           fetchInvoiceWebhooks(currentId),
         ]);
 
+        if (!mounted) return;
         setInvoice(inv);
         setWebhooks(wh);
       } catch (err: unknown) {
+        if (!mounted) return;
         const message =
           err instanceof Error ? err.message : "Failed to load invoice";
         setError(message);
       } finally {
+        if (!mounted) return;
         setLoading(false);
       }
     }
 
     load(invoiceId);
+
+    return () => {
+      mounted = false;
+    };
   }, [invoiceId]);
 
-  // =============== AUTO-POLL ИНВОЙСА КАЖДЫЕ 15 СЕКУНД =================
+  // =============== AUTO-POLL ИНВОЙСА (только пока waiting) =================
   useEffect(() => {
     if (!invoiceId) return;
+    if (!shouldPollInvoice(invoice)) return;
 
+    let mounted = true;
     const currentId = invoiceId;
 
     const intervalId = setInterval(async () => {
       try {
         const latest = await fetchInvoice(currentId);
+        if (!mounted) return;
         setInvoice(latest);
       } catch {
         // тихо игнорируем временные сетевые ошибки
       }
     }, POLL_INTERVAL_MS);
 
-    return () => clearInterval(intervalId);
-  }, [invoiceId]);
+    return () => {
+      mounted = false;
+      clearInterval(intervalId);
+    };
+  }, [invoiceId, invoice?.status]);
 
   // ================= RELOAD WEBHOOKS =================
   async function reloadWebhooks() {

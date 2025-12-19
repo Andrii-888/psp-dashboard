@@ -1,9 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchInvoices, type Invoice } from "@/lib/pspApi";
 
 export type DatePreset = "all" | "today" | "7d" | "30d";
+
+type ReloadOptions = {
+  silent?: boolean; // ✅ для polling: не дергаем UI
+};
 
 interface UseInvoicesPageResult {
   invoices: Invoice[];
@@ -42,8 +46,7 @@ interface UseInvoicesPageResult {
   waitingCount: number;
   highRiskCount: number;
 
-  // ✅ NEW
-  reload: () => Promise<void>;
+  reload: (opts?: ReloadOptions) => Promise<void>;
   lastUpdatedAt: Date | null;
 }
 
@@ -56,6 +59,43 @@ function parseNumberInput(value: string): number | null {
   if (!v) return null;
   const n = Number(v.replace(",", "."));
   return Number.isFinite(n) ? n : null;
+}
+
+// ✅ стабильный fingerprint (без sort; предполагаем stable order от API)
+function fingerprint(invoices: Invoice[]): string {
+  return invoices
+    .map((i) => {
+      const inv = i as unknown as {
+        id: string;
+        status?: string | null;
+        txStatus?: string | null;
+        txHash?: string | null;
+        walletAddress?: string | null;
+        amlStatus?: string | null;
+        riskScore?: number | null;
+        confirmations?: number | null;
+        detectedAt?: string | null;
+        confirmedAt?: string | null;
+        createdAt?: string | null;
+        expiresAt?: string | null;
+      };
+
+      return [
+        inv.id,
+        inv.status ?? "",
+        inv.txStatus ?? "",
+        inv.txHash ?? "",
+        inv.walletAddress ?? "",
+        inv.amlStatus ?? "",
+        String(inv.riskScore ?? ""),
+        String(inv.confirmations ?? 0),
+        inv.detectedAt ?? "",
+        inv.confirmedAt ?? "",
+        inv.createdAt ?? "",
+        inv.expiresAt ?? "",
+      ].join("|");
+    })
+    .join("~");
 }
 
 export function useInvoicesPage(): UseInvoicesPageResult {
@@ -77,41 +117,49 @@ export function useInvoicesPage(): UseInvoicesPageResult {
   const [walletSearch, setWalletSearch] = useState<string>("");
   const [merchantSearch, setMerchantSearch] = useState<string>("");
 
-  // ✅ NEW: один источник правды для загрузки/обновления
-  const reload = useCallback(async () => {
+  // ✅ хранит последний fingerprint, чтобы не менять state без причины
+  const lastFpRef = useRef<string>("");
+
+  const reload = useCallback(async (opts?: ReloadOptions) => {
+    const silent = opts?.silent === true;
+
     try {
-      setLoading(true);
-      setError(null);
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
 
       const data = await fetchInvoices();
-      setAllInvoices(Array.isArray(data) ? data : []);
+      const next = Array.isArray(data) ? data : [];
+      const nextFp = fingerprint(next);
+
+      // ✅ если ничего не изменилось — НЕ трогаем state (и не дергаем UI)
+      if (nextFp === lastFpRef.current) {
+        return;
+      }
+
+      lastFpRef.current = nextFp;
+      setAllInvoices(next);
       setLastUpdatedAt(new Date());
+      if (!silent) setError(null);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Failed to load invoices";
-      setError(message);
-      setAllInvoices([]);
-      setLastUpdatedAt(null);
+      // ❗️важно: на silent polling не “ломаем UI” ошибкой
+      if (!silent) {
+        const message =
+          err instanceof Error ? err.message : "Failed to load invoices";
+        setError(message);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  // ✅ 1) Загружаем с API только один раз (на старте)
+  // ✅ initial load (normal, с loading)
   useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      if (cancelled) return;
-      await reload();
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    void reload({ silent: false });
   }, [reload]);
 
-  // ✅ 2) Фильтруем локально (без повторных запросов)
+  // ✅ 2) Фильтруем локально
   const invoices = useMemo(() => {
     const q = normalize(search);
     const qTx = normalize(txHashSearch);
@@ -154,9 +202,7 @@ export function useInvoicesPage(): UseInvoicesPageResult {
 
       let matchDate = true;
       const createdAt = new Date(inv.createdAt);
-      if (Number.isNaN(createdAt.getTime())) {
-        matchDate = true;
-      } else {
+      if (!Number.isNaN(createdAt.getTime())) {
         switch (datePreset) {
           case "today":
             matchDate = createdAt >= startOfToday;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 
 import { useInvoiceDetails } from "@/hooks/useInvoiceDetails";
@@ -15,13 +15,12 @@ export default function InvoiceDetailsPage() {
   const router = useRouter();
   const params = useParams();
 
-  const idParam = params?.id;
-  const invoiceId =
-    typeof idParam === "string"
-      ? idParam
-      : Array.isArray(idParam)
-      ? idParam[0]
-      : null;
+  const invoiceId = useMemo(() => {
+    const idParam = (params as any)?.id;
+    if (typeof idParam === "string") return idParam;
+    if (Array.isArray(idParam)) return idParam[0] ?? null;
+    return null;
+  }, [params]);
 
   const {
     invoice,
@@ -42,34 +41,22 @@ export default function InvoiceDetailsPage() {
     handleExpire,
   } = useInvoiceDetails(invoiceId);
 
-  // ✅ Умный back: сохраняет фильтры/URL, если пришли со списка
+  // ✅ Умный back: если пришли со списка — вернёмся туда же
   const handleBack = () => {
-    // если пользователь пришел со списка — вернёмся туда же (/invoices?...filters)
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
       return;
     }
-    // если открыли страницу напрямую — идем на список без параметров
     router.push("/invoices");
   };
 
-  // UX: если invoiceId нет — можно сразу вернуть на список
+  // ✅ Если invoiceId нет — уходим на список (без мигания)
   useEffect(() => {
-    if (!invoiceId) {
-      // небольшой safety: не ломаем рендер, просто редирект
-      router.push("/invoices");
-    }
+    if (!invoiceId) router.replace("/invoices");
   }, [invoiceId, router]);
 
-  if (!invoiceId) {
-    return (
-      <main className="min-h-screen bg-page-gradient px-4 py-6 text-slate-50 md:px-8 md:py-8">
-        <div className="mx-auto max-w-5xl">
-          <p className="text-sm text-slate-400">Invoice id is missing.</p>
-        </div>
-      </main>
-    );
-  }
+  // пока router.replace происходит — ничего не рисуем
+  if (!invoiceId) return null;
 
   return (
     <main className="min-h-screen bg-page-gradient px-4 py-6 text-slate-50 md:px-8 md:py-8">
