@@ -1,12 +1,18 @@
 "use client";
 
-import type { Invoice } from "@/lib/pspApi";
+import type { Invoice, AttachTransactionPayload } from "@/lib/pspApi";
 import { AmlBadge } from "@/components/invoices/AmlBadge";
+import { ScreeningStatus } from "@/components/invoice-details/overview/ScreeningStatus";
+import { AmlActionButton } from "@/components/invoice-details/overview/AmlActionButton";
+import { DemoTxAttach } from "@/components/invoice-details/overview/DemoTxAttach";
+import { CryptoCleanliness } from "@/components/invoice-details/overview/CryptoCleanliness";
 
 interface OverviewCardProps {
   invoice: Invoice;
   onRunAml: () => void;
   amlLoading: boolean;
+  savingTx: boolean;
+  onAttachTx: (payload: AttachTransactionPayload) => void | Promise<void>;
 }
 
 function formatDateTime(iso: string | null | undefined) {
@@ -25,25 +31,16 @@ function formatAmount(amount: number, currency: string) {
   return `${amount.toFixed(2)} ${currency}`;
 }
 
-// 🎨 Цвет кнопки в зависимости от AML
-function getAmlButtonClasses(status: string | null) {
-  switch (status) {
-    case "clean":
-      return "border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20";
-    case "warning":
-      return "border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20";
-    case "risky":
-      return "border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20";
-    default:
-      return "border-slate-500/40 bg-slate-900/70 text-slate-200 hover:bg-slate-800";
-  }
-}
-
 export function OverviewCard({
   invoice,
   onRunAml,
   amlLoading,
+  savingTx,
+  onAttachTx,
 }: OverviewCardProps) {
+  const hasTx = !!invoice.txHash && invoice.txHash.trim().length > 0;
+  const isScreeningPending = hasTx && invoice.amlStatus === null;
+
   return (
     <section className="apple-card p-4 md:p-6">
       <div className="flex flex-col gap-6 md:flex-row">
@@ -122,18 +119,38 @@ export function OverviewCard({
             />
           </div>
 
-          {/* 🔥 Умная кнопка */}
-          <button
-            type="button"
-            onClick={onRunAml}
-            disabled={amlLoading}
-            className={`mt-4 inline-flex items-center justify-center rounded-full px-3 py-1.5 text-[11px] font-medium transition shadow-sm
-              disabled:opacity-60 disabled:cursor-not-allowed 
-              ${getAmlButtonClasses(invoice.amlStatus)}
-            `}
-          >
-            {amlLoading ? "Checking AML…" : "Run AML check"}
-          </button>
+          <CryptoCleanliness invoice={invoice} />
+
+          {/* ✅ Screening status (compliance-first) */}
+          <ScreeningStatus invoice={invoice} />
+
+          <DemoTxAttach
+            invoice={invoice}
+            savingTx={savingTx}
+            onAttachTx={onAttachTx}
+          />
+
+          {/* ✅ Running AML state (tx detected, result not yet stored) */}
+          {isScreeningPending && (
+            <div className="mt-3 rounded-2xl bg-slate-900/60 p-3 ring-1 ring-slate-800/80">
+              <p className="text-[11px] uppercase text-slate-500">
+                AML / KYT checks
+              </p>
+              <p className="mt-1 text-[11px] text-slate-200">
+                🔍 Running AML / KYT checks…
+              </p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Funds remain isolated until compliance result is recorded.
+              </p>
+            </div>
+          )}
+
+          {/* 🔥 AML action */}
+          <AmlActionButton
+            invoice={invoice}
+            onRunAml={onRunAml}
+            amlLoading={amlLoading}
+          />
         </div>
       </div>
     </section>

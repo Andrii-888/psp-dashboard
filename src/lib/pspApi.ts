@@ -280,3 +280,31 @@ export async function createInvoice(
 ): Promise<Invoice> {
   return apiPost<Invoice>("/invoices", payload, "POST");
 }
+
+export type DecisionStatus = "approve" | "hold" | "reject" | null;
+
+export type SanctionsStatus = "clear" | "hit" | null;
+
+export interface SanctionsResult {
+  status: SanctionsStatus;
+  provider?: string | null; // "OFAC" | "EU" | "Internal" | "Mock"
+  reasonCode?: string | null; // e.g. "OFAC_SDN_MATCH"
+  details?: string | null; // short human-readable summary
+  checkedAt?: string | null;
+}
+
+export interface OperatorDecision {
+  status: DecisionStatus;
+  reasonCode?: string | null; // e.g. "TIER2_LARGE_AMOUNT"
+  comment?: string | null; // required for hold/reject
+  decidedBy?: string | null; // operator email/name
+  decidedAt?: string | null;
+}
+
+export interface Invoice {
+  // ... всё что у тебя уже есть выше
+
+  // ✅ presentation fields (for dashboard MVP)
+  sanctions?: SanctionsResult | null;
+  decision?: OperatorDecision | null;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   fetchInvoice,
@@ -40,9 +40,15 @@ interface UseInvoiceDetailsResult {
 }
 
 function shouldPollInvoice(inv: Invoice | null) {
-  const status = inv?.status;
-  // poll только пока invoice "живой"
-  return status === "waiting";
+  if (!inv) return false;
+
+  const isOpen = inv.status === "waiting";
+
+  const hasTx = !!inv.txHash && inv.txHash.trim().length > 0;
+  const amlPending = hasTx && inv.amlStatus === null;
+
+  // ✅ poll пока invoice открыт ИЛИ пока ждём AML после txHash
+  return isOpen || amlPending;
 }
 
 export function useInvoiceDetails(
@@ -60,6 +66,9 @@ export function useInvoiceDetails(
     null
   );
 
+  // ✅ храним txHash, для которого уже запускали AML (auto/manual)
+  const lastAutoAmlTxRef = useRef<string | null>(null);
+
   // =============== LOAD INVOICE + WEBHOOKS (первичная загрузка) =================
   useEffect(() => {
     let mounted = true;
@@ -68,6 +77,7 @@ export function useInvoiceDetails(
       setInvoice(null);
       setWebhooks([]);
       setLoading(false);
+      lastAutoAmlTxRef.current = null;
       return () => {
         mounted = false;
       };
@@ -86,6 +96,12 @@ export function useInvoiceDetails(
         if (!mounted) return;
         setInvoice(inv);
         setWebhooks(wh);
+
+        // ✅ ВАЖНО:
+        // если AML уже есть — считаем "уже делали" и запоминаем txHash
+        // если AML ещё нет — оставляем null, чтобы авто-AML мог сработать
+        const tx = inv?.txHash?.trim() ? inv.txHash.trim() : null;
+        lastAutoAmlTxRef.current = inv.amlStatus !== null && tx ? tx : null;
       } catch (err: unknown) {
         if (!mounted) return;
         const message =
@@ -104,7 +120,7 @@ export function useInvoiceDetails(
     };
   }, [invoiceId]);
 
-  // =============== AUTO-POLL ИНВОЙСА (только пока waiting) =================
+  // =============== AUTO-POLL ИНВОЙСА =================
   useEffect(() => {
     if (!invoiceId) return;
     if (!shouldPollInvoice(invoice)) return;
@@ -126,7 +142,55 @@ export function useInvoiceDetails(
       mounted = false;
       clearInterval(intervalId);
     };
-  }, [invoiceId, invoice?.status]);
+  }, [invoiceId, invoice?.status, invoice?.txHash, invoice?.amlStatus]);
+
+  // =============== AUTO AML (как у топов): txHash появился -> AML запускаем 1 раз =================
+  useEffect(() => {
+    if (!invoiceId) return;
+    if (!invoice) return;
+
+    const tx = invoice.txHash?.trim() ? invoice.txHash.trim() : null;
+    const hasTx = !!tx;
+    const amlMissing = invoice.amlStatus === null;
+
+    if (!hasTx || !amlMissing) return;
+    if (amlLoading) return;
+
+    // если уже запускали авто-AML для этого txHash — не повторяем
+    if (lastAutoAmlTxRef.current === tx) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setAmlLoading(true);
+        setError(null);
+
+        // фиксируем сразу, чтобы не было дублей из-за polling
+        lastAutoAmlTxRef.current = tx;
+
+        const updated = await runInvoiceAmlCheck(invoice.id);
+        if (cancelled) return;
+        setInvoice(updated);
+      } catch (err: unknown) {
+        if (cancelled) return;
+
+        // если упало — разрешаем повтор (или кнопкой)
+        lastAutoAmlTxRef.current = null;
+
+        const message =
+          err instanceof Error ? err.message : "Failed to run AML check";
+        setError(message);
+      } finally {
+        if (cancelled) return;
+        setAmlLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [invoiceId, invoice?.id, invoice?.txHash, invoice?.amlStatus, amlLoading]);
 
   // ================= RELOAD WEBHOOKS =================
   async function reloadWebhooks() {
@@ -165,7 +229,7 @@ export function useInvoiceDetails(
     }
   }
 
-  // ================= AML CHECK =================
+  // ================= AML CHECK (ручной запуск) =================
   async function handleRunAml() {
     if (!invoiceId || !invoice) return;
 
@@ -175,6 +239,10 @@ export function useInvoiceDetails(
 
       const updated = await runInvoiceAmlCheck(invoice.id);
       setInvoice(updated);
+
+      // ✅ после ручного AML — считаем выполненным для текущего txHash
+      const tx = updated?.txHash?.trim() ? updated.txHash.trim() : null;
+      if (tx) lastAutoAmlTxRef.current = tx;
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to run AML check";
@@ -194,6 +262,9 @@ export function useInvoiceDetails(
 
       const updated = await attachInvoiceTransaction(invoiceId, payload);
       setInvoice(updated);
+
+      // ✅ новый txHash -> разрешаем авто-AML (сбрасываем "уже делали")
+      lastAutoAmlTxRef.current = null;
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to attach transaction";

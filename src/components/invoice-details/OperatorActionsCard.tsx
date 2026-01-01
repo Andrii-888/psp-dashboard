@@ -83,7 +83,7 @@ export function OperatorActionsCard({
           type="button"
           onClick={onConfirm}
           disabled={isConfirmed}
-          className="inline-flex min-w-[90px] items-center justify-center rounded-full
+          className="inline-flex min-w-90px items-center justify-center rounded-full
                      border border-emerald-500/60 bg-emerald-500/10 px-4 py-1.5
                      text-[11px] font-medium text-emerald-100 shadow-sm
                      transition hover:bg-emerald-500/20
@@ -96,7 +96,7 @@ export function OperatorActionsCard({
           type="button"
           onClick={onExpire}
           disabled={isExpired}
-          className="inline-flex min-w-[90px] items-center justify-center rounded-full
+          className="inline-flex min-w-90px items-center justify-center rounded-full
                      border border-amber-500/60 bg-amber-500/10 px-4 py-1.5
                      text-[11px] font-medium text-amber-100 shadow-sm
                      transition hover:bg-amber-500/20
@@ -109,7 +109,7 @@ export function OperatorActionsCard({
           type="button"
           onClick={onReject}
           disabled={isRejected}
-          className="inline-flex min-w-[90px] items-center justify-center rounded-full
+          className="inline-flex min-w-90px items-center justify-center rounded-full
                      border border-rose-500/70 bg-rose-500/12 px-4 py-1.5
                      text-[11px] font-medium text-rose-100 shadow-sm
                      transition hover:bg-rose-500/20

@@ -5,8 +5,11 @@ import { useRouter, useParams } from "next/navigation";
 
 import { useInvoiceDetails } from "@/hooks/useInvoiceDetails";
 
+import { AuditTrailCard } from "@/components/invoice-details/overview/AuditTrailCard";
+
 import { InvoiceHeader } from "@/components/invoice-details/InvoiceHeader";
 import { OverviewCard } from "@/components/invoice-details/OverviewCard";
+import { ComplianceDecisionCard } from "@/components/invoice-details/ComplianceDecisionCard";
 import { BlockchainCard } from "@/components/invoice-details/BlockchainCard";
 import { WebhooksCard } from "@/components/invoice-details/WebhooksCard";
 import { OperatorActionsCard } from "@/components/invoice-details/OperatorActionsCard";
@@ -81,6 +84,19 @@ export default function InvoiceDetailsPage() {
               invoice={invoice}
               onRunAml={handleRunAml}
               amlLoading={amlLoading}
+              savingTx={savingTx}
+              onAttachTx={handleAttachTx}
+            />
+
+            <ComplianceDecisionCard
+              invoice={invoice}
+              onDecide={async (payload) => {
+                // пока только пишем в консоль — следующим шагом сделаем audit + сохранение (demo store)
+                console.log("COMPLIANCE_DECISION", {
+                  invoiceId: invoice.id,
+                  ...payload,
+                });
+              }}
             />
 
             <OperatorActionsCard
@@ -89,6 +105,8 @@ export default function InvoiceDetailsPage() {
               onReject={handleReject}
               onExpire={handleExpire}
             />
+
+            <AuditTrailCard invoice={invoice} />
 
             <BlockchainCard
               invoice={invoice}
