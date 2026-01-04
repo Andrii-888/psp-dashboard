@@ -66,6 +66,11 @@ export default function InvoicesPage() {
     lastUpdatedAt,
   } = useInvoicesPage();
 
+  // eslint wants these used (we’ll plug into header later)
+  void confirmedCount;
+  void waitingCount;
+  void highRiskCount;
+
   /* =========================
      API health
   ========================= */

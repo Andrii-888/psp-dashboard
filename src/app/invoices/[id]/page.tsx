@@ -14,16 +14,24 @@ import { BlockchainCard } from "@/components/invoice-details/BlockchainCard";
 import { WebhooksCard } from "@/components/invoice-details/WebhooksCard";
 import { OperatorActionsCard } from "@/components/invoice-details/OperatorActionsCard";
 
+type InvoiceRouteParams = {
+  id?: string | string[];
+};
+
 export default function InvoiceDetailsPage() {
   const router = useRouter();
-  const params = useParams();
+
+  // ✅ без any
+  const params = useParams<InvoiceRouteParams>();
 
   const invoiceId = useMemo(() => {
-    const idParam = (params as any)?.id;
+    const idParam = params?.id;
+
     if (typeof idParam === "string") return idParam;
     if (Array.isArray(idParam)) return idParam[0] ?? null;
+
     return null;
-  }, [params]);
+  }, [params?.id]);
 
   const {
     invoice,

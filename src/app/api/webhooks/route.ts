@@ -9,7 +9,6 @@ type StoredWebhook = {
 };
 
 declare global {
-  // eslint-disable-next-line no-var
   var __WEBHOOKS_STORE__: StoredWebhook[] | undefined;
 }
 

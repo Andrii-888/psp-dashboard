@@ -39,13 +39,14 @@ interface UseInvoiceDetailsResult {
   handleExpire: () => Promise<void>;
 }
 
-function shouldPollInvoice(inv: Invoice | null) {
-  if (!inv) return false;
-
-  const isOpen = inv.status === "waiting";
-
-  const hasTx = !!inv.txHash && inv.txHash.trim().length > 0;
-  const amlPending = hasTx && inv.amlStatus === null;
+function shouldPollInvoice(args: {
+  status?: Invoice["status"] | null;
+  txHash?: string | null;
+  amlStatus?: Invoice["amlStatus"] | null;
+}) {
+  const isOpen = args.status === "waiting";
+  const hasTx = Boolean(args.txHash?.trim());
+  const amlPending = hasTx && args.amlStatus === null;
 
   // ✅ poll пока invoice открыт ИЛИ пока ждём AML после txHash
   return isOpen || amlPending;
@@ -66,10 +67,10 @@ export function useInvoiceDetails(
     null
   );
 
-  // ✅ храним txHash, для которого уже запускали AML (auto/manual)
+  // ✅ txHash, для которого мы уже запускали AML (auto/manual)
   const lastAutoAmlTxRef = useRef<string | null>(null);
 
-  // =============== LOAD INVOICE + WEBHOOKS (первичная загрузка) =================
+  // ================= LOAD INVOICE + WEBHOOKS (первичная загрузка) =================
   useEffect(() => {
     let mounted = true;
 
@@ -83,23 +84,22 @@ export function useInvoiceDetails(
       };
     }
 
-    async function load(currentId: string) {
+    (async () => {
       try {
         setLoading(true);
         setError(null);
 
         const [inv, wh] = await Promise.all([
-          fetchInvoice(currentId),
-          fetchInvoiceWebhooks(currentId),
+          fetchInvoice(invoiceId),
+          fetchInvoiceWebhooks(invoiceId),
         ]);
 
         if (!mounted) return;
+
         setInvoice(inv);
         setWebhooks(wh);
 
-        // ✅ ВАЖНО:
-        // если AML уже есть — считаем "уже делали" и запоминаем txHash
-        // если AML ещё нет — оставляем null, чтобы авто-AML мог сработать
+        // ✅ если AML уже есть — считаем "уже делали" и запоминаем txHash
         const tx = inv?.txHash?.trim() ? inv.txHash.trim() : null;
         lastAutoAmlTxRef.current = inv.amlStatus !== null && tx ? tx : null;
       } catch (err: unknown) {
@@ -111,19 +111,22 @@ export function useInvoiceDetails(
         if (!mounted) return;
         setLoading(false);
       }
-    }
-
-    load(invoiceId);
+    })();
 
     return () => {
       mounted = false;
     };
   }, [invoiceId]);
 
-  // =============== AUTO-POLL ИНВОЙСА =================
+  // ================= AUTO-POLL INVOICE =================
   useEffect(() => {
     if (!invoiceId) return;
-    if (!shouldPollInvoice(invoice)) return;
+
+    const status = invoice?.status ?? null;
+    const txHash = invoice?.txHash ?? null;
+    const amlStatus = invoice?.amlStatus ?? null;
+
+    if (!shouldPollInvoice({ status, txHash, amlStatus })) return;
 
     let mounted = true;
     const currentId = invoiceId;
@@ -144,14 +147,18 @@ export function useInvoiceDetails(
     };
   }, [invoiceId, invoice?.status, invoice?.txHash, invoice?.amlStatus]);
 
-  // =============== AUTO AML (как у топов): txHash появился -> AML запускаем 1 раз =================
+  // ================= AUTO AML: txHash появился -> AML запускаем 1 раз =================
   useEffect(() => {
     if (!invoiceId) return;
-    if (!invoice) return;
 
-    const tx = invoice.txHash?.trim() ? invoice.txHash.trim() : null;
-    const hasTx = !!tx;
-    const amlMissing = invoice.amlStatus === null;
+    const invId = invoice?.id ?? null;
+    const tx = invoice?.txHash?.trim() ? invoice.txHash.trim() : null;
+    const amlStatus = invoice?.amlStatus ?? null;
+
+    if (!invId) return;
+
+    const hasTx = Boolean(tx);
+    const amlMissing = amlStatus === null;
 
     if (!hasTx || !amlMissing) return;
     if (amlLoading) return;
@@ -169,7 +176,7 @@ export function useInvoiceDetails(
         // фиксируем сразу, чтобы не было дублей из-за polling
         lastAutoAmlTxRef.current = tx;
 
-        const updated = await runInvoiceAmlCheck(invoice.id);
+        const updated = await runInvoiceAmlCheck(invId);
         if (cancelled) return;
         setInvoice(updated);
       } catch (err: unknown) {
@@ -212,6 +219,7 @@ export function useInvoiceDetails(
   // ================= DISPATCH WEBHOOKS =================
   async function handleDispatchWebhooks() {
     if (!invoiceId) return;
+
     try {
       setDispatching(true);
       setWebhookInfo(null);
@@ -229,9 +237,9 @@ export function useInvoiceDetails(
     }
   }
 
-  // ================= AML CHECK (ручной запуск) =================
+  // ================= AML CHECK (manual) =================
   async function handleRunAml() {
-    if (!invoiceId || !invoice) return;
+    if (!invoiceId || !invoice?.id) return;
 
     try {
       setAmlLoading(true);

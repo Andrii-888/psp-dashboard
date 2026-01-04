@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type ReloadFn = (opts?: { silent?: boolean }) => Promise<void>;
 
@@ -19,6 +19,18 @@ type UseLiveInvoicesResult = {
   toggleSound: () => void;
 };
 
+function getAudioContextCtor(): (new () => AudioContext) | null {
+  if (typeof window === "undefined") return null;
+
+  // Safari: webkitAudioContext
+  const w = window as unknown as {
+    AudioContext?: typeof AudioContext;
+    webkitAudioContext?: typeof AudioContext;
+  };
+
+  return w.AudioContext ?? w.webkitAudioContext ?? null;
+}
+
 export function useLiveInvoices({
   invoices,
   reload,
@@ -27,7 +39,7 @@ export function useLiveInvoices({
   resetKey,
   onNewInvoices,
 }: UseLiveInvoicesParams): UseLiveInvoicesResult {
-  const [liveOn] = useState(true);
+  const liveOn = true;
 
   const [soundOn, setSoundOn] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -35,17 +47,14 @@ export function useLiveInvoices({
   const inFlightRef = useRef(false);
   const seenIdsRef = useRef<Set<string> | null>(null);
 
-  function ensureAudioContext(): AudioContext | null {
-    if (typeof window === "undefined") return null;
-    const AC = (window.AudioContext || (window as any).webkitAudioContext) as
-      | typeof AudioContext
-      | undefined;
+  const ensureAudioContext = useCallback((): AudioContext | null => {
+    const AC = getAudioContextCtor();
     if (!AC) return null;
     if (!audioCtxRef.current) audioCtxRef.current = new AC();
     return audioCtxRef.current;
-  }
+  }, []);
 
-  async function unlockAudio() {
+  const unlockAudio = useCallback(async () => {
     const ctx = ensureAudioContext();
     if (!ctx) return;
     if (ctx.state === "suspended") {
@@ -55,9 +64,9 @@ export function useLiveInvoices({
         // ignore
       }
     }
-  }
+  }, [ensureAudioContext]);
 
-  function playPing() {
+  const playPing = useCallback(() => {
     const ctx = ensureAudioContext();
     if (!ctx) return;
     if (ctx.state === "suspended") return;
@@ -87,13 +96,15 @@ export function useLiveInvoices({
     osc2.start(now);
     osc1.stop(now + 0.19);
     osc2.stop(now + 0.19);
-  }
+  }, [ensureAudioContext]);
 
-  function toggleSound() {
-    const next = !soundOn;
-    setSoundOn(next);
-    if (next) void unlockAudio();
-  }
+  const toggleSound = useCallback(() => {
+    setSoundOn((prev) => {
+      const next = !prev;
+      if (next) void unlockAudio();
+      return next;
+    });
+  }, [unlockAudio]);
 
   // ✅ при смене фильтров — сбросить baseline (чтобы не было “ложных новых”)
   useEffect(() => {
@@ -158,7 +169,7 @@ export function useLiveInvoices({
       if (soundOn) playPing();
       onNewInvoices?.(newCount);
     }
-  }, [invoices, soundOn, onNewInvoices]);
+  }, [invoices, soundOn, onNewInvoices, playPing]);
 
   return { liveOn, soundOn, toggleSound };
 }

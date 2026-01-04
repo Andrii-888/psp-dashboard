@@ -3,10 +3,32 @@
 const RAW_BASE = process.env.NEXT_PUBLIC_PSP_API_URL ?? "";
 const API_BASE = RAW_BASE.trim().replace(/\/+$/, "");
 
+// ===================== TYPES =====================
+
 export type InvoiceStatus = "waiting" | "confirmed" | "expired" | "rejected";
 
 export type AmlStatus = "clean" | "warning" | "risky" | "blocked" | null;
 export type AssetStatus = "clean" | "suspicious" | "blocked" | null;
+
+// ✅ Compliance / decision types (exported)
+export type DecisionStatus = "approve" | "hold" | "reject" | null;
+export type SanctionsStatus = "clear" | "hit" | null;
+
+export interface SanctionsResult {
+  status: SanctionsStatus;
+  provider?: string | null; // "OFAC" | "EU" | "Internal" | "Mock"
+  reasonCode?: string | null; // e.g. "OFAC_SDN_MATCH"
+  details?: string | null; // short human-readable summary
+  checkedAt?: string | null;
+}
+
+export interface OperatorDecision {
+  status: DecisionStatus;
+  reasonCode?: string | null; // e.g. "TIER2_LARGE_AMOUNT"
+  comment?: string | null; // required for hold/reject
+  decidedBy?: string | null; // operator email/name
+  decidedAt?: string | null;
+}
 
 export interface Invoice {
   id: string;
@@ -26,6 +48,14 @@ export interface Invoice {
   txHash: string | null;
   walletAddress: string | null;
 
+  // ✅ optional confirmations / txStatus if backend provides
+  txStatus?: string | null;
+  confirmations?: number | null;
+  requiredConfirmations?: number | null;
+
+  detectedAt?: string | null;
+  confirmedAt?: string | null;
+
   riskScore: number | null;
   amlStatus: AmlStatus;
 
@@ -33,6 +63,10 @@ export interface Invoice {
   assetStatus: AssetStatus;
 
   merchantId: string | null;
+
+  // ✅ presentation fields (dashboard MVP)
+  sanctions?: SanctionsResult | null;
+  decision?: OperatorDecision | null;
 }
 
 export interface WebhookEvent {
@@ -65,6 +99,16 @@ export interface AttachTransactionPayload {
   walletAddress?: string;
   txHash?: string;
 }
+
+export type CreateInvoicePayload = {
+  fiatAmount: number;
+  fiatCurrency: string; // "CHF" | "EUR" | ...
+  cryptoCurrency: string; // "USDT" | "BTC" | ...
+  network?: string; // "TRON" | "ETH" | "BSC" ...
+  merchantId?: string | null;
+};
+
+// ===================== ERRORS =====================
 
 /**
  * Унифицированная ошибка API (удобно для UI).
@@ -148,7 +192,6 @@ async function apiGet<T>(path: string): Promise<T> {
 
   const res = await fetch(url, {
     cache: "no-store",
-    // ✅ ВАЖНО: пока нет auth/cookies — не отправляем credentials
     credentials: "omit",
     headers: { Accept: "application/json" },
   });
@@ -195,6 +238,8 @@ async function apiPost<T>(
 
   return parseJsonSafely<T>(res);
 }
+
+// ===================== API =====================
 
 /**
  * ✅ Быстрый чек “backend жив?”
@@ -267,44 +312,8 @@ export async function attachInvoiceTransaction(
   return apiPost<Invoice>(`/invoices/${id}/tx`, payload);
 }
 
-export type CreateInvoicePayload = {
-  fiatAmount: number;
-  fiatCurrency: string; // "CHF" | "EUR" | ...
-  cryptoCurrency: string; // "USDT" | "BTC" | ...
-  network?: string; // "TRON" | "ETH" | "BSC" ...
-  merchantId?: string | null;
-};
-
 export async function createInvoice(
   payload: CreateInvoicePayload
 ): Promise<Invoice> {
   return apiPost<Invoice>("/invoices", payload, "POST");
-}
-
-export type DecisionStatus = "approve" | "hold" | "reject" | null;
-
-export type SanctionsStatus = "clear" | "hit" | null;
-
-export interface SanctionsResult {
-  status: SanctionsStatus;
-  provider?: string | null; // "OFAC" | "EU" | "Internal" | "Mock"
-  reasonCode?: string | null; // e.g. "OFAC_SDN_MATCH"
-  details?: string | null; // short human-readable summary
-  checkedAt?: string | null;
-}
-
-export interface OperatorDecision {
-  status: DecisionStatus;
-  reasonCode?: string | null; // e.g. "TIER2_LARGE_AMOUNT"
-  comment?: string | null; // required for hold/reject
-  decidedBy?: string | null; // operator email/name
-  decidedAt?: string | null;
-}
-
-export interface Invoice {
-  // ... всё что у тебя уже есть выше
-
-  // ✅ presentation fields (for dashboard MVP)
-  sanctions?: SanctionsResult | null;
-  decision?: OperatorDecision | null;
 }

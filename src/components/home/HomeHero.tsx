@@ -4,11 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { healthCheck } from "@/lib/pspApi";
 
-type HomeHeroProps = {
-  pspApiUrl?: string;
-};
-
-export function HomeHero({ pspApiUrl }: HomeHeroProps) {
+export function HomeHero() {
   const [apiOk, setApiOk] = useState<boolean | null>(null);
 
   useEffect(() => {

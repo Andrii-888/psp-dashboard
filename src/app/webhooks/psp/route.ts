@@ -1,104 +1,136 @@
-// src/app/webhooks/psp/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import crypto from "crypto";
 
-function timingSafeEqualHex(aHex: string, bHex: string) {
+export const runtime = "nodejs";
+
+type StoredWebhook = {
+  id: string;
+  ts: string;
+  method: string;
+  contentType: string | null;
+  body: string;
+};
+
+interface WebhookGlobal {
+  __WEBHOOKS_STORE__?: StoredWebhook[];
+}
+
+function getStore(): StoredWebhook[] {
+  const g = globalThis as unknown as WebhookGlobal;
+  if (!g.__WEBHOOKS_STORE__) g.__WEBHOOKS_STORE__ = [];
+  return g.__WEBHOOKS_STORE__;
+}
+
+function parsePspSignature(header: string): { t: number; v1: string } | null {
+  if (!header || typeof header !== "string") return null;
+
+  // accepts: "t=123, v1=abcd" (spaces optional)
+  const parts = header.split(",").map((p) => p.trim());
+  const map = new Map<string, string>();
+
+  for (const p of parts) {
+    const [k, ...rest] = p.split("=");
+    if (!k || rest.length === 0) continue;
+    map.set(k.trim(), rest.join("=").trim());
+  }
+
+  const tRaw = map.get("t");
+  const v1 = map.get("v1");
+
+  const t = tRaw ? Number(tRaw) : NaN;
+  if (!Number.isFinite(t) || t <= 0) return null;
+  if (!v1 || !/^[a-f0-9]{64}$/i.test(v1)) return null;
+
+  return { t: Math.floor(t), v1 };
+}
+
+function timingSafeEqualHex(aHex: string, bHex: string): boolean {
   const a = Buffer.from(aHex, "hex");
   const b = Buffer.from(bHex, "hex");
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
 }
 
-function parseSignatureHeader(header: string | null) {
-  // expected: "t=123, v1=abc..."
-  if (!header) return null;
-  const parts = header.split(",").map((p) => p.trim());
-  const t = parts.find((p) => p.startsWith("t="))?.slice(2);
-  const v1 = parts.find((p) => p.startsWith("v1="))?.slice(3);
-  if (!t || !v1) return null;
-  return { t, v1 };
+function verifyPspSignature(
+  rawBody: string,
+  signatureHeader: string,
+  secret: string
+): boolean {
+  const parsed = parsePspSignature(signatureHeader);
+  if (!parsed) return false;
+
+  const payloadToSign = `${parsed.t}.${rawBody}`;
+
+  const expectedV1 = crypto
+    .createHmac("sha256", secret)
+    .update(payloadToSign, "utf8")
+    .digest("hex");
+
+  return timingSafeEqualHex(parsed.v1, expectedV1);
 }
 
-function computeV1(secret: string, timestamp: string, bodyText: string) {
-  // payload to sign: `${timestamp}.${body}`
-  const signed = `${timestamp}.${bodyText}`;
-  return crypto.createHmac("sha256", secret).update(signed).digest("hex");
-}
-
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   const secret = (process.env.PSP_WEBHOOK_SECRET ?? "").trim();
   if (!secret) {
-    return NextResponse.json(
-      { ok: false, error: "Missing PSP_WEBHOOK_SECRET" },
-      { status: 500 }
-    );
+    return new NextResponse("Missing PSP_WEBHOOK_SECRET", { status: 500 });
   }
 
-  const bodyText = await req.text();
+  const raw = await req.text();
 
-  // Sender header: "psp-signature: t=..., v1=..."
-  const signature = req.headers.get("psp-signature");
-  const parsed = parseSignatureHeader(signature);
-  if (!parsed) {
+  // ✅ EXACT header name from psp-core: 'psp-signature'
+  const sig = req.headers.get("psp-signature");
+  if (!sig) {
     return NextResponse.json(
-      { ok: false, error: "Missing/invalid signature" },
+      { ok: false, error: "missing psp-signature" },
       { status: 401 }
     );
   }
 
-  // Some senders also send "psp-timestamp", but it's optional
-  const headerTimestamp = req.headers.get("psp-timestamp");
-  const timestamp =
-    headerTimestamp && headerTimestamp.trim()
-      ? headerTimestamp.trim()
-      : parsed.t;
-
-  // if both exist, they must match
-  if (
-    headerTimestamp &&
-    headerTimestamp.trim() &&
-    headerTimestamp.trim() !== parsed.t
-  ) {
-    return NextResponse.json(
-      { ok: false, error: "Timestamp mismatch" },
-      { status: 401 }
-    );
-  }
-
-  // Replay protection (±5 minutes)
-  const now = Math.floor(Date.now() / 1000);
-  const ts = Number(timestamp);
-  if (!Number.isFinite(ts) || Math.abs(now - ts) > 5 * 60) {
-    return NextResponse.json(
-      { ok: false, error: "Stale timestamp" },
-      { status: 401 }
-    );
-  }
-
-  const expectedV1 = computeV1(secret, timestamp, bodyText);
-  const ok = timingSafeEqualHex(expectedV1, parsed.v1);
-
+  const ok = verifyPspSignature(raw, sig, secret);
   if (!ok) {
     return NextResponse.json(
-      { ok: false, error: "Bad signature" },
+      { ok: false, error: "invalid signature" },
       { status: 401 }
     );
   }
 
-  // ✅ Optional: parse for nicer logs (не обязательно)
-  let parsedBody: any = null;
-  try {
-    parsedBody = JSON.parse(bodyText);
-  } catch {}
+  const item: StoredWebhook = {
+    id: `wh_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    ts: new Date().toISOString(),
+    method: "POST",
+    contentType: req.headers.get("content-type"),
+    body: raw,
+  };
 
-  console.log("[WEBHOOK RECEIVED]", {
-    at: new Date().toISOString(),
-    timestamp,
-    signature,
-    eventType: parsedBody?.eventType ?? null,
-    invoiceId: parsedBody?.invoiceId ?? null,
-    bodyPreview: bodyText.slice(0, 500),
+  const store = getStore();
+  store.unshift(item);
+  if (store.length > 100) store.length = 100;
+
+  console.log("[webhooks] received", {
+    ts: item.ts,
+    len: raw.length,
+    preview: raw.slice(0, 200),
   });
 
-  return NextResponse.json({ ok: true }, { status: 200 });
+  return NextResponse.json({ ok: true });
+}
+
+export async function GET() {
+  const store = getStore();
+  return NextResponse.json({
+    ok: true,
+    count: store.length,
+    items: store.map((x) => ({
+      id: x.id,
+      ts: x.ts,
+      contentType: x.contentType,
+      preview: x.body.slice(0, 300),
+    })),
+  });
+}
+
+export async function DELETE() {
+  const g = globalThis as unknown as WebhookGlobal;
+  g.__WEBHOOKS_STORE__ = [];
+  return NextResponse.json({ ok: true, cleared: true });
 }
