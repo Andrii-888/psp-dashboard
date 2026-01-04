@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+// src/app/api/psp/[...path]/route.ts
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -8,23 +9,23 @@ function mustEnv(name: string): string {
   return v;
 }
 
-type RouteContext = { params: { path?: string[] } };
+type RouteContext = { params: Promise<{ path: string[] }> };
 
-async function proxy(req: Request, ctx: RouteContext): Promise<Response> {
+async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
   const base = mustEnv("PSP_API_BASE").replace(/\/+$/, "");
   const merchantId = mustEnv("PSP_MERCHANT_ID");
   const apiKey = mustEnv("PSP_API_KEY");
 
-  const path = (ctx.params.path ?? []).join("/");
-  const url = new URL(req.url);
-  const target = `${base}/${path}${url.search}`;
+  const { path } = await ctx.params;
+  const pathname = (path ?? []).join("/");
+  const target = `${base}/${pathname}${req.nextUrl.search}`;
 
   const headers = new Headers(req.headers);
   headers.set("x-merchant-id", merchantId);
   headers.set("x-api-key", apiKey);
   headers.set("accept", "application/json");
 
-  // убираем то, что нельзя/не нужно проксировать
+  // не проксируем лишнее
   headers.delete("host");
   headers.delete("connection");
   headers.delete("content-length");
@@ -54,15 +55,15 @@ async function proxy(req: Request, ctx: RouteContext): Promise<Response> {
   });
 }
 
-export async function GET(req: Request, ctx: RouteContext) {
+export async function GET(req: NextRequest, ctx: RouteContext) {
   return proxy(req, ctx);
 }
-export async function POST(req: Request, ctx: RouteContext) {
+export async function POST(req: NextRequest, ctx: RouteContext) {
   return proxy(req, ctx);
 }
-export async function PATCH(req: Request, ctx: RouteContext) {
+export async function PATCH(req: NextRequest, ctx: RouteContext) {
   return proxy(req, ctx);
 }
-export async function DELETE(req: Request, ctx: RouteContext) {
+export async function DELETE(req: NextRequest, ctx: RouteContext) {
   return proxy(req, ctx);
 }
