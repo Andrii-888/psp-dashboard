@@ -190,10 +190,23 @@ async function apiGet<T>(path: string): Promise<T> {
   assertApiBase();
   const url = makeUrl(path);
 
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+  };
+
+  // Server-only merchant auth (Vercel env)
+  const merchantId = process.env.PSP_MERCHANT_ID?.trim();
+  const apiKey = process.env.PSP_API_KEY?.trim();
+
+  if (merchantId && apiKey) {
+    headers["x-merchant-id"] = merchantId;
+    headers["x-api-key"] = apiKey;
+  }
+
   const res = await fetch(url, {
     cache: "no-store",
     credentials: "omit",
-    headers: { Accept: "application/json" },
+    headers,
   });
 
   if (!res.ok) {
