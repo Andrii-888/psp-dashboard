@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 
 import { useInvoiceDetails } from "@/hooks/useInvoiceDetails";
@@ -20,18 +20,15 @@ type InvoiceRouteParams = {
 
 export default function InvoiceDetailsPage() {
   const router = useRouter();
-
-  // ✅ без any
   const params = useParams<InvoiceRouteParams>();
 
-  const invoiceId = useMemo(() => {
-    const idParam = params?.id;
-
-    if (typeof idParam === "string") return idParam;
-    if (Array.isArray(idParam)) return idParam[0] ?? null;
-
-    return null;
-  }, [params?.id]);
+  const idParam = params?.id;
+  const invoiceId =
+    typeof idParam === "string"
+      ? idParam
+      : Array.isArray(idParam)
+      ? idParam[0] ?? null
+      : null;
 
   const {
     invoice,
@@ -99,11 +96,13 @@ export default function InvoiceDetailsPage() {
             <ComplianceDecisionCard
               invoice={invoice}
               onDecide={async (payload) => {
-                // пока только пишем в консоль — следующим шагом сделаем audit + сохранение (demo store)
-                console.log("COMPLIANCE_DECISION", {
-                  invoiceId: invoice.id,
-                  ...payload,
-                });
+                // dev-only лог (без мусора в проде)
+                if (process.env.NODE_ENV !== "production") {
+                  console.log("COMPLIANCE_DECISION", {
+                    invoiceId: invoice.id,
+                    ...payload,
+                  });
+                }
               }}
             />
 

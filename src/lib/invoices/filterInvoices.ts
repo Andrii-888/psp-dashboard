@@ -13,9 +13,22 @@ export interface InvoiceFilterParams {
   merchantSearch: string;
 }
 
+function norm(s: string): string {
+  return s.trim().toLowerCase();
+}
+
+function parseAmount(raw: string): number | null {
+  const v = raw.trim();
+  if (!v) return null;
+  const n = Number(v.replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
 export function filterInvoices(
   data: Invoice[],
-  {
+  params: InvoiceFilterParams
+): Invoice[] {
+  const {
     statusFilter,
     amlFilter,
     search,
@@ -25,9 +38,18 @@ export function filterInvoices(
     txHashSearch,
     walletSearch,
     merchantSearch,
-  }: InvoiceFilterParams
-): Invoice[] {
+  } = params;
+
+  const searchQ = search ? norm(search) : "";
+  const txQ = txHashSearch ? norm(txHashSearch) : "";
+  const walletQ = walletSearch ? norm(walletSearch) : "";
+  const merchantQ = merchantSearch ? norm(merchantSearch) : "";
+
+  const min = parseAmount(minAmount);
+  const max = parseAmount(maxAmount);
+
   const now = new Date();
+
   const startOfToday = new Date(
     now.getFullYear(),
     now.getMonth(),
@@ -38,11 +60,18 @@ export function filterInvoices(
     0
   );
 
+  let dateFrom: Date | null = null;
+  if (datePreset === "today") {
+    dateFrom = startOfToday;
+  } else if (datePreset === "7d") {
+    dateFrom = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  } else if (datePreset === "30d") {
+    dateFrom = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  }
+
   return data.filter((inv) => {
     // 🔎 Поиск по ID
-    const matchSearch = search
-      ? inv.id.toLowerCase().includes(search.toLowerCase())
-      : true;
+    const matchSearch = searchQ ? inv.id.toLowerCase().includes(searchQ) : true;
 
     // 🟢 Статус
     const matchStatus =
@@ -58,59 +87,23 @@ export function filterInvoices(
 
     // 💰 Сумма
     let matchAmount = true;
-
-    const min = minAmount ? Number(minAmount.replace(",", ".")) : undefined;
-    const max = maxAmount ? Number(maxAmount.replace(",", ".")) : undefined;
-
-    if (typeof min === "number" && !Number.isNaN(min)) {
-      if (inv.fiatAmount < min) matchAmount = false;
-    }
-
-    if (typeof max === "number" && !Number.isNaN(max)) {
-      if (inv.fiatAmount > max) matchAmount = false;
-    }
+    if (min !== null && inv.fiatAmount < min) matchAmount = false;
+    if (max !== null && inv.fiatAmount > max) matchAmount = false;
 
     // 📆 Дата
-    let matchDate = true;
-    const createdAt = new Date(inv.createdAt);
-
-    switch (datePreset) {
-      case "today": {
-        matchDate = createdAt >= startOfToday;
-        break;
-      }
-      case "7d": {
-        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        matchDate = createdAt >= sevenDaysAgo;
-        break;
-      }
-      case "30d": {
-        const thirtyDaysAgo = new Date(
-          now.getTime() - 30 * 24 * 60 * 60 * 1000
-        );
-        matchDate = createdAt >= thirtyDaysAgo;
-        break;
-      }
-      case "all":
-      default:
-        matchDate = true;
-    }
+    const matchDate = dateFrom ? new Date(inv.createdAt) >= dateFrom : true;
 
     // 🔗 txHash / wallet / merchantId
-    const matchTxHash = txHashSearch
-      ? (inv.txHash ?? "").toLowerCase().includes(txHashSearch.toLowerCase())
+    const matchTxHash = txQ
+      ? (inv.txHash ?? "").toLowerCase().includes(txQ)
       : true;
 
-    const matchWallet = walletSearch
-      ? (inv.walletAddress ?? "")
-          .toLowerCase()
-          .includes(walletSearch.toLowerCase())
+    const matchWallet = walletQ
+      ? (inv.walletAddress ?? "").toLowerCase().includes(walletQ)
       : true;
 
-    const matchMerchant = merchantSearch
-      ? (inv.merchantId ?? "")
-          .toLowerCase()
-          .includes(merchantSearch.toLowerCase())
+    const matchMerchant = merchantQ
+      ? (inv.merchantId ?? "").toLowerCase().includes(merchantQ)
       : true;
 
     return (

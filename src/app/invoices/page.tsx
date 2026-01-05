@@ -96,7 +96,8 @@ export default function InvoicesPage() {
   }
 
   /* =========================
-     Live invoices (polling + sound)
+     Live invoices (detect + sound)
+     (polling is inside useInvoicesPage)
   ========================= */
   const resetKey = [
     statusFilter,
@@ -112,8 +113,7 @@ export default function InvoicesPage() {
 
   const { liveOn, soundOn, toggleSound } = useLiveInvoices({
     invoices,
-    reload,
-    intervalMs: 3000,
+    reload, // ✅ ОБЯЗАТЕЛЬНО
     resetKey,
     onNewInvoices: (count) => {
       pushToast(

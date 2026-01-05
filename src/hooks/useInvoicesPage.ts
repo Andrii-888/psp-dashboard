@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchInvoices, type Invoice } from "@/lib/pspApi";
+import {
+  filterInvoices,
+  type InvoiceFilterParams,
+} from "@/lib/invoices/filterInvoices";
 
 export type DatePreset = "all" | "today" | "7d" | "30d";
 
@@ -50,16 +54,7 @@ interface UseInvoicesPageResult {
   lastUpdatedAt: Date | null;
 }
 
-function normalize(s: string) {
-  return s.trim().toLowerCase();
-}
-
-function parseNumberInput(value: string): number | null {
-  const v = value.trim();
-  if (!v) return null;
-  const n = Number(v.replace(",", "."));
-  return Number.isFinite(n) ? n : null;
-}
+const POLL_INTERVAL_MS = 3000;
 
 // ✅ стабильный fingerprint (без sort; предполагаем stable order от API)
 function fingerprint(invoices: Invoice[]): string {
@@ -120,8 +115,19 @@ export function useInvoicesPage(): UseInvoicesPageResult {
   // ✅ хранит последний fingerprint, чтобы не менять state без причины
   const lastFpRef = useRef<string>("");
 
+  // ✅ защита от параллельных reload (polling + manual)
+  const inFlightRef = useRef(false);
+
+  // ✅ пометка что первый load уже был (после него включаем polling)
+  const didInitialLoadRef = useRef(false);
+
   const reload = useCallback(async (opts?: ReloadOptions) => {
     const silent = opts?.silent === true;
+
+    // если уже идёт запрос — не запускаем второй
+    if (inFlightRef.current) return;
+
+    inFlightRef.current = true;
 
     try {
       if (!silent) {
@@ -133,7 +139,6 @@ export function useInvoicesPage(): UseInvoicesPageResult {
       const next = Array.isArray(data) ? data : [];
       const nextFp = fingerprint(next);
 
-      // ✅ если ничего не изменилось — НЕ трогаем state (и не дергаем UI)
       if (nextFp === lastFpRef.current) {
         return;
       }
@@ -143,117 +148,71 @@ export function useInvoicesPage(): UseInvoicesPageResult {
       setLastUpdatedAt(new Date());
       if (!silent) setError(null);
     } catch (err: unknown) {
-      // ❗️важно: на silent polling не “ломаем UI” ошибкой
       if (!silent) {
         const message =
           err instanceof Error ? err.message : "Failed to load invoices";
         setError(message);
       }
     } finally {
+      inFlightRef.current = false;
       if (!silent) setLoading(false);
     }
   }, []);
 
   // ✅ initial load (normal, с loading)
   useEffect(() => {
-    void reload({ silent: false });
+    let cancelled = false;
+
+    (async () => {
+      await reload({ silent: false });
+      if (!cancelled) didInitialLoadRef.current = true;
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [reload]);
 
-  // ✅ 2) Фильтруем локально
-  const invoices = useMemo(() => {
-    const q = normalize(search);
-    const qTx = normalize(txHashSearch);
-    const qWallet = normalize(walletSearch);
-    const qMerchant = normalize(merchantSearch);
+  // ✅ polling: каждые 3 секунды, silently
+  useEffect(() => {
+    if (!didInitialLoadRef.current) return;
 
-    const min = parseNumberInput(minAmount);
-    const max = parseNumberInput(maxAmount);
+    const id = setInterval(() => {
+      void reload({ silent: true });
+    }, POLL_INTERVAL_MS);
 
-    const now = new Date();
-    const startOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      0,
-      0,
-      0,
-      0
-    );
+    return () => clearInterval(id);
+  }, [reload]);
 
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const filterParams: InvoiceFilterParams = useMemo(
+    () => ({
+      statusFilter,
+      amlFilter,
+      search,
+      minAmount,
+      maxAmount,
+      datePreset,
+      txHashSearch,
+      walletSearch,
+      merchantSearch,
+    }),
+    [
+      statusFilter,
+      amlFilter,
+      search,
+      minAmount,
+      maxAmount,
+      datePreset,
+      txHashSearch,
+      walletSearch,
+      merchantSearch,
+    ]
+  );
 
-    return allInvoices.filter((inv) => {
-      const matchSearch = q ? normalize(inv.id).includes(q) : true;
-
-      const matchStatus =
-        statusFilter === "all" ? true : inv.status === statusFilter;
-
-      const matchAml =
-        amlFilter === "all"
-          ? true
-          : amlFilter === "none"
-          ? inv.amlStatus == null
-          : inv.amlStatus === amlFilter;
-
-      let matchAmount = true;
-      if (min !== null && inv.fiatAmount < min) matchAmount = false;
-      if (max !== null && inv.fiatAmount > max) matchAmount = false;
-
-      let matchDate = true;
-      const createdAt = new Date(inv.createdAt);
-      if (!Number.isNaN(createdAt.getTime())) {
-        switch (datePreset) {
-          case "today":
-            matchDate = createdAt >= startOfToday;
-            break;
-          case "7d":
-            matchDate = createdAt >= sevenDaysAgo;
-            break;
-          case "30d":
-            matchDate = createdAt >= thirtyDaysAgo;
-            break;
-          case "all":
-          default:
-            matchDate = true;
-        }
-      }
-
-      const matchTxHash = qTx
-        ? normalize(inv.txHash ?? "").includes(qTx)
-        : true;
-
-      const matchWallet = qWallet
-        ? normalize(inv.walletAddress ?? "").includes(qWallet)
-        : true;
-
-      const matchMerchant = qMerchant
-        ? normalize(inv.merchantId ?? "").includes(qMerchant)
-        : true;
-
-      return (
-        matchSearch &&
-        matchStatus &&
-        matchAml &&
-        matchAmount &&
-        matchDate &&
-        matchTxHash &&
-        matchWallet &&
-        matchMerchant
-      );
-    });
-  }, [
-    allInvoices,
-    statusFilter,
-    amlFilter,
-    search,
-    minAmount,
-    maxAmount,
-    datePreset,
-    txHashSearch,
-    walletSearch,
-    merchantSearch,
-  ]);
+  const invoices = useMemo(
+    () => filterInvoices(allInvoices, filterParams),
+    [allInvoices, filterParams]
+  );
 
   const totalCount = invoices.length;
   const confirmedCount = invoices.filter(

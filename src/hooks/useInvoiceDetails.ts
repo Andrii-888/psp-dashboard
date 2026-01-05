@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   fetchInvoice,
@@ -27,6 +27,7 @@ interface UseInvoiceDetailsResult {
   dispatching: boolean;
   amlLoading: boolean;
   savingTx: boolean;
+  actionLoading: boolean;
   error: string | null;
   webhookInfo: WebhookDispatchResult | null;
 
@@ -48,8 +49,13 @@ function shouldPollInvoice(args: {
   const hasTx = Boolean(args.txHash?.trim());
   const amlPending = hasTx && args.amlStatus === null;
 
-  // ✅ poll пока invoice открыт ИЛИ пока ждём AML после txHash
+  // poll пока invoice открыт ИЛИ пока ждём AML после txHash
   return isOpen || amlPending;
+}
+
+function normalizeTx(tx: string | null | undefined): string | null {
+  const t = tx?.trim();
+  return t ? t : null;
 }
 
 export function useInvoiceDetails(
@@ -58,29 +64,62 @@ export function useInvoiceDetails(
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [webhooks, setWebhooks] = useState<WebhookEvent[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [webhooksLoading, setWebhooksLoading] = useState(false);
   const [dispatching, setDispatching] = useState(false);
+
   const [amlLoading, setAmlLoading] = useState(false);
   const [savingTx, setSavingTx] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const [webhookInfo, setWebhookInfo] = useState<WebhookDispatchResult | null>(
     null
   );
 
-  // ✅ txHash, для которого мы уже запускали AML (auto/manual)
+  // txHash, для которого мы уже запускали AML (auto/manual)
   const lastAutoAmlTxRef = useRef<string | null>(null);
+
+  // ✅ глобальная защита от гонок: если выполняется действие — polling не перетирает invoice
+  const isBusy = useMemo(() => {
+    return (
+      loading ||
+      webhooksLoading ||
+      dispatching ||
+      amlLoading ||
+      savingTx ||
+      actionLoading
+    );
+  }, [
+    loading,
+    webhooksLoading,
+    dispatching,
+    amlLoading,
+    savingTx,
+    actionLoading,
+  ]);
+
+  // ================= RESET ON INVOICE CHANGE =================
+  useEffect(() => {
+    // при смене invoiceId сбрасываем transient-состояния
+    setError(null);
+    setWebhookInfo(null);
+    lastAutoAmlTxRef.current = null;
+  }, [invoiceId]);
 
   // ================= LOAD INVOICE + WEBHOOKS (первичная загрузка) =================
   useEffect(() => {
-    let mounted = true;
+    let cancelled = false;
 
     if (!invoiceId) {
       setInvoice(null);
       setWebhooks([]);
+      setError(null);
+      setWebhookInfo(null);
       setLoading(false);
       lastAutoAmlTxRef.current = null;
       return () => {
-        mounted = false;
+        cancelled = true;
       };
     }
 
@@ -88,33 +127,33 @@ export function useInvoiceDetails(
       try {
         setLoading(true);
         setError(null);
+        setWebhookInfo(null);
 
         const [inv, wh] = await Promise.all([
           fetchInvoice(invoiceId),
           fetchInvoiceWebhooks(invoiceId),
         ]);
 
-        if (!mounted) return;
+        if (cancelled) return;
 
         setInvoice(inv);
         setWebhooks(wh);
 
-        // ✅ если AML уже есть — считаем "уже делали" и запоминаем txHash
-        const tx = inv?.txHash?.trim() ? inv.txHash.trim() : null;
+        const tx = normalizeTx(inv?.txHash ?? null);
         lastAutoAmlTxRef.current = inv.amlStatus !== null && tx ? tx : null;
       } catch (err: unknown) {
-        if (!mounted) return;
+        if (cancelled) return;
         const message =
           err instanceof Error ? err.message : "Failed to load invoice";
         setError(message);
       } finally {
-        if (!mounted) return;
+        if (cancelled) return;
         setLoading(false);
       }
     })();
 
     return () => {
-      mounted = false;
+      cancelled = true;
     };
   }, [invoiceId]);
 
@@ -128,31 +167,41 @@ export function useInvoiceDetails(
 
     if (!shouldPollInvoice({ status, txHash, amlStatus })) return;
 
-    let mounted = true;
+    // ✅ пока идёт действие — polling не запускаем, чтобы не перетирать invoice в UI
+    if (isBusy) return;
+
+    let cancelled = false;
     const currentId = invoiceId;
 
-    const intervalId = setInterval(async () => {
+    const tick = async () => {
       try {
         const latest = await fetchInvoice(currentId);
-        if (!mounted) return;
+        if (cancelled) return;
         setInvoice(latest);
       } catch {
         // тихо игнорируем временные сетевые ошибки
       }
+    };
+
+    // сразу один тик, потом интервал
+    void tick();
+
+    const intervalId = setInterval(() => {
+      void tick();
     }, POLL_INTERVAL_MS);
 
     return () => {
-      mounted = false;
+      cancelled = true;
       clearInterval(intervalId);
     };
-  }, [invoiceId, invoice?.status, invoice?.txHash, invoice?.amlStatus]);
+  }, [invoiceId, invoice?.status, invoice?.txHash, invoice?.amlStatus, isBusy]);
 
   // ================= AUTO AML: txHash появился -> AML запускаем 1 раз =================
   useEffect(() => {
     if (!invoiceId) return;
 
     const invId = invoice?.id ?? null;
-    const tx = invoice?.txHash?.trim() ? invoice.txHash.trim() : null;
+    const tx = normalizeTx(invoice?.txHash ?? null);
     const amlStatus = invoice?.amlStatus ?? null;
 
     if (!invId) return;
@@ -162,8 +211,9 @@ export function useInvoiceDetails(
 
     if (!hasTx || !amlMissing) return;
     if (amlLoading) return;
+    if (actionLoading || savingTx || dispatching) return; // ✅ не мешаем операциям
 
-    // если уже запускали авто-AML для этого txHash — не повторяем
+    // уже запускали авто-AML для этого txHash — не повторяем
     if (lastAutoAmlTxRef.current === tx) return;
 
     let cancelled = false;
@@ -197,7 +247,16 @@ export function useInvoiceDetails(
     return () => {
       cancelled = true;
     };
-  }, [invoiceId, invoice?.id, invoice?.txHash, invoice?.amlStatus, amlLoading]);
+  }, [
+    invoiceId,
+    invoice?.id,
+    invoice?.txHash,
+    invoice?.amlStatus,
+    amlLoading,
+    actionLoading,
+    savingTx,
+    dispatching,
+  ]);
 
   // ================= RELOAD WEBHOOKS =================
   async function reloadWebhooks() {
@@ -205,6 +264,7 @@ export function useInvoiceDetails(
 
     try {
       setWebhooksLoading(true);
+      setError(null);
       const wh = await fetchInvoiceWebhooks(invoiceId);
       setWebhooks(wh);
     } catch (err: unknown) {
@@ -219,9 +279,11 @@ export function useInvoiceDetails(
   // ================= DISPATCH WEBHOOKS =================
   async function handleDispatchWebhooks() {
     if (!invoiceId) return;
+    if (dispatching || actionLoading || savingTx) return;
 
     try {
       setDispatching(true);
+      setError(null);
       setWebhookInfo(null);
 
       const result = await dispatchInvoiceWebhooks(invoiceId);
@@ -240,6 +302,7 @@ export function useInvoiceDetails(
   // ================= AML CHECK (manual) =================
   async function handleRunAml() {
     if (!invoiceId || !invoice?.id) return;
+    if (amlLoading || actionLoading || savingTx || dispatching) return;
 
     try {
       setAmlLoading(true);
@@ -248,8 +311,7 @@ export function useInvoiceDetails(
       const updated = await runInvoiceAmlCheck(invoice.id);
       setInvoice(updated);
 
-      // ✅ после ручного AML — считаем выполненным для текущего txHash
-      const tx = updated?.txHash?.trim() ? updated.txHash.trim() : null;
+      const tx = normalizeTx(updated?.txHash ?? null);
       if (tx) lastAutoAmlTxRef.current = tx;
     } catch (err: unknown) {
       const message =
@@ -263,6 +325,7 @@ export function useInvoiceDetails(
   // ================= ATTACH BLOCKCHAIN TX =================
   async function handleAttachTx(payload: AttachTransactionPayload) {
     if (!invoiceId) return;
+    if (savingTx || actionLoading || dispatching) return;
 
     try {
       setSavingTx(true);
@@ -271,7 +334,7 @@ export function useInvoiceDetails(
       const updated = await attachInvoiceTransaction(invoiceId, payload);
       setInvoice(updated);
 
-      // ✅ новый txHash -> разрешаем авто-AML (сбрасываем "уже делали")
+      // новый txHash -> разрешаем авто-AML (сбрасываем "уже делали")
       lastAutoAmlTxRef.current = null;
     } catch (err: unknown) {
       const message =
@@ -285,7 +348,10 @@ export function useInvoiceDetails(
   // ================= OPERATOR ACTIONS =================
   async function handleConfirm() {
     if (!invoiceId) return;
+    if (actionLoading || savingTx || dispatching || amlLoading) return;
+
     try {
+      setActionLoading(true);
       setError(null);
       const updated = await confirmInvoice(invoiceId);
       setInvoice(updated);
@@ -293,12 +359,17 @@ export function useInvoiceDetails(
       const message =
         err instanceof Error ? err.message : "Failed to confirm invoice";
       setError(message);
+    } finally {
+      setActionLoading(false);
     }
   }
 
   async function handleReject() {
     if (!invoiceId) return;
+    if (actionLoading || savingTx || dispatching || amlLoading) return;
+
     try {
+      setActionLoading(true);
       setError(null);
       const updated = await rejectInvoice(invoiceId);
       setInvoice(updated);
@@ -306,12 +377,17 @@ export function useInvoiceDetails(
       const message =
         err instanceof Error ? err.message : "Failed to reject invoice";
       setError(message);
+    } finally {
+      setActionLoading(false);
     }
   }
 
   async function handleExpire() {
     if (!invoiceId) return;
+    if (actionLoading || savingTx || dispatching || amlLoading) return;
+
     try {
+      setActionLoading(true);
       setError(null);
       const updated = await expireInvoice(invoiceId);
       setInvoice(updated);
@@ -319,6 +395,8 @@ export function useInvoiceDetails(
       const message =
         err instanceof Error ? err.message : "Failed to expire invoice";
       setError(message);
+    } finally {
+      setActionLoading(false);
     }
   }
 
@@ -330,6 +408,7 @@ export function useInvoiceDetails(
     dispatching,
     amlLoading,
     savingTx,
+    actionLoading,
     error,
     webhookInfo,
     reloadWebhooks,

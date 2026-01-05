@@ -106,6 +106,21 @@ export function useLiveInvoices({
     });
   }, [unlockAudio]);
 
+  // ✅ cleanup: закрываем AudioContext (особенно важно в dev/hmr)
+  useEffect(() => {
+    return () => {
+      const ctx = audioCtxRef.current;
+      audioCtxRef.current = null;
+      if (ctx) {
+        try {
+          void ctx.close();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, []);
+
   // ✅ при смене фильтров — сбросить baseline (чтобы не было “ложных новых”)
   useEffect(() => {
     seenIdsRef.current = null;
@@ -115,10 +130,7 @@ export function useLiveInvoices({
   useEffect(() => {
     if (!liveOn) return;
 
-    let cancelled = false;
-
     async function tick() {
-      if (cancelled) return;
       if (typeof document !== "undefined" && document.hidden) return;
       if (creating) return;
       if (inFlightRef.current) return;
@@ -137,7 +149,6 @@ export function useLiveInvoices({
     void tick();
 
     return () => {
-      cancelled = true;
       clearInterval(id);
     };
   }, [liveOn, intervalMs, reload, creating]);

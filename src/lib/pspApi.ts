@@ -1,8 +1,5 @@
 // src/lib/pspApi.ts
 
-const RAW_BASE = process.env.NEXT_PUBLIC_PSP_API_URL ?? "";
-const API_BASE = RAW_BASE.trim().replace(/\/+$/, "");
-
 // ===================== TYPES =====================
 
 export type InvoiceStatus = "waiting" | "confirmed" | "expired" | "rejected";
@@ -16,17 +13,17 @@ export type SanctionsStatus = "clear" | "hit" | null;
 
 export interface SanctionsResult {
   status: SanctionsStatus;
-  provider?: string | null; // "OFAC" | "EU" | "Internal" | "Mock"
-  reasonCode?: string | null; // e.g. "OFAC_SDN_MATCH"
-  details?: string | null; // short human-readable summary
+  provider?: string | null;
+  reasonCode?: string | null;
+  details?: string | null;
   checkedAt?: string | null;
 }
 
 export interface OperatorDecision {
   status: DecisionStatus;
-  reasonCode?: string | null; // e.g. "TIER2_LARGE_AMOUNT"
-  comment?: string | null; // required for hold/reject
-  decidedBy?: string | null; // operator email/name
+  reasonCode?: string | null;
+  comment?: string | null;
+  decidedBy?: string | null;
   decidedAt?: string | null;
 }
 
@@ -48,7 +45,6 @@ export interface Invoice {
   txHash: string | null;
   walletAddress: string | null;
 
-  // ✅ optional confirmations / txStatus if backend provides
   txStatus?: string | null;
   confirmations?: number | null;
   requiredConfirmations?: number | null;
@@ -64,7 +60,6 @@ export interface Invoice {
 
   merchantId: string | null;
 
-  // ✅ presentation fields (dashboard MVP)
   sanctions?: SanctionsResult | null;
   decision?: OperatorDecision | null;
 }
@@ -102,17 +97,14 @@ export interface AttachTransactionPayload {
 
 export type CreateInvoicePayload = {
   fiatAmount: number;
-  fiatCurrency: string; // "CHF" | "EUR" | ...
-  cryptoCurrency: string; // "USDT" | "BTC" | ...
-  network?: string; // "TRON" | "ETH" | "BSC" ...
+  fiatCurrency: string;
+  cryptoCurrency: string;
+  network?: string;
   merchantId?: string | null;
 };
 
 // ===================== ERRORS =====================
 
-/**
- * Унифицированная ошибка API (удобно для UI).
- */
 export class PspApiError extends Error {
   status: number;
   url: string;
@@ -127,19 +119,6 @@ export class PspApiError extends Error {
     this.status = args.status;
     this.url = args.url;
     this.bodyText = args.bodyText;
-  }
-}
-
-function assertApiBase() {
-  if (!API_BASE) {
-    throw new Error(
-      "NEXT_PUBLIC_PSP_API_URL is not set. Set it in .env.local / Vercel and restart/redeploy."
-    );
-  }
-  if (!/^https?:\/\//i.test(API_BASE)) {
-    throw new Error(
-      `NEXT_PUBLIC_PSP_API_URL must start with http:// or https:// (got: "${API_BASE}")`
-    );
   }
 }
 
@@ -183,30 +162,17 @@ async function parseJsonSafely<T>(res: Response): Promise<T> {
 
 function makeUrl(path: string): string {
   const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${API_BASE}${normalized}`;
+  // всегда через прокси:
+  return `/api/psp${normalized}`;
 }
 
 async function apiGet<T>(path: string): Promise<T> {
-  assertApiBase();
   const url = makeUrl(path);
-
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-  };
-
-  // Server-only merchant auth (Vercel env)
-  const merchantId = process.env.PSP_MERCHANT_ID?.trim();
-  const apiKey = process.env.PSP_API_KEY?.trim();
-
-  if (merchantId && apiKey) {
-    headers["x-merchant-id"] = merchantId;
-    headers["x-api-key"] = apiKey;
-  }
 
   const res = await fetch(url, {
     cache: "no-store",
     credentials: "omit",
-    headers,
+    headers: { Accept: "application/json" },
   });
 
   if (!res.ok) {
@@ -226,23 +192,26 @@ async function apiPost<T>(
   body?: unknown,
   method: "POST" | "PATCH" = "POST"
 ): Promise<T> {
-  assertApiBase();
   const url = makeUrl(path);
+
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+  };
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
 
   const res = await fetch(url, {
     method,
     cache: "no-store",
     credentials: "omit",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: body ? JSON.stringify(body) : undefined,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
   if (!res.ok) {
     const text = await readBodySafely(res);
-    throw new PspApiError(`POST ${path} failed`, {
+    throw new PspApiError(`${method} ${path} failed`, {
       status: res.status,
       url,
       bodyText: text.slice(0, 400),
@@ -254,10 +223,6 @@ async function apiPost<T>(
 
 // ===================== API =====================
 
-/**
- * ✅ Быстрый чек “backend жив?”
- * Проверяем JSON endpoint (а не "/")
- */
 export async function healthCheck(): Promise<{ ok: true }> {
   await apiGet<unknown>("/invoices?limit=1&offset=0");
   return { ok: true };
@@ -287,42 +252,66 @@ export async function fetchInvoices(
 }
 
 export async function fetchInvoice(id: string): Promise<Invoice> {
-  return apiGet<Invoice>(`/invoices/${id}`);
+  return apiGet<Invoice>(`/invoices/${encodeURIComponent(id)}`);
 }
 
 export async function fetchInvoiceWebhooks(
   id: string
 ): Promise<WebhookEvent[]> {
-  return apiGet<WebhookEvent[]>(`/invoices/${id}/webhooks`);
+  return apiGet<WebhookEvent[]>(`/invoices/${encodeURIComponent(id)}/webhooks`);
 }
 
 export async function dispatchInvoiceWebhooks(
   id: string
 ): Promise<WebhookDispatchResult> {
-  return apiPost<WebhookDispatchResult>(`/invoices/${id}/webhooks/dispatch`);
+  return apiPost<WebhookDispatchResult>(
+    `/invoices/${encodeURIComponent(id)}/webhooks/dispatch`,
+    undefined,
+    "POST"
+  );
 }
 
 export async function runInvoiceAmlCheck(id: string): Promise<Invoice> {
-  return apiPost<Invoice>(`/invoices/${id}/aml/check`);
+  return apiPost<Invoice>(
+    `/invoices/${encodeURIComponent(id)}/aml/check`,
+    undefined,
+    "POST"
+  );
 }
 
 export async function confirmInvoice(id: string): Promise<Invoice> {
-  return apiPost<Invoice>(`/invoices/${id}/confirm`);
+  return apiPost<Invoice>(
+    `/invoices/${encodeURIComponent(id)}/confirm`,
+    undefined,
+    "POST"
+  );
 }
 
 export async function expireInvoice(id: string): Promise<Invoice> {
-  return apiPost<Invoice>(`/invoices/${id}/expire`);
+  return apiPost<Invoice>(
+    `/invoices/${encodeURIComponent(id)}/expire`,
+    undefined,
+    "POST"
+  );
 }
 
 export async function rejectInvoice(id: string): Promise<Invoice> {
-  return apiPost<Invoice>(`/invoices/${id}/reject`);
+  return apiPost<Invoice>(
+    `/invoices/${encodeURIComponent(id)}/reject`,
+    undefined,
+    "POST"
+  );
 }
 
 export async function attachInvoiceTransaction(
   id: string,
   payload: AttachTransactionPayload
 ): Promise<Invoice> {
-  return apiPost<Invoice>(`/invoices/${id}/tx`, payload);
+  return apiPost<Invoice>(
+    `/invoices/${encodeURIComponent(id)}/tx`,
+    payload,
+    "POST"
+  );
 }
 
 export async function createInvoice(
