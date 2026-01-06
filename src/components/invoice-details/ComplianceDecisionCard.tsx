@@ -176,7 +176,7 @@ export function ComplianceDecisionCard({ invoice, onDecide }: Props) {
               {suggested.reasonCode}
             </span>
           </span>
-          <span className="max-w-520px text-[11px] text-slate-500 md:text-right">
+          <span className="max-w-2xl text-xs text-slate-500 md:text-right">
             {suggested.summary}
           </span>
         </div>

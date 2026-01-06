@@ -93,7 +93,7 @@ export function WebhooksCard({
                   className="rounded-2xl bg-slate-900/60 text-slate-200 
                              shadow-[0_10px_30px_rgba(0,0,0,0.55)]"
                 >
-                  <td className="max-w-[200px] truncate px-2 py-2 font-mono">
+                  <td className="max-w-52 truncate px-2 py-2 font-mono">
                     {wh.id}
                   </td>
                   <td className="px-2 py-2">{wh.eventType}</td>

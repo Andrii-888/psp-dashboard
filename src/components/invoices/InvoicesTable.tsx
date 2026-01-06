@@ -98,7 +98,7 @@ export function InvoicesTable({
               className="group cursor-pointer rounded-2xl bg-slate-900/60 text-xs text-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-all hover:bg-slate-900/90 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
             >
               {/* ID */}
-              <td className="max-w-[260px] truncate px-3 py-3 font-mono text-[11px] text-slate-300">
+              <td className="max-w-xs truncate px-3 py-3 font-mono text-[11px] text-slate-300">
                 {inv.id}
               </td>
 
@@ -141,7 +141,7 @@ export function InvoicesTable({
                       {inv.network}
                     </span>
                     {inv.txHash && (
-                      <span className="max-w-[190px] truncate font-mono text-[10px] text-slate-400">
+                      <span className="max-w-48 truncate font-mono text-[10px] text-slate-400">
                         {inv.txHash}
                       </span>
                     )}
