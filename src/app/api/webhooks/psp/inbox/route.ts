@@ -1,47 +1,48 @@
 import { NextResponse } from "next/server";
-import { kv } from "@vercel/kv";
+import { inboxList, inboxMeta } from "@/lib/webhookInboxStore";
 
 export const runtime = "nodejs";
 
-type StoredWebhook = {
+type ListItem = {
   id: string;
   ts: string;
-  contentType: string | null;
-  body: string;
+  preview?: string;
 };
 
-const KV_LIST_KEY = "psp:webhooks:list";
-const KV_ITEM_PREFIX = "psp:webhooks:item:";
-const MAX_ITEMS = 100;
+type OkResponse = {
+  ok: true;
+  storage: "mem";
+  count: number;
+  max: number;
+  items: ListItem[];
+};
 
-export async function GET(req: Request) {
-  const token = req.headers.get("x-psp-inbox-token");
-  const expected = (process.env.PSP_INBOX_TOKEN ?? "").trim();
+type ErrResponse = { ok: false; error: "UNAUTHORIZED" };
 
-  if (!expected || token !== expected) {
+export async function GET(): Promise<NextResponse<OkResponse | ErrResponse>> {
+  // 🔒 dev-only guard
+  if (process.env.NODE_ENV !== "development") {
     return NextResponse.json(
-      { ok: false, error: "unauthorized" },
+      { ok: false, error: "UNAUTHORIZED" },
       { status: 401 }
     );
   }
 
-  const ids = await kv.lrange<string[]>(KV_LIST_KEY, 0, MAX_ITEMS - 1);
-  const keys = ids.map((id) => `${KV_ITEM_PREFIX}${id}`);
+  const meta = inboxMeta();
+  const items = inboxList();
 
-  const items = await kv.mget<(StoredWebhook | null)[]>(...keys);
-
-  const safeItems = items.filter((x): x is StoredWebhook =>
-    Boolean(x && typeof x === "object" && "id" in x)
+  return NextResponse.json(
+    {
+      ok: true,
+      storage: meta.storage,
+      count: meta.count,
+      max: meta.max,
+      items: items.map((x) => ({
+        id: x.id,
+        ts: x.ts,
+        preview: x.preview,
+      })),
+    },
+    { status: 200 }
   );
-
-  return NextResponse.json({
-    ok: true,
-    count: safeItems.length,
-    items: safeItems.map((x) => ({
-      id: x.id,
-      ts: x.ts,
-      contentType: x.contentType,
-      preview: x.body.slice(0, 220),
-    })),
-  });
 }
