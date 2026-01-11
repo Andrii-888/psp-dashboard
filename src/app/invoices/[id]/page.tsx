@@ -49,7 +49,7 @@ export default function InvoiceDetailsPage() {
     handleExpire,
   } = useInvoiceDetails(invoiceId);
 
-  // ✅ Умный back: если пришли со списка — вернёмся туда же
+  // ⬅️ Back logic
   const handleBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
@@ -58,12 +58,11 @@ export default function InvoiceDetailsPage() {
     router.push("/invoices");
   };
 
-  // ✅ Если invoiceId нет — уходим на список (без мигания)
+  // ⬅️ Guard: no id → list
   useEffect(() => {
     if (!invoiceId) router.replace("/invoices");
   }, [invoiceId, router]);
 
-  // пока router.replace происходит — ничего не рисуем
   if (!invoiceId) return null;
 
   return (
@@ -96,7 +95,6 @@ export default function InvoiceDetailsPage() {
             <ComplianceDecisionCard
               invoice={invoice}
               onDecide={async (payload) => {
-                // dev-only лог (без мусора в проде)
                 if (process.env.NODE_ENV !== "production") {
                   console.log("COMPLIANCE_DECISION", {
                     invoiceId: invoice.id,

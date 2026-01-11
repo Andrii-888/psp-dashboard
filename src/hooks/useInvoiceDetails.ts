@@ -1,6 +1,14 @@
+// src/hooks/useInvoiceDetails.ts
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+
+import type {
+  Invoice,
+  WebhookEvent,
+  WebhookDispatchResult,
+  AttachTransactionPayload,
+} from "@/lib/pspApi";
 
 import {
   fetchInvoice,
@@ -11,11 +19,7 @@ import {
   confirmInvoice,
   rejectInvoice,
   expireInvoice,
-  type Invoice,
-  type WebhookEvent,
-  type WebhookDispatchResult,
-  type AttachTransactionPayload,
-} from "@/lib/pspApi";
+} from "@/lib/pspApiInvoiceDetails";
 
 const POLL_INTERVAL_MS = 15000; // 15 секунд
 

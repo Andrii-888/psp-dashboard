@@ -93,15 +93,55 @@ export function OverviewCard({
 
           <div className="mt-1 text-[11px] text-slate-500">
             Payment page:{" "}
-            <a
-              href={invoice.paymentUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="break-all font-mono text-[11px] text-emerald-300 hover:underline"
-            >
-              {invoice.paymentUrl}
-            </a>
+            {invoice.paymentUrl ? (
+              <a
+                href={invoice.paymentUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="break-all font-mono text-[11px] text-emerald-300 hover:underline"
+              >
+                {invoice.paymentUrl}
+              </a>
+            ) : (
+              <span className="font-mono text-[11px] text-slate-500">—</span>
+            )}
           </div>
+
+          {/* ================= PAYMENT INSTRUCTIONS ================= */}
+          {invoice.pay ? (
+            <div className="mt-3 rounded-2xl bg-slate-900/60 p-3 ring-1 ring-slate-800/80">
+              <p className="text-[11px] uppercase text-slate-500">
+                Payment instructions
+              </p>
+
+              <div className="mt-2 space-y-1 text-[11px] text-slate-200">
+                <div>
+                  Network:{" "}
+                  <span className="font-mono text-slate-100">
+                    {invoice.pay.network}
+                  </span>
+                </div>
+
+                <div>
+                  Address:{" "}
+                  <span className="break-all font-mono text-slate-100">
+                    {invoice.pay.address}
+                  </span>
+                </div>
+
+                <div>
+                  Amount:{" "}
+                  <span className="font-mono text-slate-100">
+                    {invoice.pay.amount} {invoice.pay.currency}
+                  </span>
+                </div>
+
+                <div className="text-slate-400">
+                  Expires at: {formatDateTime(invoice.pay.expiresAt)}
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {/* RIGHT */}
@@ -131,7 +171,7 @@ export function OverviewCard({
           />
 
           {/* ✅ Running AML state (tx detected, result not yet stored) */}
-          {isScreeningPending && (
+          {isScreeningPending ? (
             <div className="mt-3 rounded-2xl bg-slate-900/60 p-3 ring-1 ring-slate-800/80">
               <p className="text-[11px] uppercase text-slate-500">
                 AML / KYT checks
@@ -143,7 +183,7 @@ export function OverviewCard({
                 Funds remain isolated until compliance result is recorded.
               </p>
             </div>
-          )}
+          ) : null}
 
           {/* 🔥 AML action */}
           <AmlActionButton
