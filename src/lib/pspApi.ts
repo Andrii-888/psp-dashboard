@@ -27,6 +27,19 @@ export interface OperatorDecision {
   decidedAt?: string | null;
 }
 
+// --- NEW: pay / fees / fx fields coming from PSP Core ---
+export type FeePayer = "merchant" | "customer" | null;
+
+export type Chain = "TRON" | "ETH" | (string & {});
+
+export type InvoicePay = {
+  address: string;
+  amount: string; // provider returns string (e.g. "56.915358")
+  currency: string; // e.g. "USDTTRC20"
+  network: Chain; // "TRON" | "ETH" (future-safe)
+  expiresAt: string | null;
+} | null;
+
 export interface Invoice {
   id: string;
   createdAt: string;
@@ -38,13 +51,28 @@ export interface Invoice {
   cryptoAmount: number;
   cryptoCurrency: string;
 
+  // fees (from PSP Core)
+  grossAmount?: number | null;
+  feeAmount?: number | null;
+  netAmount?: number | null;
+  feeBps?: number | null;
+  feePayer?: FeePayer;
+
   status: InvoiceStatus;
-  paymentUrl: string;
+  paymentUrl: string | null;
+
+  // provider payment instructions (NOWPayments etc.)
+  pay?: InvoicePay;
+
+  // FX
+  fxRate?: number | null;
+  fxPair?: string | null;
 
   network: string | null;
+
+  // tx
   txHash: string | null;
   walletAddress: string | null;
-
   txStatus?: string | null;
   confirmations?: number | null;
   requiredConfirmations?: number | null;
@@ -52,6 +80,7 @@ export interface Invoice {
   detectedAt?: string | null;
   confirmedAt?: string | null;
 
+  // AML
   riskScore: number | null;
   amlStatus: AmlStatus;
 
@@ -60,6 +89,14 @@ export interface Invoice {
 
   merchantId: string | null;
 
+  // decision (flat fields from PSP Core)
+  decisionStatus?: "none" | "approve" | "hold" | "reject" | null;
+  decisionReasonCode?: string | null;
+  decisionReasonText?: string | null;
+  decidedAt?: string | null;
+  decidedBy?: string | null;
+
+  // legacy/optional objects (if some endpoints return them)
   sanctions?: SanctionsResult | null;
   decision?: OperatorDecision | null;
 }
@@ -221,101 +258,117 @@ async function apiPost<T>(
   return parseJsonSafely<T>(res);
 }
 
-// ===================== API =====================
+// ===================== API (via /api/psp proxy) =====================
 
-export async function healthCheck(): Promise<{ ok: true }> {
-  await apiGet<unknown>("/invoices?limit=1&offset=0");
-  return { ok: true };
+export async function healthCheck(): Promise<{
+  ok: boolean;
+  service?: string;
+}> {
+  return apiGet<{ ok: boolean; service?: string }>("/health");
 }
 
-export async function fetchInvoices(
-  params?: FetchInvoicesParams
-): Promise<Invoice[]> {
-  let path = "/invoices";
-
-  if (params) {
-    const search = new URLSearchParams();
-
-    if (params.status) search.set("status", params.status);
-    if (params.from) search.set("from", params.from);
-    if (params.to) search.set("to", params.to);
-    if (typeof params.limit === "number")
-      search.set("limit", String(params.limit));
-    if (typeof params.offset === "number")
-      search.set("offset", String(params.offset));
-
-    const qs = search.toString();
-    if (qs) path += `?${qs}`;
+function toQuery(params: Record<string, string | number | undefined>): string {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined) continue;
+    sp.set(k, String(v));
   }
-
-  return apiGet<Invoice[]>(path);
+  const qs = sp.toString();
+  return qs ? `?${qs}` : "";
 }
 
-export async function fetchInvoice(id: string): Promise<Invoice> {
-  return apiGet<Invoice>(`/invoices/${encodeURIComponent(id)}`);
+export async function fetchInvoices(params?: FetchInvoicesParams): Promise<{
+  ok: boolean;
+  items: Invoice[];
+  total?: number;
+}> {
+  const qs = toQuery({
+    status: params?.status,
+    from: params?.from,
+    to: params?.to,
+    limit: params?.limit ?? 50,
+    offset: params?.offset ?? 0,
+  });
+
+  return apiGet<{ ok: boolean; items: Invoice[]; total?: number }>(
+    `/invoices${qs}`
+  );
+}
+
+export async function fetchInvoiceById(
+  invoiceId: string
+): Promise<{ ok: boolean; invoice: Invoice }> {
+  return apiGet<{ ok: boolean; invoice: Invoice }>(`/invoices/${invoiceId}`);
 }
 
 export async function fetchInvoiceWebhooks(
-  id: string
-): Promise<WebhookEvent[]> {
-  return apiGet<WebhookEvent[]>(`/invoices/${encodeURIComponent(id)}/webhooks`);
+  invoiceId: string
+): Promise<{ ok: boolean; items: WebhookEvent[] }> {
+  return apiGet<{ ok: boolean; items: WebhookEvent[] }>(
+    `/invoices/${invoiceId}/webhooks`
+  );
 }
 
 export async function dispatchInvoiceWebhooks(
-  id: string
-): Promise<WebhookDispatchResult> {
-  return apiPost<WebhookDispatchResult>(
-    `/invoices/${encodeURIComponent(id)}/webhooks/dispatch`,
-    undefined,
-    "POST"
+  invoiceId: string
+): Promise<{ ok: boolean; result: WebhookDispatchResult }> {
+  return apiPost<{ ok: boolean; result: WebhookDispatchResult }>(
+    `/invoices/${invoiceId}/webhooks/dispatch`,
+    {}
   );
 }
 
-export async function runInvoiceAmlCheck(id: string): Promise<Invoice> {
-  return apiPost<Invoice>(
-    `/invoices/${encodeURIComponent(id)}/aml/check`,
-    undefined,
-    "POST"
-  );
-}
-
-export async function confirmInvoice(id: string): Promise<Invoice> {
-  return apiPost<Invoice>(
-    `/invoices/${encodeURIComponent(id)}/confirm`,
-    undefined,
-    "POST"
-  );
-}
-
-export async function expireInvoice(id: string): Promise<Invoice> {
-  return apiPost<Invoice>(
-    `/invoices/${encodeURIComponent(id)}/expire`,
-    undefined,
-    "POST"
-  );
-}
-
-export async function rejectInvoice(id: string): Promise<Invoice> {
-  return apiPost<Invoice>(
-    `/invoices/${encodeURIComponent(id)}/reject`,
-    undefined,
-    "POST"
+export async function runInvoiceAml(
+  invoiceId: string
+): Promise<{ ok: boolean; invoice: Invoice }> {
+  return apiPost<{ ok: boolean; invoice: Invoice }>(
+    `/invoices/${invoiceId}/aml/run`,
+    {}
   );
 }
 
 export async function attachInvoiceTransaction(
-  id: string,
+  invoiceId: string,
   payload: AttachTransactionPayload
-): Promise<Invoice> {
-  return apiPost<Invoice>(
-    `/invoices/${encodeURIComponent(id)}/tx`,
+): Promise<{ ok: boolean; invoice: Invoice }> {
+  return apiPost<{ ok: boolean; invoice: Invoice }>(
+    `/invoices/${invoiceId}/tx/attach`,
     payload,
-    "POST"
+    "PATCH"
   );
 }
 
+export async function confirmInvoice(
+  invoiceId: string
+): Promise<{ ok: boolean; invoice: Invoice }> {
+  return apiPost<{ ok: boolean; invoice: Invoice }>(
+    `/invoices/${invoiceId}/tx/confirm`,
+    {}
+  );
+}
+
+export async function rejectInvoice(
+  invoiceId: string,
+  payload?: { reasonCode?: string; reasonText?: string }
+): Promise<{ ok: boolean; invoice: Invoice }> {
+  return apiPost<{ ok: boolean; invoice: Invoice }>(
+    `/invoices/${invoiceId}/reject`,
+    payload ?? {}
+  );
+}
+
+export async function expireInvoice(
+  invoiceId: string
+): Promise<{ ok: boolean; invoice: Invoice }> {
+  return apiPost<{ ok: boolean; invoice: Invoice }>(
+    `/invoices/${invoiceId}/expire`,
+    {}
+  );
+}
+
+// Optional: create invoice (если где-то в dashboard нужно)
 export async function createInvoice(
   payload: CreateInvoicePayload
-): Promise<Invoice> {
-  return apiPost<Invoice>("/invoices", payload, "POST");
+): Promise<{ ok: boolean; invoice: Invoice }> {
+  return apiPost<{ ok: boolean; invoice: Invoice }>(`/invoices`, payload);
 }

@@ -1,4 +1,3 @@
-// src/components/invoice-details/OperatorActionsCard.tsx
 "use client";
 
 import type { Invoice } from "@/lib/pspApi";
@@ -20,7 +19,6 @@ function getStatusLabel(status: Invoice["status"]): string {
       return "EXPIRED";
     case "rejected":
       return "REJECTED";
-
     default:
       console.warn("⚠️ Unknown invoice status received:", status);
       return String(status).toUpperCase();
@@ -48,9 +46,10 @@ export function OperatorActionsCard({
   onExpire,
   onReject,
 }: OperatorActionsCardProps) {
-  const isConfirmed = invoice.status === "confirmed";
-  const isExpired = invoice.status === "expired";
-  const isRejected = invoice.status === "rejected";
+  const isFinal =
+    invoice.status === "confirmed" ||
+    invoice.status === "expired" ||
+    invoice.status === "rejected";
 
   return (
     <section className="apple-card apple-card-content p-4 md:p-6">
@@ -82,7 +81,7 @@ export function OperatorActionsCard({
         <button
           type="button"
           onClick={onConfirm}
-          disabled={isConfirmed}
+          disabled={isFinal}
           className="inline-flex min-w-90px items-center justify-center rounded-full
                      border border-emerald-500/60 bg-emerald-500/10 px-4 py-1.5
                      text-[11px] font-medium text-emerald-100 shadow-sm
@@ -95,7 +94,7 @@ export function OperatorActionsCard({
         <button
           type="button"
           onClick={onExpire}
-          disabled={isExpired}
+          disabled={isFinal}
           className="inline-flex min-w-90px items-center justify-center rounded-full
                      border border-amber-500/60 bg-amber-500/10 px-4 py-1.5
                      text-[11px] font-medium text-amber-100 shadow-sm
@@ -108,7 +107,7 @@ export function OperatorActionsCard({
         <button
           type="button"
           onClick={onReject}
-          disabled={isRejected}
+          disabled={isFinal}
           className="inline-flex min-w-90px items-center justify-center rounded-full
                      border border-rose-500/70 bg-rose-500/12 px-4 py-1.5
                      text-[11px] font-medium text-rose-100 shadow-sm
