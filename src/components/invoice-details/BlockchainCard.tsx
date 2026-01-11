@@ -28,7 +28,6 @@ async function copyToClipboard(text: string): Promise<boolean> {
     return true;
   } catch {
     try {
-      // fallback
       const ta = document.createElement("textarea");
       ta.value = text;
       ta.style.position = "fixed";
@@ -60,9 +59,11 @@ export function BlockchainCard({
   const hasPay = !!pay?.address && !!pay?.amount && !!pay?.currency;
 
   const finalStatus = isFinalStatus(invoice.status);
-  const canAttachDev = !finalStatus && !hasTx; // dev form only if not final and tx missing
 
-  // local fields for dev/test form (if tx still missing)
+  // ✅ Dev attach only in non-production AND only if not final AND tx missing
+  const isDev = process.env.NODE_ENV !== "production";
+  const canAttachDev = isDev && !finalStatus && !hasTx;
+
   const [network, setNetwork] = useState<string>(invoice.network ?? "");
   const [walletAddress, setWalletAddress] = useState<string>(
     invoice.walletAddress ?? ""
@@ -83,6 +84,13 @@ export function BlockchainCard({
     const n = pay?.network?.toString().trim();
     return n ? n : "—";
   }, [pay?.network]);
+
+  const headerStatusLabel = useMemo(() => {
+    if (finalStatus) return "Final / locked";
+    if (hasTx) return "On-chain data attached";
+    if (hasPay) return "Awaiting payment";
+    return "Waiting for payment instructions";
+  }, [finalStatus, hasTx, hasPay]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -109,7 +117,7 @@ export function BlockchainCard({
         </div>
 
         <span className="rounded-full bg-slate-900/70 px-3 py-1 text-[11px] text-slate-300 ring-1 ring-slate-700/70">
-          {hasTx ? "On-chain data attached" : "Waiting for on-chain data"}
+          {headerStatusLabel}
         </span>
       </div>
 
@@ -241,7 +249,7 @@ export function BlockchainCard({
         </div>
       </div>
 
-      {/* Dev/Test attach form — only if txHash is missing AND invoice is not final */}
+      {/* Dev/Test attach form — dev only */}
       {canAttachDev ? (
         <div className="mt-5">
           <p className="text-[11px] text-slate-500">

@@ -21,7 +21,7 @@ import {
   expireInvoice,
 } from "@/lib/pspApiInvoiceDetails";
 
-const POLL_INTERVAL_MS = 15000; // 15 секунд
+const POLL_INTERVAL_MS = 3000; // ✅ 3 seconds (top UX for payments)
 
 interface UseInvoiceDetailsResult {
   invoice: Invoice | null;
@@ -84,34 +84,32 @@ export function useInvoiceDetails(
   // txHash, для которого мы уже запускали AML (auto/manual)
   const lastAutoAmlTxRef = useRef<string | null>(null);
 
-  // ✅ глобальная защита от гонок: если выполняется действие — polling не перетирает invoice
-  const isBusy = useMemo(() => {
-    return (
-      loading ||
-      webhooksLoading ||
-      dispatching ||
-      amlLoading ||
-      savingTx ||
-      actionLoading
-    );
-  }, [
-    loading,
-    webhooksLoading,
-    dispatching,
-    amlLoading,
-    savingTx,
-    actionLoading,
-  ]);
+  // ✅ guard: polling tick overlap protection
+  const pollInFlightRef = useRef(false);
+
+  // ✅ timeout id holder for cleanup
+  const pollTimerRef = useRef<number | null>(null);
+
+  // ✅ block polling only during mutations (so UI doesn't get overwritten mid-action)
+  const isMutating = useMemo(() => {
+    return dispatching || amlLoading || savingTx || actionLoading;
+  }, [dispatching, amlLoading, savingTx, actionLoading]);
 
   // ================= RESET ON INVOICE CHANGE =================
   useEffect(() => {
-    // при смене invoiceId сбрасываем transient-состояния
     setError(null);
     setWebhookInfo(null);
     lastAutoAmlTxRef.current = null;
+
+    // cleanup poll timer on id change
+    if (pollTimerRef.current) {
+      window.clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    pollInFlightRef.current = false;
   }, [invoiceId]);
 
-  // ================= LOAD INVOICE + WEBHOOKS (первичная загрузка) =================
+  // ================= LOAD INVOICE + WEBHOOKS (initial load) =================
   useEffect(() => {
     let cancelled = false;
 
@@ -161,9 +159,10 @@ export function useInvoiceDetails(
     };
   }, [invoiceId]);
 
-  // ================= AUTO-POLL INVOICE =================
+  // ================= AUTO-POLL INVOICE (safe, non-overlapping) =================
   useEffect(() => {
     if (!invoiceId) return;
+    if (loading) return;
 
     const status = invoice?.status ?? null;
     const txHash = invoice?.txHash ?? null;
@@ -171,36 +170,68 @@ export function useInvoiceDetails(
 
     if (!shouldPollInvoice({ status, txHash, amlStatus })) return;
 
-    // ✅ пока идёт действие — polling не запускаем, чтобы не перетирать invoice в UI
-    if (isBusy) return;
+    // ✅ don't poll during mutations
+    if (isMutating) return;
 
     let cancelled = false;
     const currentId = invoiceId;
 
+    const scheduleNext = () => {
+      if (cancelled) return;
+      pollTimerRef.current = window.setTimeout(() => {
+        void tick();
+      }, POLL_INTERVAL_MS);
+    };
+
     const tick = async () => {
+      if (cancelled) return;
+
+      // ✅ if tab is hidden - slow down by skipping tick
+      if (typeof document !== "undefined" && document.hidden) {
+        scheduleNext();
+        return;
+      }
+
+      // ✅ prevent overlapping requests
+      if (pollInFlightRef.current) {
+        scheduleNext();
+        return;
+      }
+
+      pollInFlightRef.current = true;
       try {
         const latest = await fetchInvoice(currentId);
         if (cancelled) return;
         setInvoice(latest);
       } catch {
-        // тихо игнорируем временные сетевые ошибки
+        // ignore transient errors
+      } finally {
+        pollInFlightRef.current = false;
+        scheduleNext();
       }
     };
 
-    // сразу один тик, потом интервал
+    // start immediately
     void tick();
-
-    const intervalId = setInterval(() => {
-      void tick();
-    }, POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
-      clearInterval(intervalId);
+      if (pollTimerRef.current) {
+        window.clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      pollInFlightRef.current = false;
     };
-  }, [invoiceId, invoice?.status, invoice?.txHash, invoice?.amlStatus, isBusy]);
+  }, [
+    invoiceId,
+    loading,
+    invoice?.status,
+    invoice?.txHash,
+    invoice?.amlStatus,
+    isMutating,
+  ]);
 
-  // ================= AUTO AML: txHash появился -> AML запускаем 1 раз =================
+  // ================= AUTO AML: txHash appeared -> run AML once =================
   useEffect(() => {
     if (!invoiceId) return;
 
@@ -215,9 +246,8 @@ export function useInvoiceDetails(
 
     if (!hasTx || !amlMissing) return;
     if (amlLoading) return;
-    if (actionLoading || savingTx || dispatching) return; // ✅ не мешаем операциям
+    if (isMutating) return; // ✅ don't interfere with actions
 
-    // уже запускали авто-AML для этого txHash — не повторяем
     if (lastAutoAmlTxRef.current === tx) return;
 
     let cancelled = false;
@@ -227,7 +257,6 @@ export function useInvoiceDetails(
         setAmlLoading(true);
         setError(null);
 
-        // фиксируем сразу, чтобы не было дублей из-за polling
         lastAutoAmlTxRef.current = tx;
 
         const updated = await runInvoiceAmlCheck(invId);
@@ -236,7 +265,6 @@ export function useInvoiceDetails(
       } catch (err: unknown) {
         if (cancelled) return;
 
-        // если упало — разрешаем повтор (или кнопкой)
         lastAutoAmlTxRef.current = null;
 
         const message =
@@ -257,9 +285,7 @@ export function useInvoiceDetails(
     invoice?.txHash,
     invoice?.amlStatus,
     amlLoading,
-    actionLoading,
-    savingTx,
-    dispatching,
+    isMutating,
   ]);
 
   // ================= RELOAD WEBHOOKS =================
@@ -283,7 +309,7 @@ export function useInvoiceDetails(
   // ================= DISPATCH WEBHOOKS =================
   async function handleDispatchWebhooks() {
     if (!invoiceId) return;
-    if (dispatching || actionLoading || savingTx) return;
+    if (dispatching || isMutating) return;
 
     try {
       setDispatching(true);
@@ -306,7 +332,7 @@ export function useInvoiceDetails(
   // ================= AML CHECK (manual) =================
   async function handleRunAml() {
     if (!invoiceId || !invoice?.id) return;
-    if (amlLoading || actionLoading || savingTx || dispatching) return;
+    if (amlLoading || isMutating) return;
 
     try {
       setAmlLoading(true);
@@ -329,7 +355,7 @@ export function useInvoiceDetails(
   // ================= ATTACH BLOCKCHAIN TX =================
   async function handleAttachTx(payload: AttachTransactionPayload) {
     if (!invoiceId) return;
-    if (savingTx || actionLoading || dispatching) return;
+    if (savingTx || isMutating) return;
 
     try {
       setSavingTx(true);
@@ -338,7 +364,6 @@ export function useInvoiceDetails(
       const updated = await attachInvoiceTransaction(invoiceId, payload);
       setInvoice(updated);
 
-      // новый txHash -> разрешаем авто-AML (сбрасываем "уже делали")
       lastAutoAmlTxRef.current = null;
     } catch (err: unknown) {
       const message =
@@ -352,7 +377,7 @@ export function useInvoiceDetails(
   // ================= OPERATOR ACTIONS =================
   async function handleConfirm() {
     if (!invoiceId) return;
-    if (actionLoading || savingTx || dispatching || amlLoading) return;
+    if (isMutating) return;
 
     try {
       setActionLoading(true);
@@ -370,7 +395,7 @@ export function useInvoiceDetails(
 
   async function handleReject() {
     if (!invoiceId) return;
-    if (actionLoading || savingTx || dispatching || amlLoading) return;
+    if (isMutating) return;
 
     try {
       setActionLoading(true);
@@ -388,7 +413,7 @@ export function useInvoiceDetails(
 
   async function handleExpire() {
     if (!invoiceId) return;
-    if (actionLoading || savingTx || dispatching || amlLoading) return;
+    if (isMutating) return;
 
     try {
       setActionLoading(true);

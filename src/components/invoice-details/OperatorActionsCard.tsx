@@ -28,13 +28,13 @@ function getStatusLabel(status: Invoice["status"]): string {
 function getStatusDescription(status: Invoice["status"]): string {
   switch (status) {
     case "waiting":
-      return "Invoice is still open. Update status after off-chain or on-chain payment.";
+      return "Invoice is open. Actions available until it becomes final (confirmed/expired/rejected).";
     case "confirmed":
-      return "This invoice is already confirmed.";
+      return "This invoice is confirmed (final).";
     case "expired":
-      return "This invoice is already closed as expired.";
+      return "This invoice is expired (final).";
     case "rejected":
-      return "This invoice was rejected by operator.";
+      return "This invoice is rejected (final).";
     default:
       return "";
   }
@@ -51,13 +51,28 @@ export function OperatorActionsCard({
     invoice.status === "expired" ||
     invoice.status === "rejected";
 
+  const isWaiting = invoice.status === "waiting";
+
+  const hasTx = !!invoice.txHash && invoice.txHash.trim().length > 0;
+
+  // AML result is stored when amlStatus is not null
+  const hasAmlResult = invoice.amlStatus !== null;
+
+  // "Top" gating:
+  // - Confirm only if: waiting + txHash present + AML result present
+  // - Expire/Reject only if: waiting (and not final)
+  const canConfirm = isWaiting && !isFinal && hasTx && hasAmlResult;
+  const canExpire = isWaiting && !isFinal;
+  const canReject = isWaiting && !isFinal;
+
   return (
     <section className="apple-card apple-card-content p-4 md:p-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="section-title">Operator actions</h2>
           <p className="mt-1 text-[11px] text-slate-500">
-            Change invoice status after off-chain or on-chain payment.
+            Demo-only controls. In production, status changes are performed by
+            PSP Core automatically after TX + compliance checks.
           </p>
         </div>
 
@@ -71,9 +86,18 @@ export function OperatorActionsCard({
               </span>
             </span>
           </span>
+
           <span className="text-[11px] text-slate-500">
             {getStatusDescription(invoice.status)}
           </span>
+
+          {/* Helpful gating hint (no style changes, just a small line) */}
+          {!isFinal && isWaiting ? (
+            <span className="text-[11px] text-slate-500">
+              Confirm requires: <span className="text-slate-300">txHash</span> +{" "}
+              <span className="text-slate-300">AML result</span>
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -81,7 +105,7 @@ export function OperatorActionsCard({
         <button
           type="button"
           onClick={onConfirm}
-          disabled={isFinal}
+          disabled={!canConfirm}
           className="inline-flex min-w-90px items-center justify-center rounded-full
                      border border-emerald-500/60 bg-emerald-500/10 px-4 py-1.5
                      text-[11px] font-medium text-emerald-100 shadow-sm
@@ -94,7 +118,7 @@ export function OperatorActionsCard({
         <button
           type="button"
           onClick={onExpire}
-          disabled={isFinal}
+          disabled={!canExpire}
           className="inline-flex min-w-90px items-center justify-center rounded-full
                      border border-amber-500/60 bg-amber-500/10 px-4 py-1.5
                      text-[11px] font-medium text-amber-100 shadow-sm
@@ -107,7 +131,7 @@ export function OperatorActionsCard({
         <button
           type="button"
           onClick={onReject}
-          disabled={isFinal}
+          disabled={!canReject}
           className="inline-flex min-w-90px items-center justify-center rounded-full
                      border border-rose-500/70 bg-rose-500/12 px-4 py-1.5
                      text-[11px] font-medium text-rose-100 shadow-sm
