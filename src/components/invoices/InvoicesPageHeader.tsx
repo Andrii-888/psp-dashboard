@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import { useRouter } from "next/navigation";
 
 type Props = {
   apiOk: boolean | null;
@@ -31,6 +31,8 @@ export function InvoicesPageHeader({
 
   onRefresh,
 }: Props) {
+  const router = useRouter();
+
   return (
     <header className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
       <div>
@@ -87,6 +89,15 @@ export function InvoicesPageHeader({
             />
             {liveOn ? "Live · 3s" : "Live off"}
           </span>
+
+          {/* Accounting */}
+          <button
+            type="button"
+            onClick={() => router.push("/accounting")}
+            className="inline-flex items-center justify-center rounded-full bg-slate-800/60 px-4 py-1.5 text-xs font-medium text-slate-100 ring-1 ring-slate-700/70 transition hover:bg-slate-800/85"
+          >
+            Accounting
+          </button>
 
           {/* Sound toggle */}
           <button
