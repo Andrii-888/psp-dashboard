@@ -8,17 +8,37 @@ type RouteContext = {
   params?: Promise<{ path?: string[] | string }> | { path?: string[] | string };
 };
 
-// Reads first non-empty env from the list
-function envAny(names: string[]): string {
+// Reads first non-empty env from the list (optional)
+function envAnyOpt(names: string[]): string | null {
   for (const n of names) {
     const v = (process.env[n] ?? "").trim();
     if (v) return v;
   }
-  throw new Error(`Missing env: one of ${names.join(", ")}`);
+  return null;
+}
+
+function stripTrailingSlashes(v: string) {
+  return v.replace(/\/+$/, "");
+}
+
+function joinPaths(basePath: string, tailPath: string): string {
+  const a = (basePath || "").replace(/\/+$/, "");
+  const b = (tailPath || "").replace(/^\/+/, "");
+  if (!a && !b) return "/";
+  if (!a) return `/${b}`;
+  if (!b) return a.startsWith("/") ? a : `/${a}`;
+  const joined = `${a}/${b}`.replace(/\/{2,}/g, "/");
+  return joined.startsWith("/") ? joined : `/${joined}`;
+}
+
+function pickHeader(headers: Headers, key: string): string | null {
+  const v = headers.get(key);
+  const s = (v ?? "").trim();
+  return s.length ? s : null;
 }
 
 function derivePathFromUrl(req: NextRequest): string[] {
-  // /api/psp/<...> => берём всё после /api/psp
+  // /api/psp/<...> => take everything after /api/psp
   const parts = req.nextUrl.pathname.split("/").filter(Boolean);
   const apiIdx = parts.indexOf("api");
   const pspIdx = parts.indexOf("psp");
@@ -36,30 +56,37 @@ async function readParams(
     : (p as { path?: string[] | string });
 }
 
-function stripTrailingSlashes(v: string) {
-  return v.replace(/\/+$/, "");
-}
-
-function joinPaths(basePath: string, tailPath: string): string {
-  const a = basePath.replace(/\/+$/, "");
-  const b = (tailPath || "").replace(/^\/+/, "");
-  if (!a && !b) return "/";
-  if (!a) return `/${b}`;
-  if (!b) return a.startsWith("/") ? a : `/${a}`;
-  const joined = `${a}/${b}`.replace(/\/{2,}/g, "/");
-  return joined.startsWith("/") ? joined : `/${joined}`;
-}
-
 async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
   try {
-    // ✅ Base URL (server-only env preferred). Fallback for compatibility.
-    const base = stripTrailingSlashes(
-      envAny(["PSP_API_URL", "PSP_API_BASE", "NEXT_PUBLIC_PSP_API_URL"])
-    );
+    // ✅ Base URL of PSP Core (NO /api). Prefer server-only envs.
+    // Vercel should set PSP_API_URL=https://psp-core.fly.dev
+    const base =
+      envAnyOpt(["PSP_API_URL", "PSP_API_BASE", "NEXT_PUBLIC_PSP_API_URL"]) ??
+      "http://localhost:3001";
 
-    // ✅ Credentials (server-only)
-    const merchantId = envAny(["PSP_MERCHANT_ID"]);
-    const apiKey = envAny(["PSP_API_KEY"]);
+    const baseClean = stripTrailingSlashes(base);
+
+    // ✅ Credentials:
+    // - Prefer incoming request headers (dev / manual testing)
+    // - Fallback to env (production)
+    const incomingMerchantId =
+      pickHeader(req.headers, "x-merchant-id") ??
+      pickHeader(req.headers, "x-merchant");
+
+    const incomingApiKey =
+      pickHeader(req.headers, "x-api-key") ??
+      (() => {
+        const auth = pickHeader(req.headers, "authorization");
+        if (!auth) return null;
+        const m = auth.match(/^Bearer\s+(.+)$/i);
+        return m?.[1]?.trim() ? m[1].trim() : null;
+      })();
+
+    const envMerchantId = envAnyOpt(["PSP_MERCHANT_ID", "DEMO_MERCHANT_ID"]);
+    const envApiKey = envAnyOpt(["PSP_API_KEY", "DEMO_API_KEY"]);
+
+    const merchantId = incomingMerchantId ?? envMerchantId;
+    const apiKey = incomingApiKey ?? envApiKey;
 
     const params = await readParams(ctx);
     const raw = params.path;
@@ -69,22 +96,20 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
       : typeof raw === "string"
       ? [raw]
       : [];
+
     const path = pathFromParams.length
       ? pathFromParams
       : derivePathFromUrl(req);
+    const pathname = path.join("/"); // e.g. "invoices/123"
 
-    const pathname = path.join("/");
-
-    // ✅ URL-safe build + correct query-string
-    const url = new URL(base);
+    // ✅ Build upstream URL safely + preserve querystring
+    const url = new URL(baseClean);
     url.pathname = joinPaths(url.pathname || "/", pathname);
 
-    // IMPORTANT: NextRequest.nextUrl.search includes leading "?"
-    // URL.search expects WITHOUT "?"
-    const qs = req.nextUrl.search;
+    const qs = req.nextUrl.search; // includes leading "?"
     url.search = qs.startsWith("?") ? qs.slice(1) : qs;
 
-    // Copy incoming headers but prevent spoofing + remove hop-by-hop
+    // ✅ Copy incoming headers + remove hop-by-hop headers
     const headers = new Headers(req.headers);
 
     headers.delete("accept-encoding");
@@ -92,12 +117,14 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     headers.delete("connection");
     headers.delete("content-length");
 
-    // Prevent client spoofing of auth headers
+    // ✅ Always control auth headers (avoid leaking client auth)
     headers.delete("x-merchant-id");
+    headers.delete("x-merchant");
     headers.delete("x-api-key");
+    headers.delete("authorization");
 
-    headers.set("x-merchant-id", merchantId);
-    headers.set("x-api-key", apiKey);
+    if (merchantId) headers.set("x-merchant-id", merchantId);
+    if (apiKey) headers.set("x-api-key", apiKey);
 
     if (!headers.get("accept")) headers.set("accept", "application/json");
 
@@ -112,7 +139,7 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
       redirect: "manual",
     });
 
-    // Pass-through safe headers
+    // ✅ Return only safe headers back to client
     const resHeaders = new Headers();
     const ct = upstream.headers.get("content-type");
     if (ct) resHeaders.set("content-type", ct);
@@ -123,6 +150,10 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
       resHeaders.set("x-psp-proxy-hit", "1");
       resHeaders.set("x-psp-proxy-target", url.toString());
       resHeaders.set("x-psp-proxy-path", pathname || "(empty)");
+      resHeaders.set(
+        "x-psp-proxy-auth",
+        `${merchantId ? "m:1" : "m:0"}:${apiKey ? "k:1" : "k:0"}`
+      );
     }
 
     const data = await upstream.arrayBuffer();
@@ -150,5 +181,11 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
   return proxy(req, ctx);
 }
 export async function DELETE(req: NextRequest, ctx: RouteContext) {
+  return proxy(req, ctx);
+}
+export async function PUT(req: NextRequest, ctx: RouteContext) {
+  return proxy(req, ctx);
+}
+export async function HEAD(req: NextRequest, ctx: RouteContext) {
   return proxy(req, ctx);
 }

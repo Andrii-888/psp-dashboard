@@ -21,23 +21,38 @@ export function toNumber(
 }
 
 /**
- * Format money values (USD-based for stablecoins)
+ * Format money values (NO currency symbol)
+ * Output: 1,234.56 USD
+ *
+ * IMPORTANT:
+ * - No `$`
+ * - No locale currency style
+ * - Deterministic for accounting & audit
  */
 export function fmtMoney(value: number, currency = "USD") {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
+  const n = Number(value);
+
+  if (!Number.isFinite(n)) {
+    return `0.00 ${currency}`;
+  }
+
+  const formatted = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(value);
+  }).format(n);
+
+  return `${formatted} ${currency}`;
 }
 
 /**
  * Format ISO date for tables
+ * Output example: 14.01.2026, 09:13:19
  */
 export function fmtDate(v?: string) {
   if (!v) return "—";
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return v;
+
   return new Intl.DateTimeFormat("en-GB", {
     year: "numeric",
     month: "2-digit",
@@ -50,6 +65,7 @@ export function fmtDate(v?: string) {
 
 /**
  * Shorten long ids / hashes / addresses
+ * Example: 0xabc123…9fE2
  */
 export function shortId(v?: string, left = 6, right = 4) {
   if (!v) return "—";

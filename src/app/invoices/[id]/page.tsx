@@ -1,3 +1,4 @@
+//src/app/invoices/[id]/page.tsx/
 "use client";
 
 import { useEffect } from "react";
@@ -12,6 +13,7 @@ import { OverviewCard } from "@/components/invoice-details/OverviewCard";
 import { ComplianceDecisionCard } from "@/components/invoice-details/ComplianceDecisionCard";
 import { BlockchainCard } from "@/components/invoice-details/BlockchainCard";
 import { WebhooksCard } from "@/components/invoice-details/WebhooksCard";
+import { ProviderEventsCard } from "@/components/invoice-details/ProviderEventsCard";
 import { OperatorActionsCard } from "@/components/invoice-details/OperatorActionsCard";
 
 type InvoiceRouteParams = {
@@ -33,6 +35,8 @@ export default function InvoiceDetailsPage() {
   const {
     invoice,
     webhooks,
+    providerEvents,
+    providerEventsLoading,
     loading,
     webhooksLoading,
     dispatching,
@@ -112,6 +116,11 @@ export default function InvoiceDetailsPage() {
             />
 
             <AuditTrailCard invoice={invoice} />
+
+            <ProviderEventsCard
+              events={providerEvents}
+              loading={providerEventsLoading}
+            />
 
             <BlockchainCard
               invoice={invoice}

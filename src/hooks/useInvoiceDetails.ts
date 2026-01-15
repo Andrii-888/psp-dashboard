@@ -8,11 +8,13 @@ import type {
   WebhookEvent,
   WebhookDispatchResult,
   AttachTransactionPayload,
+  ProviderEvent,
 } from "@/lib/pspApi";
 
 import {
   fetchInvoice,
   fetchInvoiceWebhooks,
+  fetchInvoiceProviderEvents,
   dispatchInvoiceWebhooks,
   runInvoiceAmlCheck,
   attachInvoiceTransaction,
@@ -25,7 +27,14 @@ const POLL_INTERVAL_MS = 3000; // ✅ 3 seconds (top UX for payments)
 
 interface UseInvoiceDetailsResult {
   invoice: Invoice | null;
+
+  // Outgoing webhook queue (our webhooks)
   webhooks: WebhookEvent[];
+
+  // Incoming provider audit trail (NOWPayments -> provider_events)
+  providerEvents: ProviderEvent[];
+  providerEventsLoading: boolean;
+
   loading: boolean;
   webhooksLoading: boolean;
   dispatching: boolean;
@@ -67,6 +76,8 @@ export function useInvoiceDetails(
 ): UseInvoiceDetailsResult {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [webhooks, setWebhooks] = useState<WebhookEvent[]>([]);
+  const [providerEvents, setProviderEvents] = useState<ProviderEvent[]>([]);
+  const [providerEventsLoading, setProviderEventsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [webhooksLoading, setWebhooksLoading] = useState(false);
@@ -128,18 +139,21 @@ export function useInvoiceDetails(
     (async () => {
       try {
         setLoading(true);
+        setProviderEventsLoading(true);
         setError(null);
         setWebhookInfo(null);
 
-        const [inv, wh] = await Promise.all([
+        const [inv, wh, pe] = await Promise.all([
           fetchInvoice(invoiceId),
           fetchInvoiceWebhooks(invoiceId),
+          fetchInvoiceProviderEvents(invoiceId, 50),
         ]);
 
         if (cancelled) return;
 
         setInvoice(inv);
         setWebhooks(wh);
+        setProviderEvents(pe);
 
         const tx = normalizeTx(inv?.txHash ?? null);
         lastAutoAmlTxRef.current = inv.amlStatus !== null && tx ? tx : null;
@@ -150,6 +164,7 @@ export function useInvoiceDetails(
         setError(message);
       } finally {
         if (cancelled) return;
+        setProviderEventsLoading(false);
         setLoading(false);
       }
     })();
@@ -432,6 +447,10 @@ export function useInvoiceDetails(
   return {
     invoice,
     webhooks,
+
+    providerEvents,
+    providerEventsLoading,
+
     loading,
     webhooksLoading,
     dispatching,

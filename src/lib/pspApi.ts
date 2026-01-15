@@ -118,6 +118,16 @@ export interface WebhookDispatchResult {
   failed: number;
 }
 
+export interface ProviderEvent {
+  provider: string;
+  eventType: string;
+  externalId: string | null;
+  invoiceId: string | null;
+  signature: string | null;
+  payloadJson: string;
+  receivedAt: string;
+}
+
 export interface FetchInvoicesParams {
   status?: InvoiceStatus;
   from?: string;

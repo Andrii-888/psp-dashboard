@@ -5,8 +5,10 @@ import AccountingRow from "./AccountingRow";
 
 export default function AccountingTable({
   entries,
+  onInvoiceClick,
 }: {
   entries: AccountingEntryRaw[];
+  onInvoiceClick?: (invoiceId: string) => void;
 }) {
   return (
     <div className="mt-6 overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm">
@@ -28,12 +30,33 @@ export default function AccountingTable({
         </thead>
 
         <tbody className="text-zinc-900">
-          {entries.map((e, idx) => (
-            <AccountingRow
-              key={`${e.invoiceId}-${e.eventType}-${idx}`}
-              entry={e}
-            />
-          ))}
+          {entries.map((e, idx) => {
+            const clickable = typeof onInvoiceClick === "function";
+
+            return (
+              <tr
+                key={`${e.invoiceId}-${e.eventType}-${idx}`}
+                className={clickable ? "cursor-pointer hover:bg-zinc-50" : ""}
+                onClick={
+                  clickable ? () => onInvoiceClick?.(e.invoiceId) : undefined
+                }
+                role={clickable ? "button" : undefined}
+                tabIndex={clickable ? 0 : undefined}
+                onKeyDown={
+                  clickable
+                    ? (ev) => {
+                        if (ev.key === "Enter" || ev.key === " ") {
+                          ev.preventDefault();
+                          onInvoiceClick?.(e.invoiceId);
+                        }
+                      }
+                    : undefined
+                }
+              >
+                <AccountingRow entry={e} />
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

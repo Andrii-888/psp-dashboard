@@ -14,6 +14,15 @@ function notFound() {
   return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 }
 
+// Reads first non-empty env from the list (optional)
+function envAnyOpt(names: string[]): string | null {
+  for (const n of names) {
+    const v = (process.env[n] ?? "").trim();
+    if (v) return v;
+  }
+  return null;
+}
+
 // ===== SIGNATURE =====
 // supported:
 // "t=123, v1=abcd..."
@@ -155,7 +164,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // Тип берём прямо из сигнатуры inboxAdd — без any
+  // Type from inboxAdd signature — no any
   type InboxItem = Parameters<typeof inboxAdd>[0];
 
   const item: InboxItem = {
@@ -183,10 +192,33 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, id: item.id, storage: "mem" });
 }
 
-export async function GET() {
-  if (isProd()) return notFound();
+export async function GET(req: Request) {
+  // Production: allow listing only with token
+  const token = new URL(req.url).searchParams.get("token") ?? "";
 
-  // <-- вот твой пункт 3.2: возвращаем items из inboxList()
+  const expected =
+    envAnyOpt(["PSP_INBOX_TOKEN", "NEXT_PUBLIC_PSP_INBOX_TOKEN"]) ?? "";
+
+  const allow = Boolean(expected) && token === expected;
+
+  // Production behavior:
+  // - no token      -> 404 (route hidden)
+  // - token mismatch -> 401 (helps debug env/token issues)
+  if (isProd() && !allow) {
+    if (!token) {
+      return notFound();
+    }
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "forbidden",
+        expectedSet: Boolean(expected),
+      },
+      { status: 401 }
+    );
+  }
+
   const items = inboxList();
   const meta = inboxMeta();
 
@@ -201,6 +233,6 @@ export async function GET() {
 
 export async function DELETE() {
   if (isProd()) return notFound();
-  // если хочешь — оставим как есть (у тебя отдельный /inbox/route.ts на clear)
+  // keep as not_found (you have a separate clear route if needed)
   return notFound();
 }

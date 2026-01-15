@@ -6,6 +6,7 @@ import type {
   WebhookDispatchResult,
   AttachTransactionPayload,
   FetchInvoicesParams,
+  ProviderEvent,
 } from "@/lib/pspApi";
 
 // маленький helper, чтобы не трогать существующий pspApi.ts
@@ -117,6 +118,17 @@ export async function fetchInvoiceWebhooks(
   id: string
 ): Promise<WebhookEvent[]> {
   return apiGet<WebhookEvent[]>(`/invoices/${encodeURIComponent(id)}/webhooks`);
+}
+
+export async function fetchInvoiceProviderEvents(
+  invoiceId: string,
+  limit = 50
+): Promise<ProviderEvent[]> {
+  return apiGet<ProviderEvent[]>(
+    `/accounting/provider-events?invoiceId=${encodeURIComponent(
+      invoiceId
+    )}&limit=${limit}`
+  );
 }
 
 export async function dispatchInvoiceWebhooks(

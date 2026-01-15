@@ -1,8 +1,16 @@
 import { fmtMoney, toNumber } from "../lib/format";
 import type { AccountingEntryRaw } from "../lib/types";
 
+type SummaryLike = {
+  confirmedCount: number;
+  grossSum: string;
+  feeSum: string;
+  netSum: string;
+};
+
 type Props = {
   entries: AccountingEntryRaw[];
+  summary?: SummaryLike | null;
 };
 
 type KpiItem = {
@@ -23,8 +31,8 @@ function KpiCard({ label, value }: KpiItem) {
   );
 }
 
-export default function AccountingKpis({ entries }: Props) {
-  const totals = entries.reduce(
+export default function AccountingKpis({ entries, summary }: Props) {
+  const fallbackTotals = entries.reduce(
     (acc, e) => {
       acc.gross += toNumber(e.grossAmount, 0);
       acc.fee += toNumber(e.feeAmount, 0);
@@ -35,11 +43,21 @@ export default function AccountingKpis({ entries }: Props) {
     { gross: 0, fee: 0, net: 0, count: 0 }
   );
 
+  const gross = summary ? toNumber(summary.grossSum, 0) : fallbackTotals.gross;
+  const fee = summary ? toNumber(summary.feeSum, 0) : fallbackTotals.fee;
+  const net = summary ? toNumber(summary.netSum, 0) : fallbackTotals.net;
+  const count = summary
+    ? Number(summary.confirmedCount ?? 0)
+    : fallbackTotals.count;
+
   const items: KpiItem[] = [
-    { label: "Gross volume", value: fmtMoney(totals.gross, "USD") },
-    { label: "Fees", value: fmtMoney(totals.fee, "USD") },
-    { label: "Net volume", value: fmtMoney(totals.net, "USD") },
-    { label: "Transactions", value: String(totals.count) },
+    { label: "Gross volume", value: fmtMoney(gross, "USD") },
+    { label: "Fees", value: fmtMoney(fee, "USD") },
+    { label: "Net volume", value: fmtMoney(net, "USD") },
+    {
+      label: "Transactions",
+      value: String(Number.isFinite(count) ? count : 0),
+    },
   ];
 
   return (

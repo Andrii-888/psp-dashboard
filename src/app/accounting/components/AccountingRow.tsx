@@ -1,3 +1,5 @@
+// src/app/accounting/components/AccountingRow.tsx
+
 import type { AccountingEntryRaw } from "../lib/types";
 import { fmtDate, fmtMoney, shortId, toNumber } from "../lib/format";
 import { getAddressUrl, getTxUrl } from "../lib/explorer";
@@ -20,7 +22,7 @@ export default function AccountingRow({
   const txUrl = tx ? getTxUrl(entry.network, tx) : null;
 
   return (
-    <tr className="border-t border-zinc-200 transition-colors hover:bg-zinc-50">
+    <>
       {/* Created */}
       <td className="px-4 py-3 font-mono text-xs text-zinc-500">
         {fmtDate(entry.createdAt)}
@@ -123,6 +125,6 @@ export default function AccountingRow({
           "—"
         )}
       </td>
-    </tr>
+    </>
   );
 }

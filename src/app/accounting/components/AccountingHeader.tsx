@@ -9,8 +9,12 @@ export default function AccountingHeader({
   limit: number;
   rows: number;
 }) {
+  const csvHref = `/api/psp/accounting/entries.csv?merchantId=${encodeURIComponent(
+    merchantId
+  )}&limit=${encodeURIComponent(String(limit))}`;
+
   return (
-    <div className="flex items-start justify-between gap-4">
+    <div className="flex flex-wrap items-start justify-between gap-4">
       {/* Left: back + title */}
       <div>
         <Link
@@ -38,6 +42,18 @@ export default function AccountingHeader({
             rows: <span className="font-mono text-zinc-800">{rows}</span>
           </span>
         </div>
+      </div>
+
+      {/* Right: actions */}
+      <div className="flex items-center gap-2">
+        <a
+          href={csvHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
+        >
+          Download CSV
+        </a>
       </div>
     </div>
   );
