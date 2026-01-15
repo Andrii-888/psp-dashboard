@@ -1,6 +1,12 @@
+// src/app/api/webhooks/inbox/route.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { inboxList, inboxMeta } from "@/lib/webhookInboxStore";
+
+import {
+  inboxClearAsync,
+  inboxListAsync,
+  inboxMetaAsync,
+} from "@/lib/webhookInboxStore";
 
 export const runtime = "nodejs";
 
@@ -12,7 +18,7 @@ type ListItem = {
 
 type OkResponse = {
   ok: true;
-  storage: "mem";
+  storage: "mem" | "kv";
   count: number;
   max: number;
   items: ListItem[];
@@ -59,8 +65,7 @@ export async function GET(
   const guard = guardInbox(req);
   if (guard) return guard;
 
-  const meta = inboxMeta();
-  const items = inboxList();
+  const [meta, items] = await Promise.all([inboxMetaAsync(), inboxListAsync()]);
 
   return NextResponse.json(
     {
@@ -76,4 +81,22 @@ export async function GET(
     },
     { status: 200 }
   );
+}
+
+export async function DELETE(
+  req: NextRequest
+): Promise<
+  NextResponse<
+    | { ok: true; meta: { storage: "mem" | "kv"; count: number; max: number } }
+    | ErrResponse
+  >
+> {
+  const guard = guardInbox(req);
+  if (guard) return guard;
+
+  // dev: open, prod: protected by token
+  await inboxClearAsync();
+  const meta = await inboxMetaAsync();
+
+  return NextResponse.json({ ok: true, meta }, { status: 200 });
 }

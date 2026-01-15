@@ -2,7 +2,11 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 
-import { inboxAdd, inboxList, inboxMeta } from "@/lib/webhookInboxStore";
+import {
+  inboxAddAsync,
+  inboxListAsync,
+  inboxMetaAsync,
+} from "@/lib/webhookInboxStore";
 
 export const runtime = "nodejs";
 
@@ -164,8 +168,8 @@ export async function POST(req: Request) {
     );
   }
 
-  // Type from inboxAdd signature — no any
-  type InboxItem = Parameters<typeof inboxAdd>[0];
+  // Type from inboxAddAsync signature — no any
+  type InboxItem = Parameters<typeof inboxAddAsync>[0];
 
   const item: InboxItem = {
     id: `wh_${Date.now()}_${Math.random().toString(16).slice(2)}`,
@@ -175,7 +179,7 @@ export async function POST(req: Request) {
     headers: Object.fromEntries(req.headers.entries()),
   };
 
-  inboxAdd(item);
+  await inboxAddAsync(item);
 
   if (!isProd()) {
     console.log("[psp-webhook] received", {
@@ -189,7 +193,8 @@ export async function POST(req: Request) {
     });
   }
 
-  return NextResponse.json({ ok: true, id: item.id, storage: "mem" });
+  const meta = await inboxMetaAsync();
+  return NextResponse.json({ ok: true, id: item.id, storage: meta.storage });
 }
 
 export async function GET(req: Request) {
@@ -205,9 +210,7 @@ export async function GET(req: Request) {
   // - no token      -> 404 (route hidden)
   // - token mismatch -> 401 (helps debug env/token issues)
   if (isProd() && !allow) {
-    if (!token) {
-      return notFound();
-    }
+    if (!token) return notFound();
 
     return NextResponse.json(
       {
@@ -219,20 +222,19 @@ export async function GET(req: Request) {
     );
   }
 
-  const items = inboxList();
-  const meta = inboxMeta();
+  const [meta, items] = await Promise.all([inboxMetaAsync(), inboxListAsync()]);
 
   return NextResponse.json({
     ok: true,
     secretSet: Boolean((process.env.PSP_WEBHOOK_SECRET ?? "").trim()),
     storage: meta.storage,
     count: meta.count,
+    max: meta.max,
     items,
   });
 }
 
 export async function DELETE() {
   if (isProd()) return notFound();
-  // keep as not_found (you have a separate clear route if needed)
   return notFound();
 }

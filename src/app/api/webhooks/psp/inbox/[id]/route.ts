@@ -1,6 +1,7 @@
+// src/app/api/webhooks/psp/inbox/[id]/route.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { inboxGet } from "@/lib/webhookInboxStore";
+import { inboxGetAsync } from "@/lib/webhookInboxStore";
 
 type RouteCtx = {
   params: Promise<{ id: string }>;
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest, ctx: RouteCtx) {
     );
   }
 
-  const item = inboxGet(safeId);
+  const item = await inboxGetAsync(safeId);
 
   if (!item) {
     return NextResponse.json(

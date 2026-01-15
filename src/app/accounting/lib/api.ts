@@ -1,6 +1,6 @@
 // src/app/accounting/lib/api.ts
 
-import type { AccountingEntriesResponse, AccountingEntryRaw } from "./types";
+import type { AccountingEntryRaw } from "./types";
 
 export type SummaryResponse = {
   merchantId: string;
@@ -158,18 +158,20 @@ async function fetchJson<T>(
   }
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
 function extractEntryItems(data: unknown): AccountingEntryRaw[] {
   // поддерживаем несколько форматов, чтобы не ломалось при миграциях
   if (Array.isArray(data)) return data as AccountingEntryRaw[];
 
-  if (data && typeof data === "object") {
-    if ("rows" in data && Array.isArray((data as { rows?: unknown }).rows)) {
-      return (data as { rows: AccountingEntryRaw[] }).rows;
-    }
+  if (isRecord(data)) {
+    const rows = data.rows;
+    if (Array.isArray(rows)) return rows as AccountingEntryRaw[];
 
-    if ("items" in data && Array.isArray((data as { items?: unknown }).items)) {
-      return (data as { items: AccountingEntryRaw[] }).items;
-    }
+    const items = data.items;
+    if (Array.isArray(items)) return items as AccountingEntryRaw[];
   }
 
   return [];
@@ -189,7 +191,7 @@ export async function fetchEntries(params: {
     to: params.to ?? "",
   });
 
-  const data = await fetchJson<AccountingEntriesResponse | unknown>(
+  const data = await fetchJson<unknown>(
     `/api/psp/accounting/entries${qs}`,
     params.headers
   );
