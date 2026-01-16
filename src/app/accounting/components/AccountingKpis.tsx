@@ -1,3 +1,4 @@
+// src/app/accounting/components/AccountingKpis.tsx
 import { fmtMoney, toNumber } from "../lib/format";
 import type { AccountingEntryRaw } from "../lib/types";
 
@@ -11,13 +12,7 @@ type SummaryLike = {
 type Props = {
   entries: AccountingEntryRaw[];
   summary?: SummaryLike | null;
-
-  /**
-   * IMPORTANT:
-   * Accounting entries can contain mixed currencies (EUR fees + USDT confirmed, etc).
-   * KPI must never sum mixed currencies together.
-   */
-  currency?: string; // default: "EUR"
+  currency: "EUR"; // ← сейчас строго EUR, CHF добавим позже
 };
 
 type KpiItem = {
@@ -38,39 +33,41 @@ function KpiCard({ label, value }: KpiItem) {
   );
 }
 
-export default function AccountingKpis({ entries, currency = "EUR" }: Props) {
-  // Filter to ONE currency so KPI is deterministic
-  const filtered = entries.filter((e) => {
-    const c = String(e.currency ?? "")
-      .trim()
-      .toUpperCase();
-    return c === String(currency).toUpperCase();
-  });
+function isCurrency(e: AccountingEntryRaw, currency: "EUR"): boolean {
+  return String(e.currency ?? "").toUpperCase() === currency;
+}
 
-  const fallbackTotals = filtered.reduce(
+export default function AccountingKpis({ entries, summary, currency }: Props) {
+  const fallback = entries.reduce(
     (acc, e) => {
-      acc.gross += toNumber(e.grossAmount, 0);
-      acc.fee += toNumber(e.feeAmount, 0);
-      acc.net += toNumber(e.netAmount, 0);
-      acc.count += 1;
+      if (e.eventType === "invoice.confirmed" && isCurrency(e, currency)) {
+        acc.gross += toNumber(e.grossAmount, 0);
+        acc.net += toNumber(e.netAmount, 0);
+        acc.count += 1;
+      }
+
+      if (e.eventType === "fee_charged" && isCurrency(e, currency)) {
+        acc.fee += toNumber(e.feeAmount, 0);
+      }
+
       return acc;
     },
     { gross: 0, fee: 0, net: 0, count: 0 }
   );
 
-  // IMPORTANT:
-  // summary can be wrong if backend summary currently mixes currencies.
-  // Until backend is fixed, KPI should rely on filtered entries.
-  const gross = fallbackTotals.gross;
-  const fee = fallbackTotals.fee;
-  const net = fallbackTotals.net;
-  const count = fallbackTotals.count;
+  const gross = summary ? toNumber(summary.grossSum, 0) : fallback.gross;
+  const fee = summary ? toNumber(summary.feeSum, 0) : fallback.fee;
+  const net = summary ? toNumber(summary.netSum, 0) : fallback.net;
+  const count = summary ? Number(summary.confirmedCount ?? 0) : fallback.count;
 
   const items: KpiItem[] = [
-    { label: `Gross volume (${currency})`, value: fmtMoney(gross, currency) },
-    { label: `Fees (${currency})`, value: fmtMoney(fee, currency) },
-    { label: `Net volume (${currency})`, value: fmtMoney(net, currency) },
-    { label: "Transactions", value: String(count) },
+    { label: "Gross volume", value: fmtMoney(gross, currency) },
+    { label: "Fees", value: fmtMoney(fee, currency) },
+    { label: "Net volume", value: fmtMoney(net, currency) },
+    {
+      label: "Transactions",
+      value: String(Number.isFinite(count) ? count : 0),
+    },
   ];
 
   return (

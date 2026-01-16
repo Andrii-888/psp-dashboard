@@ -151,29 +151,33 @@ function Badge({ kind }: { kind: BadgeKind }) {
 export default function TotalsReconciliationPanel({ entries, summary }: Props) {
   const hasSummary = Boolean(summary);
 
-  const computedGross = sumField(entries, (e) => e.grossAmount);
-  const computedFee = sumField(entries, (e) => e.feeAmount);
-  const computedNet = sumField(entries, (e) => e.netAmount);
+  // ✅ IMPORTANT: /accounting/summary totals are based on invoice.confirmed only.
+  // So reconciliation must compare summary vs entries filtered to invoice.confirmed.
+  const confirmedEntries = entries.filter(
+    (e) => String(e.eventType ?? "").trim() === "invoice.confirmed"
+  );
+
+  const computedGross = sumField(confirmedEntries, (e) => e.grossAmount);
+  const computedFee = sumField(confirmedEntries, (e) => e.feeAmount);
+  const computedNet = sumField(confirmedEntries, (e) => e.netAmount);
 
   // ✅ normalize summary (remove float artifacts)
   const summaryGross = normalizeFromNumberIfPossible(summary?.grossSum ?? "0");
   const summaryFee = normalizeFromNumberIfPossible(summary?.feeSum ?? "0");
   const summaryNet = normalizeFromNumberIfPossible(summary?.netSum ?? "0");
 
-  // IMPORTANT:
-  // entries on UI are usually limited (limit=20/50/200). Comparing totals would be misleading.
-  // We only treat comparison as valid if we have full dataset for the period.
   const summaryCount = Number(summary?.confirmedCount ?? 0);
-  const entriesCount = entries.length;
+  const confirmedEntriesCount = confirmedEntries.length;
 
+  // Comparable when we have enough confirmed rows loaded for the period.
+  // (When summaryCount=0, we allow comparison: both should be 0.)
   const isComparable =
-    hasSummary && (summaryCount === 0 || entriesCount >= summaryCount);
+    hasSummary && (summaryCount === 0 || confirmedEntriesCount >= summaryCount);
 
-  // ✅ tolerant comparison (prevents false mismatch due to float noise)
   const okGross = isComparable && nearlyEqual(summaryGross, computedGross);
 
   // Fee comparison:
-  // If backend summary feeSum is "0" (your case), we treat fee as "not comparable" and do NOT fail totals.
+  // If backend summary feeSum is "0", treat fee as not comparable and do NOT fail totals.
   const canCompareFee = summaryFee !== "0";
   const okFee =
     !isComparable || !canCompareFee || nearlyEqual(summaryFee, computedFee);
@@ -196,14 +200,17 @@ export default function TotalsReconciliationPanel({ entries, summary }: Props) {
           </div>
           <div className="mt-1 text-xs text-zinc-600">
             Compares <span className="font-mono">/accounting/summary</span> vs
-            sum of <span className="font-mono">/accounting/entries</span> for
-            the same period.
+            sum of confirmed rows from{" "}
+            <span className="font-mono">/accounting/entries</span> for the same
+            period.
           </div>
 
           {hasSummary ? (
             <div className="mt-2 text-xs text-zinc-600">
-              entries loaded:{" "}
-              <span className="font-mono text-zinc-800">{entriesCount}</span>
+              confirmed entries loaded:{" "}
+              <span className="font-mono text-zinc-800">
+                {confirmedEntriesCount}
+              </span>
               {" · "}confirmedCount:{" "}
               <span className="font-mono text-zinc-800">{summaryCount}</span>
               {!isComparable ? (
@@ -230,7 +237,7 @@ export default function TotalsReconciliationPanel({ entries, summary }: Props) {
                 <tr className="border-b border-zinc-200">
                   <th className="py-2 pr-4">Metric</th>
                   <th className="py-2 pr-4">Summary</th>
-                  <th className="py-2 pr-4">Entries sum</th>
+                  <th className="py-2 pr-4">Entries sum (confirmed)</th>
                   <th className="py-2 pr-2">Δ (entries - summary)</th>
                 </tr>
               </thead>
@@ -270,15 +277,17 @@ export default function TotalsReconciliationPanel({ entries, summary }: Props) {
 
             {badge === "partial" ? (
               <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                Totals check is disabled because the entries table is limited
-                (not all rows are loaded for the selected period). Enable
-                pagination or add a backend totals-check endpoint to reconcile
-                full-period totals.
+                Totals check is disabled because not all confirmed rows are
+                loaded for the selected period (limit/pagination). Increase
+                limit or add a backend totals-check endpoint for full-period
+                reconciliation.
               </div>
             ) : badge === "mismatch" ? (
               <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-                Totals mismatch detected for the full dataset. This usually
-                means missing/duplicate accounting entries for the period.
+                Totals mismatch detected for confirmed rows. This usually means
+                missing/duplicate{" "}
+                <span className="font-mono">invoice.confirmed</span> entries for
+                the period.
               </div>
             ) : null}
           </div>
