@@ -42,6 +42,43 @@ import type {
 import type { SearchParams } from "./lib/searchParams";
 import { pick } from "./lib/searchParams";
 
+function mergePipelineWithLedger(
+  pipeline: AccountingEntryRaw[],
+  ledger: AccountingEntryRaw[]
+): AccountingEntryRaw[] {
+  const ledgerByInvoice = new Map<string, AccountingEntryRaw[]>();
+
+  for (const e of ledger) {
+    const id = String(e.invoiceId || "").trim();
+    if (!id) continue;
+    const arr = ledgerByInvoice.get(id) ?? [];
+    arr.push(e);
+    ledgerByInvoice.set(id, arr);
+  }
+
+  const out: AccountingEntryRaw[] = [];
+
+  // 1) pipeline: берём только те invoiceId, которых нет в ledger
+  for (const p of pipeline) {
+    const id = String(p.invoiceId || "").trim();
+    if (!id) continue;
+    if (ledgerByInvoice.has(id)) continue;
+    out.push(p);
+  }
+
+  // 2) ledger: добавляем все ledger записи
+  for (const e of ledger) out.push(e);
+
+  // сортировка по createdAt desc
+  out.sort((a, b) => {
+    const ta = Date.parse(String(a.createdAt ?? "")) || 0;
+    const tb = Date.parse(String(b.createdAt ?? "")) || 0;
+    return tb - ta;
+  });
+
+  return out;
+}
+
 export default async function AccountingPage({
   searchParams,
 }: {
@@ -109,6 +146,9 @@ export default async function AccountingPage({
   let items: AccountingEntryRaw[] = [];
   let totalsItems: AccountingEntryRaw[] = [];
 
+  let pipelineItems: AccountingEntryRaw[] = [];
+  let pipelineTotalsItems: AccountingEntryRaw[] = [];
+
   let summary: SummaryResponse | null = null;
   let fees: FeesSummaryResponse | null = null;
   let byDay: ByDayResponse | null = null;
@@ -124,9 +164,9 @@ export default async function AccountingPage({
 
   const [
     entriesRes,
-    totalsEntriesRes, // pipeline table (intentionally unused for now) // pipeline totals (intentionally unused for now)
-    ,
-    ,
+    totalsEntriesRes,
+    pipelineRes,
+    pipelineTotalsRes,
     summaryRes,
     feesRes,
     byDayRes,
@@ -171,6 +211,25 @@ export default async function AccountingPage({
     totalsItems = [];
   }
 
+  if (pipelineRes.status === "fulfilled") {
+    pipelineItems = pipelineRes.value.items;
+  } else {
+    pipelineItems = [];
+  }
+
+  const ledgerRows = items.length;
+  const pipelineRows = pipelineItems.length;
+
+  if (pipelineTotalsRes.status === "fulfilled") {
+    pipelineTotalsItems = pipelineTotalsRes.value.items;
+  } else {
+    pipelineTotalsItems = [];
+  }
+
+  // ✅ итоговые строки для таблицы и для totals-панели
+  items = mergePipelineWithLedger(pipelineItems, items);
+  totalsItems = mergePipelineWithLedger(pipelineTotalsItems, totalsItems);
+
   if (summaryRes.status === "fulfilled") summary = summaryRes.value;
   if (feesRes.status === "fulfilled") fees = feesRes.value;
   if (byDayRes.status === "fulfilled") byDay = byDayRes.value;
@@ -185,6 +244,10 @@ export default async function AccountingPage({
         limit={limit}
         rows={items.length}
       />
+
+      <div className="mb-3 text-xs text-zinc-500">
+        ledger rows: <b>{ledgerRows}</b> · pipeline rows: <b>{pipelineRows}</b>
+      </div>
 
       <AccountingKpis entries={items} summary={summary} />
 
