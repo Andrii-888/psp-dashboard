@@ -22,12 +22,13 @@ import type { AccountingEntryRaw } from "./lib/types";
 
 import {
   fetchEntries,
+  runBackfillConfirmed,
+  fetchInvoiceHistoryAsEntries,
   fetchSummary,
   fetchFeesSummary,
   fetchByDay,
   fetchByAsset,
   fetchReconciliation,
-  runBackfillConfirmed,
 } from "./lib/api";
 
 import type {
@@ -123,15 +124,30 @@ export default async function AccountingPage({
 
   const [
     entriesRes,
-    totalsEntriesRes,
+    totalsEntriesRes, // pipeline table (intentionally unused for now) // pipeline totals (intentionally unused for now)
+    ,
+    ,
     summaryRes,
     feesRes,
     byDayRes,
     byAssetRes,
     reconciliationRes,
   ] = await Promise.allSettled([
+    // ledger (accounting_entries)
     fetchEntries({ merchantId, limit, headers: h, from, to }), // table
     fetchEntries({ merchantId, limit: totalsLimit, headers: h, from, to }), // totals
+
+    // pipeline (invoices as accounting-like rows)
+    fetchInvoiceHistoryAsEntries({ merchantId, limit, headers: h, from, to }), // table
+    fetchInvoiceHistoryAsEntries({
+      merchantId,
+      limit: totalsLimit,
+      headers: h,
+      from,
+      to,
+    }), // totals
+
+    // summaries
     fetchSummary({ merchantId, headers: h, from, to }),
     fetchFeesSummary({ merchantId, headers: h, from, to }),
     fetchByDay({ merchantId, headers: h, from, to }),

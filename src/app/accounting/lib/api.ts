@@ -1,6 +1,42 @@
 // src/app/accounting/lib/api.ts
 
-import type { AccountingEntryRaw } from "./types";
+import type { AccountingEntryRaw, Asset, Network } from "./types";
+
+export type InvoiceListItem = {
+  id?: string | null;
+  invoiceId?: string | null;
+  merchantId?: string | null;
+
+  status?: string | null;
+  txStatus?: string | null;
+
+  // amounts (may vary by provider/version)
+  grossAmount?: string | number | null;
+  feeAmount?: string | number | null;
+  netAmount?: string | number | null;
+  cryptoAmount?: string | number | null;
+
+  // asset/network (may vary)
+  cryptoCurrency?: string | null;
+  currency?: string | null;
+  network?: string | null;
+
+  // addresses / tx
+  depositAddress?: string | null;
+  walletAddress?: string | null;
+  senderAddress?: string | null;
+  txHash?: string | null;
+
+  // timestamps
+  createdAt?: string | null;
+  detectedAt?: string | null;
+  confirmedAt?: string | null;
+
+  // nested pay block (NOWPayments-style)
+  pay?: {
+    address?: string | null;
+  } | null;
+};
 
 export type SummaryResponse = {
   merchantId: string;
@@ -308,4 +344,120 @@ export async function runBackfillConfirmed(params: {
     `/api/psp/accounting/backfill/confirmed${qs}`,
     params.headers
   );
+}
+
+function extractInvoiceItems(data: unknown): InvoiceListItem[] {
+  if (Array.isArray(data)) return data as InvoiceListItem[];
+
+  if (isRecord(data)) {
+    const rows = data.rows;
+    if (Array.isArray(rows)) return rows as InvoiceListItem[];
+
+    const items = data.items;
+    if (Array.isArray(items)) return items as InvoiceListItem[];
+  }
+
+  return [];
+}
+
+// --- helpers (keep near invoiceToAccountingLikeRow) ---
+function normalizeAssetFromInvoice(inv: InvoiceListItem): Asset {
+  const raw = String(inv.cryptoCurrency ?? inv.currency ?? "").toUpperCase();
+
+  // Accept common variants like USDTTRC20 / USDCARC20 / etc.
+  if (raw.includes("USDT")) return "USDT";
+  if (raw.includes("USDC")) return "USDC";
+
+  // Fallback (so accounting UI never breaks)
+  return "USDT";
+}
+
+function normalizeNetworkFromInvoice(inv: InvoiceListItem): Network {
+  const raw = String(inv.network ?? "").toUpperCase();
+
+  // Your strict types are: "TRON" | "ETHEREUM"
+  if (raw.includes("TRON") || raw.includes("TRC")) return "TRON";
+  if (raw.includes("ETH")) return "ETHEREUM";
+
+  // Fallback
+  return "ETHEREUM";
+}
+
+function normalizeEventTypeFromInvoice(inv: InvoiceListItem): string {
+  const status = String(inv.status ?? "unknown");
+  // if txStatus exists, it’s useful in UI, but still a string is allowed
+  const tx = inv.txStatus ? `.${String(inv.txStatus)}` : "";
+  return `invoice.${status}${tx}`;
+}
+
+// Превращаем invoice в AccountingEntryRaw-подобную строку,
+// чтобы Accounting мог показывать "историю как invoices".
+function invoiceToAccountingLikeRow(inv: InvoiceListItem): AccountingEntryRaw {
+  const invoiceId = String(inv.id ?? inv.invoiceId ?? "");
+
+  const gross =
+    inv.grossAmount ??
+    inv.cryptoAmount ??
+    inv.netAmount ??
+    inv.feeAmount ??
+    "0";
+  const fee = inv.feeAmount ?? "0";
+  const net = inv.netAmount ?? gross ?? "0";
+
+  const merchantId = String(inv.merchantId ?? "");
+  const currency = normalizeAssetFromInvoice(inv);
+  const network = normalizeNetworkFromInvoice(inv);
+
+  const depositAddress = String(
+    inv.depositAddress ?? inv.pay?.address ?? inv.walletAddress ?? ""
+  );
+
+  const createdAt =
+    inv.confirmedAt ??
+    inv.detectedAt ??
+    inv.createdAt ??
+    new Date().toISOString();
+
+  return {
+    invoiceId,
+    merchantId,
+
+    eventType: normalizeEventTypeFromInvoice(inv),
+
+    grossAmount: String(gross ?? "0"),
+    feeAmount: String(fee ?? "0"),
+    netAmount: String(net ?? "0"),
+
+    currency,
+    network,
+
+    depositAddress,
+    senderAddress: inv.senderAddress ?? null,
+    txHash: inv.txHash ?? null,
+
+    createdAt: String(createdAt),
+  };
+}
+
+export async function fetchInvoiceHistoryAsEntries(params: {
+  merchantId: string;
+  limit: number;
+  headers: Headers;
+  from?: string;
+  to?: string;
+}): Promise<{ items: AccountingEntryRaw[] }> {
+  const qs = toQuery({
+    merchantId: params.merchantId,
+    limit: String(params.limit),
+    from: params.from ?? "",
+    to: params.to ?? "",
+  });
+
+  const data = await fetchJson<unknown>(
+    `/api/psp/invoices${qs}`,
+    params.headers
+  );
+  const invoices = extractInvoiceItems(data);
+
+  return { items: invoices.map(invoiceToAccountingLikeRow) };
 }
