@@ -249,7 +249,7 @@ export default async function AccountingPage({
         ledger rows: <b>{ledgerRows}</b> · pipeline rows: <b>{pipelineRows}</b>
       </div>
 
-      <AccountingKpis entries={items} summary={summary} />
+      <AccountingKpis entries={items} summary={summary} currency="EUR" />
 
       <AccountingFilters merchantId={merchantId} limit={limit} />
 
