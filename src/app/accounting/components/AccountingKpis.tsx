@@ -31,33 +31,67 @@ function KpiCard({ label, value }: KpiItem) {
   );
 }
 
-export default function AccountingKpis({ entries, summary }: Props) {
-  const fallbackTotals = entries.reduce(
-    (acc, e) => {
-      acc.gross += toNumber(e.grossAmount, 0);
-      acc.fee += toNumber(e.feeAmount, 0);
-      acc.net += toNumber(e.netAmount, 0);
-      acc.count += 1;
-      return acc;
-    },
-    { gross: 0, fee: 0, net: 0, count: 0 }
-  );
+function norm(v: unknown): string {
+  return String(v ?? "")
+    .trim()
+    .toLowerCase();
+}
 
-  const gross = summary ? toNumber(summary.grossSum, 0) : fallbackTotals.gross;
-  const fee = summary ? toNumber(summary.feeSum, 0) : fallbackTotals.fee;
-  const net = summary ? toNumber(summary.netSum, 0) : fallbackTotals.net;
-  const count = summary
-    ? Number(summary.confirmedCount ?? 0)
-    : fallbackTotals.count;
+export default function AccountingKpis({ entries, summary }: Props) {
+  /**
+   * ✅ 1. Если backend дал summary — используем его как source of truth
+   */
+  if (summary) {
+    const gross = toNumber(summary.grossSum, 0);
+    const fee = toNumber(summary.feeSum, 0);
+    const net = toNumber(summary.netSum, 0);
+    const count = Number(summary.confirmedCount ?? 0) || 0;
+
+    const items: KpiItem[] = [
+      { label: "Gross volume", value: fmtMoney(gross, "USD") },
+      { label: "Fees", value: fmtMoney(fee, "USD") },
+      { label: "Net volume", value: fmtMoney(net, "USD") },
+      { label: "Transactions", value: String(count) },
+    ];
+
+    return (
+      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {items.map((it) => (
+          <KpiCard key={it.label} label={it.label} value={it.value} />
+        ))}
+      </div>
+    );
+  }
+
+  /**
+   * ✅ 2. Fallback: считаем ТОЛЬКО корректные события
+   */
+  let gross = 0;
+  let net = 0;
+  let fee = 0;
+
+  const confirmedInvoiceIds = new Set<string>();
+
+  for (const e of entries) {
+    const eventType = norm(e.eventType);
+    const invoiceId = String(e.invoiceId ?? "").trim();
+
+    if (eventType === "invoice.confirmed") {
+      gross += toNumber(e.grossAmount, 0);
+      net += toNumber(e.netAmount, 0);
+      if (invoiceId) confirmedInvoiceIds.add(invoiceId);
+    }
+
+    if (eventType === "fee_charged") {
+      fee += toNumber(e.feeAmount, 0);
+    }
+  }
 
   const items: KpiItem[] = [
     { label: "Gross volume", value: fmtMoney(gross, "USD") },
     { label: "Fees", value: fmtMoney(fee, "USD") },
     { label: "Net volume", value: fmtMoney(net, "USD") },
-    {
-      label: "Transactions",
-      value: String(Number.isFinite(count) ? count : 0),
-    },
+    { label: "Transactions", value: String(confirmedInvoiceIds.size) },
   ];
 
   return (
