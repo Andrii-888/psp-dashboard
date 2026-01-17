@@ -1,35 +1,88 @@
 // src/app/accounting/page.tsx
 
 import { headers } from "next/headers";
-import Link from "next/link";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+import ErrorState from "./components/ErrorState";
+import EmptyState from "./components/EmptyState";
+
+import AccountingHeader from "./components/AccountingHeader";
+import AccountingKpis from "./components/AccountingKpis";
+import AccountingFilters from "./components/AccountingFilters";
+import AccountingTableClient from "./components/AccountingTableClient";
+
+import FeesBreakdown from "./components/FeesBreakdown";
+import ByDayTable from "./components/ByDayTable";
+import ByAssetTable from "./components/ByAssetTable";
+import ReconciliationPanel from "./components/ReconciliationPanel";
+import TotalsReconciliationPanel from "./components/TotalsReconciliationPanel";
+
+import type { AccountingEntryRaw } from "./lib/types";
+
+import {
+  fetchEntries,
+  runBackfillConfirmed,
+  fetchInvoiceHistoryAsEntries,
+  fetchSummary,
+  fetchFeesSummary,
+  fetchByDay,
+  fetchByAsset,
+  fetchReconciliation,
+} from "./lib/api";
+
+import type {
+  SummaryResponse,
+  FeesSummaryResponse,
+  ByDayResponse,
+  ByAssetResponse,
+  ReconciliationResponse,
+} from "./lib/api";
 
 import type { SearchParams } from "./lib/searchParams";
 import { pick } from "./lib/searchParams";
 
-import {
-  fetchEntries,
-  fetchInvoiceHistoryAsEntries,
-  fetchSummary,
-} from "./lib/api";
+function mergePipelineWithLedger(
+  pipeline: AccountingEntryRaw[],
+  ledger: AccountingEntryRaw[]
+): AccountingEntryRaw[] {
+  const ledgerByInvoice = new Map<string, AccountingEntryRaw[]>();
 
-import type { AccountingEntryRaw } from "./lib/types";
-import type { SummaryResponse } from "./lib/api";
-
-function safeJson(obj: unknown) {
-  try {
-    return JSON.stringify(obj, null, 2);
-  } catch {
-    return String(obj);
+  for (const e of ledger) {
+    const id = String(e.invoiceId || "").trim();
+    if (!id) continue;
+    const arr = ledgerByInvoice.get(id) ?? [];
+    arr.push(e);
+    ledgerByInvoice.set(id, arr);
   }
+
+  const out: AccountingEntryRaw[] = [];
+
+  // 1) pipeline: only invoiceId that are NOT present in ledger
+  for (const p of pipeline) {
+    const id = String(p.invoiceId || "").trim();
+    if (!id) continue;
+    if (ledgerByInvoice.has(id)) continue;
+    out.push(p);
+  }
+
+  // 2) ledger: all ledger entries
+  for (const e of ledger) out.push(e);
+
+  // sort by createdAt desc
+  out.sort((a, b) => {
+    const ta = Date.parse(String(a.createdAt ?? "")) || 0;
+    const tb = Date.parse(String(b.createdAt ?? "")) || 0;
+    return tb - ta;
+  });
+
+  return out;
 }
 
-function small(v: unknown) {
-  const s = String(v ?? "");
-  return s.length > 80 ? s.slice(0, 77) + "..." : s;
-}
-
-function isConfirmed(e: AccountingEntryRaw) {
-  return String(e.eventType ?? "").trim() === "invoice.confirmed";
+function toFetchHeaders(h: Awaited<ReturnType<typeof headers>>): Headers {
+  const out = new Headers();
+  for (const [k, v] of h.entries()) out.set(k, v);
+  return out;
 }
 
 export default async function AccountingPage({
@@ -38,300 +91,193 @@ export default async function AccountingPage({
   searchParams: Promise<SearchParams>;
 }) {
   const sp = await searchParams;
-  const h = await headers();
+
+  // ✅ Next 15: headers() is async
+  const hReadonly = await headers();
+  const h = toFetchHeaders(hReadonly);
 
   const merchantId = pick(sp, "merchantId", "demo-merchant");
 
   const limit = Math.max(
     1,
-    Math.min(200, Number(pick(sp, "limit", "50")) || 50)
+    Math.min(200, Number(pick(sp, "limit", "20")) || 20)
   );
 
   const from = pick(sp, "from", "");
   const to = pick(sp, "to", "");
 
-  // Fetch only the essentials for debugging
-  const [ledgerRes, pipelineRes, summaryRes] = await Promise.allSettled([
-    fetchEntries({ merchantId, limit, headers: h, from, to }),
-    fetchInvoiceHistoryAsEntries({ merchantId, limit, headers: h, from, to }),
+  const backfillInserted = pick(sp, "backfillInserted", "");
+  const backfillError = pick(sp, "backfillError", "");
+
+  async function onBackfill(formData: FormData) {
+    "use server";
+
+    const merchantId = String(formData.get("merchantId") ?? "");
+    const limit = String(formData.get("limit") ?? "20");
+    const from = String(formData.get("from") ?? "");
+    const to = String(formData.get("to") ?? "");
+
+    const qs = new URLSearchParams();
+    if (merchantId) qs.set("merchantId", merchantId);
+    if (limit) qs.set("limit", limit);
+    if (from) qs.set("from", from);
+    if (to) qs.set("to", to);
+
+    let inserted = 0;
+    let errorMsg = "";
+
+    try {
+      const hReadonly = await headers();
+      const h = toFetchHeaders(hReadonly);
+
+      const res = await runBackfillConfirmed({
+        merchantId,
+        headers: h,
+        from,
+        to,
+      });
+
+      inserted = Number(res.inserted ?? 0);
+    } catch (e) {
+      errorMsg = e instanceof Error ? e.message : "Backfill failed";
+    }
+
+    if (errorMsg) {
+      qs.set("backfillError", errorMsg);
+      qs.delete("backfillInserted");
+    } else {
+      qs.set("backfillInserted", String(inserted));
+      qs.delete("backfillError");
+    }
+
+    revalidatePath("/accounting");
+    redirect(`/accounting?${qs.toString()}`);
+  }
+
+  let items: AccountingEntryRaw[] = [];
+  let totalsItems: AccountingEntryRaw[] = [];
+
+  let pipelineItems: AccountingEntryRaw[] = [];
+  let pipelineTotalsItems: AccountingEntryRaw[] = [];
+
+  let summary: SummaryResponse | null = null;
+  let fees: FeesSummaryResponse | null = null;
+  let byDay: ByDayResponse | null = null;
+  let byAsset: ByAssetResponse | null = null;
+  let reconciliation: ReconciliationResponse | null = null;
+
+  let errorMsg = "";
+
+  const totalsLimit = 200;
+
+  const results = await Promise.allSettled([
+    // ledger (accounting_entries)
+    fetchEntries({ merchantId, limit, headers: h, from, to }), // table
+    fetchEntries({ merchantId, limit: totalsLimit, headers: h, from, to }), // totals
+
+    // pipeline (invoices as accounting-like rows)
+    fetchInvoiceHistoryAsEntries({ merchantId, limit, headers: h, from, to }), // table
+    fetchInvoiceHistoryAsEntries({
+      merchantId,
+      limit: totalsLimit,
+      headers: h,
+      from,
+      to,
+    }), // totals
+
+    // summaries
     fetchSummary({ merchantId, headers: h, from, to }),
-  ]);
+    fetchFeesSummary({ merchantId, headers: h, from, to }),
+    fetchByDay({ merchantId, headers: h, from, to }),
+    fetchByAsset({ merchantId, headers: h, from, to }),
+    fetchReconciliation({ merchantId, headers: h, from, to }),
+  ] as const);
 
-  const ledgerItems =
-    ledgerRes.status === "fulfilled" ? ledgerRes.value.items : [];
-  const pipelineItems =
-    pipelineRes.status === "fulfilled" ? pipelineRes.value.items : [];
-  const summary: SummaryResponse | null =
-    summaryRes.status === "fulfilled" ? summaryRes.value : null;
+  const [
+    entriesRes,
+    totalsEntriesRes,
+    pipelineRes,
+    pipelineTotalsRes,
+    summaryRes,
+    feesRes,
+    byDayRes,
+    byAssetRes,
+    reconciliationRes,
+  ] = results;
 
-  const confirmedLedger = ledgerItems.filter(isConfirmed);
+  if (entriesRes.status === "fulfilled") {
+    items = entriesRes.value.items;
+  } else {
+    errorMsg =
+      entriesRes.reason instanceof Error
+        ? entriesRes.reason.message
+        : "Failed to load entries";
+  }
 
-  const errLedger =
-    ledgerRes.status === "rejected"
-      ? ledgerRes.reason instanceof Error
-        ? ledgerRes.reason.message
-        : "Failed to load ledger entries"
-      : "";
+  if (totalsEntriesRes.status === "fulfilled") {
+    totalsItems = totalsEntriesRes.value.items;
+  } else {
+    totalsItems = [];
+  }
 
-  const errPipeline =
-    pipelineRes.status === "rejected"
-      ? pipelineRes.reason instanceof Error
-        ? pipelineRes.reason.message
-        : "Failed to load pipeline entries"
-      : "";
+  if (pipelineRes.status === "fulfilled") {
+    pipelineItems = pipelineRes.value.items;
+  } else {
+    pipelineItems = [];
+  }
 
-  const errSummary =
-    summaryRes.status === "rejected"
-      ? summaryRes.reason instanceof Error
-        ? summaryRes.reason.message
-        : "Failed to load summary"
-      : "";
+  if (pipelineTotalsRes.status === "fulfilled") {
+    pipelineTotalsItems = pipelineTotalsRes.value.items;
+  } else {
+    pipelineTotalsItems = [];
+  }
+
+  items = mergePipelineWithLedger(pipelineItems, items);
+  totalsItems = mergePipelineWithLedger(pipelineTotalsItems, totalsItems);
+
+  if (summaryRes.status === "fulfilled") summary = summaryRes.value;
+  if (feesRes.status === "fulfilled") fees = feesRes.value;
+  if (byDayRes.status === "fulfilled") byDay = byDayRes.value;
+  if (byAssetRes.status === "fulfilled") byAsset = byAssetRes.value;
+  if (reconciliationRes.status === "fulfilled")
+    reconciliation = reconciliationRes.value;
 
   return (
     <div className="p-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <div className="text-2xl font-semibold text-zinc-900">
-            Accounting (Debug)
-          </div>
-          <div className="mt-1 text-sm text-zinc-600">
-            merchantId: <span className="font-mono">{merchantId}</span> · limit:{" "}
-            <span className="font-mono">{limit}</span>
-            {from ? (
-              <>
-                {" "}
-                · from: <span className="font-mono">{from}</span>
-              </>
-            ) : null}
-            {to ? (
-              <>
-                {" "}
-                · to: <span className="font-mono">{to}</span>
-              </>
-            ) : null}
-          </div>
-          <div className="mt-2 text-xs text-zinc-500">
-            Goal: show raw API payloads only (no UI computations), then rebuild
-            top-grade accounting UI on top.
-          </div>
-        </div>
+      <AccountingHeader
+        merchantId={merchantId}
+        limit={limit}
+        rows={items.length}
+      />
 
-        <Link
-          href="/"
-          className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50"
-        >
-          ← Back to invoices
-        </Link>
-      </div>
+      <AccountingKpis entries={items} summary={summary} />
 
-      {/* Summary */}
-      <div className="rounded-2xl border border-zinc-200 bg-white">
-        <div className="border-b border-zinc-200 p-4">
-          <div className="text-sm font-semibold text-zinc-900">
-            /accounting/summary (raw)
-          </div>
-          {errSummary ? (
-            <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-              {errSummary}
-            </div>
-          ) : null}
-        </div>
+      <AccountingFilters merchantId={merchantId} limit={limit} />
 
-        <div className="p-4">
-          <pre className="max-h-96 overflow-auto rounded-xl bg-zinc-950 p-4 text-xs text-zinc-100">
-            {safeJson(summary)}
-          </pre>
-        </div>
-      </div>
+      <ReconciliationPanel
+        data={reconciliation}
+        merchantId={merchantId}
+        limit={limit}
+        from={from}
+        to={to}
+        backfillInserted={backfillInserted}
+        backfillError={backfillError}
+        onBackfill={onBackfill}
+      />
 
-      {/* Counts */}
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Ledger rows (entries)
-          </div>
-          <div className="mt-2 text-2xl font-semibold text-zinc-900">
-            {ledgerItems.length}
-          </div>
-        </div>
+      <TotalsReconciliationPanel entries={totalsItems} summary={summary} />
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Ledger confirmed rows
-          </div>
-          <div className="mt-2 text-2xl font-semibold text-zinc-900">
-            {confirmedLedger.length}
-          </div>
-        </div>
+      <FeesBreakdown fees={fees} />
+      <ByDayTable data={byDay} />
+      <ByAssetTable data={byAsset} />
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4">
-          <div className="text-xs uppercase tracking-wide text-zinc-500">
-            Pipeline rows (invoices-as-rows)
-          </div>
-          <div className="mt-2 text-2xl font-semibold text-zinc-900">
-            {pipelineItems.length}
-          </div>
-        </div>
-      </div>
-
-      {/* Ledger table */}
-      <div className="mt-4 rounded-2xl border border-zinc-200 bg-white">
-        <div className="border-b border-zinc-200 p-4">
-          <div className="text-sm font-semibold text-zinc-900">
-            /accounting/entries (ledger) — raw rows
-          </div>
-          <div className="mt-1 text-xs text-zinc-600">
-            Shows exactly what API returns. Confirmed rows are highlighted.
-          </div>
-          {errLedger ? (
-            <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-              {errLedger}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="overflow-x-auto p-4">
-          <table className="w-full min-w-full text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-zinc-500">
-              <tr className="border-b border-zinc-200">
-                <th className="py-2 pr-4">createdAt</th>
-                <th className="py-2 pr-4">eventType</th>
-                <th className="py-2 pr-4">invoiceId</th>
-                <th className="py-2 pr-4">gross</th>
-                <th className="py-2 pr-4">fee</th>
-                <th className="py-2 pr-4">net</th>
-                <th className="py-2 pr-4">currency</th>
-                <th className="py-2 pr-2">txHash</th>
-              </tr>
-            </thead>
-            <tbody className="text-zinc-900">
-              {ledgerItems.map((e, idx) => {
-                const confirmed = isConfirmed(e);
-                return (
-                  <tr
-                    key={`${e.invoiceId}-${e.eventType}-${idx}`}
-                    className={
-                      confirmed
-                        ? "border-b border-zinc-100 bg-emerald-50"
-                        : "border-b border-zinc-100"
-                    }
-                  >
-                    <td className="py-2 pr-4 font-mono text-xs">
-                      {small(e.createdAt)}
-                    </td>
-                    <td className="py-2 pr-4 font-mono text-xs">
-                      {small(e.eventType)}
-                    </td>
-                    <td className="py-2 pr-4 font-mono text-xs">
-                      {small(e.invoiceId)}
-                    </td>
-                    <td className="py-2 pr-4 font-mono text-xs">
-                      {small(e.grossAmount)}
-                    </td>
-                    <td className="py-2 pr-4 font-mono text-xs">
-                      {small(e.feeAmount)}
-                    </td>
-                    <td className="py-2 pr-4 font-mono text-xs">
-                      {small(e.netAmount)}
-                    </td>
-                    <td className="py-2 pr-4 font-mono text-xs">
-                      {small(e.currency)}
-                    </td>
-                    <td className="py-2 pr-2 font-mono text-xs">
-                      {small(e.txHash)}
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {!ledgerItems.length ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="py-6 text-center text-sm text-zinc-500"
-                  >
-                    No ledger rows returned.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Pipeline table */}
-      <div className="mt-4 rounded-2xl border border-zinc-200 bg-white">
-        <div className="border-b border-zinc-200 p-4">
-          <div className="text-sm font-semibold text-zinc-900">
-            invoices-as-entries (pipeline) — raw rows
-          </div>
-          <div className="mt-1 text-xs text-zinc-600">
-            This is NOT accounting truth. It’s operational invoice history.
-          </div>
-          {errPipeline ? (
-            <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-              {errPipeline}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="overflow-x-auto p-4">
-          <table className="w-full min-w-full text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-zinc-500">
-              <tr className="border-b border-zinc-200">
-                <th className="py-2 pr-4">createdAt</th>
-                <th className="py-2 pr-4">status/event</th>
-                <th className="py-2 pr-4">invoiceId</th>
-                <th className="py-2 pr-4">gross</th>
-                <th className="py-2 pr-4">fee</th>
-                <th className="py-2 pr-4">net</th>
-                <th className="py-2 pr-4">currency</th>
-              </tr>
-            </thead>
-            <tbody className="text-zinc-900">
-              {pipelineItems.map((e, idx) => (
-                <tr
-                  key={`${e.invoiceId}-${e.eventType}-${idx}`}
-                  className="border-b border-zinc-100"
-                >
-                  <td className="py-2 pr-4 font-mono text-xs">
-                    {small(e.createdAt)}
-                  </td>
-                  <td className="py-2 pr-4 font-mono text-xs">
-                    {small(e.eventType)}
-                  </td>
-                  <td className="py-2 pr-4 font-mono text-xs">
-                    {small(e.invoiceId)}
-                  </td>
-                  <td className="py-2 pr-4 font-mono text-xs">
-                    {small(e.grossAmount)}
-                  </td>
-                  <td className="py-2 pr-4 font-mono text-xs">
-                    {small(e.feeAmount)}
-                  </td>
-                  <td className="py-2 pr-4 font-mono text-xs">
-                    {small(e.netAmount)}
-                  </td>
-                  <td className="py-2 pr-4 font-mono text-xs">
-                    {small(e.currency)}
-                  </td>
-                </tr>
-              ))}
-
-              {!pipelineItems.length ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="py-6 text-center text-sm text-zinc-500"
-                  >
-                    No pipeline rows returned.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {errorMsg ? (
+        <ErrorState description={errorMsg} />
+      ) : items.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <AccountingTableClient entries={items} />
+      )}
     </div>
   );
 }

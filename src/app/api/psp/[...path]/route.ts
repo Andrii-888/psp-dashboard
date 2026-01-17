@@ -8,6 +8,7 @@ type RouteContext = {
   params?: Promise<{ path?: string[] | string }> | { path?: string[] | string };
 };
 
+// Reads first non-empty env from the list (optional)
 function envAnyOpt(names: string[]): string | null {
   for (const n of names) {
     const v = (process.env[n] ?? "").trim();
@@ -37,6 +38,7 @@ function pickHeader(headers: Headers, key: string): string | null {
 }
 
 function derivePathFromUrl(req: NextRequest): string[] {
+  // /api/psp/<...> => take everything after /api/psp
   const parts = req.nextUrl.pathname.split("/").filter(Boolean);
   const apiIdx = parts.indexOf("api");
   const pspIdx = parts.indexOf("psp");
@@ -54,22 +56,18 @@ async function readParams(
     : (p as { path?: string[] | string });
 }
 
-function safeJsonParse(text: string): unknown | null {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
 async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
   try {
+    // ✅ Base URL of PSP Core (NO /api). Prefer server-only envs.
     const base =
       envAnyOpt(["PSP_API_URL", "PSP_API_BASE", "NEXT_PUBLIC_PSP_API_URL"]) ??
       "http://localhost:3001";
 
     const baseClean = stripTrailingSlashes(base);
 
+    // ✅ Credentials:
+    // - Prefer incoming request headers (dev / manual testing)
+    // - Fallback to env (production)
     const incomingMerchantId =
       pickHeader(req.headers, "x-merchant-id") ??
       pickHeader(req.headers, "x-merchant");
@@ -101,17 +99,16 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     const path = pathFromParams.length
       ? pathFromParams
       : derivePathFromUrl(req);
-    const pathname = path.join("/");
+    const pathname = path.join("/"); // e.g. "invoices/123"
 
+    // ✅ Build upstream URL safely + preserve querystring
     const url = new URL(baseClean);
     url.pathname = joinPaths(url.pathname || "/", pathname);
 
-    // ✅ forward querystring exactly
-    url.search = req.nextUrl.search;
+    const qs = req.nextUrl.search; // includes leading "?"
+    url.search = qs.startsWith("?") ? qs.slice(1) : qs;
 
-    // ✅ debug flag
-    const debug = req.nextUrl.searchParams.get("__debug") === "1";
-
+    // ✅ Copy incoming headers + remove hop-by-hop headers
     const headers = new Headers(req.headers);
 
     headers.delete("accept-encoding");
@@ -119,7 +116,7 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     headers.delete("connection");
     headers.delete("content-length");
 
-    // Never forward client auth headers upstream
+    // ✅ Always control auth headers (avoid leaking client auth)
     headers.delete("x-merchant-id");
     headers.delete("x-merchant");
     headers.delete("x-api-key");
@@ -141,44 +138,18 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
       redirect: "manual",
     });
 
-    const ct = upstream.headers.get("content-type") ?? "";
-    const status = upstream.status;
-
-    // If debug requested AND upstream is JSON -> wrap response with __debug
-    if (debug && ct.toLowerCase().includes("application/json")) {
-      const text = await upstream.text();
-      const parsed = safeJsonParse(text);
-
-      const payload =
-        parsed && typeof parsed === "object"
-          ? { ...(parsed as Record<string, unknown>) }
-          : { data: parsed ?? text };
-
-      const wrapped = {
-        __debug: {
-          target: url.toString(),
-          path: pathname || "(empty)",
-          query: req.nextUrl.search || "(none)",
-          auth: `${merchantId ? "m:1" : "m:0"}:${apiKey ? "k:1" : "k:0"}`,
-          base: baseClean,
-        },
-        ...payload,
-      };
-
-      return NextResponse.json(wrapped, {
-        status,
-        headers: { "cache-control": "no-store" },
-      });
-    }
-
-    // Normal pass-through (binary safe)
-    const data = await upstream.arrayBuffer();
-
+    // ✅ Return only safe headers back to client
     const resHeaders = new Headers();
+    const ct = upstream.headers.get("content-type");
     if (ct) resHeaders.set("content-type", ct);
     resHeaders.set("cache-control", "no-store");
 
-    return new NextResponse(data, { status, headers: resHeaders });
+    const data = await upstream.arrayBuffer();
+
+    return new NextResponse(data, {
+      status: upstream.status,
+      headers: resHeaders,
+    });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json(

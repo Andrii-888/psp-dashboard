@@ -12,7 +12,7 @@ type SummaryLike = {
 type Props = {
   entries: AccountingEntryRaw[];
   summary?: SummaryLike | null;
-  currency: "EUR"; // ← сейчас строго EUR, CHF добавим позже
+  currency?: "EUR"; // optional, defaults to EUR
 };
 
 type KpiItem = {
@@ -38,15 +38,17 @@ function isCurrency(e: AccountingEntryRaw, currency: "EUR"): boolean {
 }
 
 export default function AccountingKpis({ entries, summary, currency }: Props) {
+  const curr: "EUR" = currency ?? "EUR";
+
   const fallback = entries.reduce(
     (acc, e) => {
-      if (e.eventType === "invoice.confirmed" && isCurrency(e, currency)) {
+      if (e.eventType === "invoice.confirmed" && isCurrency(e, curr)) {
         acc.gross += toNumber(e.grossAmount, 0);
         acc.net += toNumber(e.netAmount, 0);
         acc.count += 1;
       }
 
-      if (e.eventType === "fee_charged" && isCurrency(e, currency)) {
+      if (e.eventType === "fee_charged" && isCurrency(e, curr)) {
         acc.fee += toNumber(e.feeAmount, 0);
       }
 
@@ -61,9 +63,9 @@ export default function AccountingKpis({ entries, summary, currency }: Props) {
   const count = summary ? Number(summary.confirmedCount ?? 0) : fallback.count;
 
   const items: KpiItem[] = [
-    { label: "Gross volume", value: fmtMoney(gross, currency) },
-    { label: "Fees", value: fmtMoney(fee, currency) },
-    { label: "Net volume", value: fmtMoney(net, currency) },
+    { label: "Gross volume", value: fmtMoney(gross, curr) },
+    { label: "Fees", value: fmtMoney(fee, curr) },
+    { label: "Net volume", value: fmtMoney(net, curr) },
     {
       label: "Transactions",
       value: String(Number.isFinite(count) ? count : 0),
