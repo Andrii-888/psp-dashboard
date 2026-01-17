@@ -1,23 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 
-type Invoice = {
-  id: string;
-  status: string;
-  txStatus?: string | null;
-  confirmations?: number;
-  requiredConfirmations?: number;
-};
+import type { Invoice } from "@/domain/invoices/types";
+import { fetchInvoiceById } from "@/lib/pspApi";
 
 type PollState =
   | { state: "idle" }
   | { state: "loading" }
   | { state: "done"; invoice: Invoice }
   | { state: "error"; error: string };
-
-function safePreview(text: string, max = 200) {
-  const t = text.replace(/\s+/g, " ").trim();
-  return t.length > max ? `${t.slice(0, max)}…` : t;
-}
 
 export function useInvoicePolling(invoiceId: string | null) {
   const [pollState, setPollState] = useState<PollState>({ state: "idle" });
@@ -33,47 +23,20 @@ export function useInvoicePolling(invoiceId: string | null) {
       return;
     }
 
-    const id = invoiceId; // ✅ здесь id уже string
+    const id = invoiceId; // string
     let stopped = false;
 
     async function poll() {
       try {
         setPollState({ state: "loading" });
 
-        const res = await fetch(`/api/psp/invoices/${encodeURIComponent(id)}`, {
-          cache: "no-store",
-          headers: { accept: "application/json" },
-        });
+        const res = await fetchInvoiceById(id);
 
-        const ct = res.headers.get("content-type") ?? "";
-        const raw = await res.text();
-        console.log("[poll] res", {
-          ok: res.ok,
-          status: res.status,
-          ct,
-          preview: raw.slice(0, 300),
-        });
-
-        if (!res.ok) {
-          if (ct.includes("application/json")) {
-            try {
-              const j = JSON.parse(raw) as { message?: string; error?: string };
-              throw new Error(j.message || j.error || `HTTP ${res.status}`);
-            } catch {
-              throw new Error(`HTTP ${res.status}: ${safePreview(raw)}`);
-            }
-          }
-          throw new Error(`HTTP ${res.status}: ${safePreview(raw)}`);
+        if (!res?.ok || !res.invoice) {
+          throw new Error("Failed to load invoice");
         }
 
-        // 🔴 ВАЖНО: МЕНЯЕМ ТОЛЬКО ЭТОТ БЛОК
-        if (!ct.includes("application/json")) {
-          throw new Error(
-            `Response is not valid JSON. ct=${ct}. preview=${raw.slice(0, 200)}`
-          );
-        }
-
-        const invoice = JSON.parse(raw) as Invoice;
+        const invoice = res.invoice;
 
         if (invoice.status === "confirmed" || invoice.status === "expired") {
           setPollState({ state: "done", invoice });
@@ -81,6 +44,7 @@ export function useInvoicePolling(invoiceId: string | null) {
           return;
         }
 
+        // keep polling
         setPollState({ state: "loading" });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Polling error";
@@ -89,10 +53,10 @@ export function useInvoicePolling(invoiceId: string | null) {
       }
     }
 
-    poll();
+    void poll();
 
     timerRef.current = window.setInterval(() => {
-      if (!stopped) poll();
+      if (!stopped) void poll();
     }, 2000);
 
     return () => {

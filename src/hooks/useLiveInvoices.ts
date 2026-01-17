@@ -23,10 +23,10 @@ function getAudioContextCtor(): (new () => AudioContext) | null {
   if (typeof window === "undefined") return null;
 
   // Safari: webkitAudioContext
-  const w = window as unknown as {
-    AudioContext?: typeof AudioContext;
-    webkitAudioContext?: typeof AudioContext;
-  };
+  const w = window as Window &
+    typeof globalThis & {
+      webkitAudioContext?: typeof AudioContext;
+    };
 
   return w.AudioContext ?? w.webkitAudioContext ?? null;
 }

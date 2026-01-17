@@ -9,3 +9,12 @@ export function pick(sp: SearchParams, key: string, fallback = ""): string {
   if (typeof v === "string") return v;
   return fallback;
 }
+
+export function toQuery(params: Record<string, string>) {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v) q.set(k, v);
+  }
+  const s = q.toString();
+  return s ? `?${s}` : "";
+}

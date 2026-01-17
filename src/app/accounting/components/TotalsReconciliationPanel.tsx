@@ -1,11 +1,22 @@
 // src/app/accounting/components/TotalsReconciliationPanel.tsx
 
 import type { AccountingEntryRaw } from "../lib/types";
-import type { SummaryResponse } from "../lib/api";
+
+type SummaryData = {
+  merchantId: string;
+  from: string | null;
+  to: string | null;
+  confirmedCount: number;
+  grossSum: string;
+  feeSum: string;
+  netSum: string;
+  feeFiatSum: string;
+  feeFiatCurrency: string | null;
+};
 
 type Props = {
   entries: AccountingEntryRaw[];
-  summary: SummaryResponse | null;
+  summary: SummaryData | null;
 };
 
 function toPlainString(v: string | number): string {
@@ -151,7 +162,7 @@ function Badge({ kind }: { kind: BadgeKind }) {
 export default function TotalsReconciliationPanel({ entries, summary }: Props) {
   const hasSummary = Boolean(summary);
 
-  // ✅ IMPORTANT: /accounting/summary totals are based on invoice.confirmed only.
+  // ✅ IMPORTANT: Totals are based on invoice.confirmed only.
   // So reconciliation must compare summary vs entries filtered to invoice.confirmed.
   const confirmedEntries = entries.filter(
     (e) => String(e.eventType ?? "").trim() === "invoice.confirmed"
@@ -199,10 +210,9 @@ export default function TotalsReconciliationPanel({ entries, summary }: Props) {
             Totals reconciliation
           </div>
           <div className="mt-1 text-xs text-zinc-600">
-            Compares <span className="font-mono">/accounting/summary</span> vs
-            sum of confirmed rows from{" "}
+            Compares totals vs sum of confirmed rows from{" "}
             <span className="font-mono">/accounting/entries</span> for the same
-            period.
+            period. period.
           </div>
 
           {hasSummary ? (

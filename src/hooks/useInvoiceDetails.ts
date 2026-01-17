@@ -9,19 +9,18 @@ import type {
   WebhookDispatchResult,
   AttachTransactionPayload,
   ProviderEvent,
-} from "@/lib/pspApi";
-
+} from "@/domain/invoices/types";
 import {
-  fetchInvoice,
+  fetchInvoiceById,
   fetchInvoiceWebhooks,
   fetchInvoiceProviderEvents,
   dispatchInvoiceWebhooks,
-  runInvoiceAmlCheck,
+  runInvoiceAml,
   attachInvoiceTransaction,
   confirmInvoice,
   rejectInvoice,
   expireInvoice,
-} from "@/lib/pspApiInvoiceDetails";
+} from "@/lib/pspApi";
 
 const POLL_INTERVAL_MS = 3000; // ✅ 3 seconds (top UX for payments)
 
@@ -106,6 +105,15 @@ export function useInvoiceDetails(
     return dispatching || amlLoading || savingTx || actionLoading;
   }, [dispatching, amlLoading, savingTx, actionLoading]);
 
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   // ================= RESET ON INVOICE CHANGE =================
   useEffect(() => {
     setError(null);
@@ -143,20 +151,25 @@ export function useInvoiceDetails(
         setError(null);
         setWebhookInfo(null);
 
-        const [inv, wh, pe] = await Promise.all([
-          fetchInvoice(invoiceId),
+        const [invoiceRes, webhooksRes, providerEventsRes] = await Promise.all([
+          fetchInvoiceById(invoiceId),
           fetchInvoiceWebhooks(invoiceId),
           fetchInvoiceProviderEvents(invoiceId, 50),
         ]);
 
         if (cancelled) return;
 
-        setInvoice(inv);
-        setWebhooks(wh);
-        setProviderEvents(pe);
+        const invoice = invoiceRes.invoice;
+        const webhooks = webhooksRes.items;
+        const providerEvents = providerEventsRes;
 
-        const tx = normalizeTx(inv?.txHash ?? null);
-        lastAutoAmlTxRef.current = inv.amlStatus !== null && tx ? tx : null;
+        setInvoice(invoice);
+        setWebhooks(webhooks);
+        setProviderEvents(providerEvents);
+
+        const tx = normalizeTx(invoice?.txHash ?? null);
+        lastAutoAmlTxRef.current =
+          invoice?.amlStatus !== null && tx ? tx : null;
       } catch (err: unknown) {
         if (cancelled) return;
         const message =
@@ -215,9 +228,9 @@ export function useInvoiceDetails(
 
       pollInFlightRef.current = true;
       try {
-        const latest = await fetchInvoice(currentId);
+        const res = await fetchInvoiceById(currentId);
         if (cancelled) return;
-        setInvoice(latest);
+        setInvoice(res.invoice);
       } catch {
         // ignore transient errors
       } finally {
@@ -274,9 +287,9 @@ export function useInvoiceDetails(
 
         lastAutoAmlTxRef.current = tx;
 
-        const updated = await runInvoiceAmlCheck(invId);
+        const res = await runInvoiceAml(invId);
         if (cancelled) return;
-        setInvoice(updated);
+        setInvoice(res.invoice);
       } catch (err: unknown) {
         if (cancelled) return;
 
@@ -310,36 +323,46 @@ export function useInvoiceDetails(
     try {
       setWebhooksLoading(true);
       setError(null);
+
       const wh = await fetchInvoiceWebhooks(invoiceId);
-      setWebhooks(wh);
+      if (!mountedRef.current) return;
+
+      setWebhooks(wh.items);
     } catch (err: unknown) {
+      if (!mountedRef.current) return;
+
       const message =
         err instanceof Error ? err.message : "Failed to load webhooks";
       setError(message);
     } finally {
-      setWebhooksLoading(false);
+      if (mountedRef.current) {
+        setWebhooksLoading(false);
+      }
     }
   }
 
   // ================= DISPATCH WEBHOOKS =================
   async function handleDispatchWebhooks() {
     if (!invoiceId) return;
-    if (dispatching || isMutating) return;
+    if (isMutating) return;
 
     try {
       setDispatching(true);
       setError(null);
       setWebhookInfo(null);
 
-      const result = await dispatchInvoiceWebhooks(invoiceId);
-      setWebhookInfo(result);
+      const res = await dispatchInvoiceWebhooks(invoiceId);
+      if (!mountedRef.current) return;
+      setWebhookInfo(res.result);
 
       await reloadWebhooks();
     } catch (err: unknown) {
+      if (!mountedRef.current) return;
       const message =
         err instanceof Error ? err.message : "Failed to dispatch webhooks";
       setError(message);
     } finally {
+      if (!mountedRef.current) return;
       setDispatching(false);
     }
   }
@@ -353,10 +376,13 @@ export function useInvoiceDetails(
       setAmlLoading(true);
       setError(null);
 
-      const updated = await runInvoiceAmlCheck(invoice.id);
+      const res = await runInvoiceAml(invoice.id);
+      const updated = res.invoice;
+
       setInvoice(updated);
 
       const tx = normalizeTx(updated?.txHash ?? null);
+
       if (tx) lastAutoAmlTxRef.current = tx;
     } catch (err: unknown) {
       const message =
@@ -376,8 +402,8 @@ export function useInvoiceDetails(
       setSavingTx(true);
       setError(null);
 
-      const updated = await attachInvoiceTransaction(invoiceId, payload);
-      setInvoice(updated);
+      const res = await attachInvoiceTransaction(invoiceId, payload);
+      setInvoice(res.invoice);
 
       lastAutoAmlTxRef.current = null;
     } catch (err: unknown) {
@@ -397,8 +423,8 @@ export function useInvoiceDetails(
     try {
       setActionLoading(true);
       setError(null);
-      const updated = await confirmInvoice(invoiceId);
-      setInvoice(updated);
+      const res = await confirmInvoice(invoiceId);
+      setInvoice(res.invoice);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to confirm invoice";
@@ -415,8 +441,8 @@ export function useInvoiceDetails(
     try {
       setActionLoading(true);
       setError(null);
-      const updated = await rejectInvoice(invoiceId);
-      setInvoice(updated);
+      const res = await rejectInvoice(invoiceId);
+      setInvoice(res.invoice);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to reject invoice";
@@ -433,8 +459,8 @@ export function useInvoiceDetails(
     try {
       setActionLoading(true);
       setError(null);
-      const updated = await expireInvoice(invoiceId);
-      setInvoice(updated);
+      const res = await expireInvoice(invoiceId);
+      setInvoice(res.invoice);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to expire invoice";

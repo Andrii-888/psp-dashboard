@@ -59,22 +59,7 @@ const POLL_INTERVAL_MS = 3000;
 // ✅ стабильный fingerprint (без sort; предполагаем stable order от API)
 function fingerprint(invoices: Invoice[]): string {
   return invoices
-    .map((i) => {
-      const inv = i as unknown as {
-        id: string;
-        status?: string | null;
-        txStatus?: string | null;
-        txHash?: string | null;
-        walletAddress?: string | null;
-        amlStatus?: string | null;
-        riskScore?: number | null;
-        confirmations?: number | null;
-        detectedAt?: string | null;
-        confirmedAt?: string | null;
-        createdAt?: string | null;
-        expiresAt?: string | null;
-      };
-
+    .map((inv) => {
       return [
         inv.id,
         inv.status ?? "",
@@ -90,7 +75,7 @@ function fingerprint(invoices: Invoice[]): string {
         inv.expiresAt ?? "",
       ].join("|");
     })
-    .join("~");
+    .join("\n");
 }
 
 export function useInvoicesPage(): UseInvoicesPageResult {

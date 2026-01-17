@@ -1,154 +1,35 @@
 // src/lib/pspApi.ts
 
-// ===================== TYPES =====================
+// Re-export domain types (single source of truth)
+export type {
+  InvoiceStatus,
+  AmlStatus,
+  AssetStatus,
+  DecisionStatus,
+  SanctionsStatus,
+  SanctionsResult,
+  OperatorDecision,
+  FeePayer,
+  Chain,
+  InvoicePay,
+  Invoice,
+  WebhookEvent,
+  WebhookDispatchResult,
+  ProviderEvent,
+  FetchInvoicesParams,
+  AttachTransactionPayload,
+  CreateInvoicePayload,
+} from "@/domain/invoices/types";
 
-export type InvoiceStatus = "waiting" | "confirmed" | "expired" | "rejected";
-
-export type AmlStatus = "clean" | "warning" | "risky" | "blocked" | null;
-export type AssetStatus = "clean" | "suspicious" | "blocked" | null;
-
-// ✅ Compliance / decision types (exported)
-export type DecisionStatus = "approve" | "hold" | "reject" | null;
-export type SanctionsStatus = "clear" | "hit" | null;
-
-export interface SanctionsResult {
-  status: SanctionsStatus;
-  provider?: string | null;
-  reasonCode?: string | null;
-  details?: string | null;
-  checkedAt?: string | null;
-}
-
-export interface OperatorDecision {
-  status: DecisionStatus;
-  reasonCode?: string | null;
-  comment?: string | null;
-  decidedBy?: string | null;
-  decidedAt?: string | null;
-}
-
-// --- NEW: pay / fees / fx fields coming from PSP Core ---
-export type FeePayer = "merchant" | "customer" | null;
-
-export type Chain = "TRON" | "ETH" | (string & {});
-
-export type InvoicePay = {
-  address: string;
-  amount: string; // provider returns string (e.g. "56.915358")
-  currency: string; // e.g. "USDTTRC20"
-  network: Chain; // "TRON" | "ETH" (future-safe)
-  expiresAt: string | null;
-} | null;
-
-export interface Invoice {
-  id: string;
-  createdAt: string;
-  expiresAt: string;
-
-  fiatAmount: number;
-  fiatCurrency: string;
-
-  cryptoAmount: number;
-  cryptoCurrency: string;
-
-  // fees (from PSP Core)
-  grossAmount?: number | null;
-  feeAmount?: number | null;
-  netAmount?: number | null;
-  feeBps?: number | null;
-  feePayer?: FeePayer;
-
-  status: InvoiceStatus;
-  paymentUrl: string | null;
-
-  // provider payment instructions (NOWPayments etc.)
-  pay?: InvoicePay;
-
-  // FX
-  fxRate?: number | null;
-  fxPair?: string | null;
-
-  network: string | null;
-
-  // tx
-  txHash: string | null;
-  walletAddress: string | null;
-  txStatus?: string | null;
-  confirmations?: number | null;
-  requiredConfirmations?: number | null;
-
-  detectedAt?: string | null;
-  confirmedAt?: string | null;
-
-  // AML
-  riskScore: number | null;
-  amlStatus: AmlStatus;
-
-  assetRiskScore: number | null;
-  assetStatus: AssetStatus;
-
-  merchantId: string | null;
-
-  // decision (flat fields from PSP Core)
-  decisionStatus?: "none" | "approve" | "hold" | "reject" | null;
-  decisionReasonCode?: string | null;
-  decisionReasonText?: string | null;
-  decidedAt?: string | null;
-  decidedBy?: string | null;
-
-  // legacy/optional objects (if some endpoints return them)
-  sanctions?: SanctionsResult | null;
-  decision?: OperatorDecision | null;
-}
-
-export interface WebhookEvent {
-  id: string;
-  invoiceId: string;
-  eventType: string;
-  payloadJson: string;
-  status: "pending" | "sent" | "failed";
-  retryCount: number;
-  lastAttemptAt: string | null;
-  createdAt: string;
-}
-
-export interface WebhookDispatchResult {
-  processed: number;
-  sent: number;
-  failed: number;
-}
-
-export interface ProviderEvent {
-  provider: string;
-  eventType: string;
-  externalId: string | null;
-  invoiceId: string | null;
-  signature: string | null;
-  payloadJson: string;
-  receivedAt: string;
-}
-
-export interface FetchInvoicesParams {
-  status?: InvoiceStatus;
-  from?: string;
-  to?: string;
-  limit?: number;
-  offset?: number;
-}
-
-export interface AttachTransactionPayload {
-  network?: string;
-  walletAddress?: string;
-  txHash?: string;
-}
-
-export type CreateInvoicePayload = {
-  fiatAmount: number;
-  fiatCurrency: string;
-  cryptoCurrency: string;
-  network?: string;
-  merchantId?: string | null;
-};
+import type {
+  Invoice,
+  WebhookEvent,
+  WebhookDispatchResult,
+  ProviderEvent,
+  FetchInvoicesParams,
+  AttachTransactionPayload,
+  CreateInvoicePayload,
+} from "@/domain/invoices/types";
 
 // ===================== ERRORS =====================
 
@@ -207,19 +88,66 @@ async function parseJsonSafely<T>(res: Response): Promise<T> {
   }
 }
 
-function makeUrl(path: string): string {
+// ===================== URL + HEADERS (SSOT transport) =====================
+
+type ApiOpts = {
+  /**
+   * Server-only:
+   * If provided, requests are made with an absolute URL built from these headers,
+   * and auth headers are forwarded (x-merchant-id / x-api-key / authorization).
+   */
+  forwardHeaders?: Headers;
+};
+
+function makeProxyPath(path: string): string {
   const normalized = path.startsWith("/") ? path : `/${path}`;
-  // всегда через прокси:
   return `/api/psp${normalized}`;
 }
 
-async function apiGet<T>(path: string): Promise<T> {
-  const url = makeUrl(path);
+function getBaseUrlFromHeaders(h: Headers): string {
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  return `${proto}://${host}`;
+}
+
+function buildForwardAuthHeaders(h?: Headers): Record<string, string> {
+  if (!h) return {};
+
+  const out: Record<string, string> = {};
+  const merchant = h.get("x-merchant-id");
+  const apiKey = h.get("x-api-key");
+  const auth = h.get("authorization");
+
+  if (merchant) out["x-merchant-id"] = merchant;
+  if (apiKey) out["x-api-key"] = apiKey;
+  if (auth) out["authorization"] = auth;
+
+  return out;
+}
+
+function makeUrl(path: string, opts?: ApiOpts): string {
+  const proxyPath = makeProxyPath(path);
+
+  // Client-side: relative URL is perfect.
+  if (!opts?.forwardHeaders) return proxyPath;
+
+  // Server-side: must be absolute (Next server fetch)
+  const base = getBaseUrlFromHeaders(opts.forwardHeaders);
+  return `${base}${proxyPath}`;
+}
+
+// ===================== CORE FETCHERS =====================
+
+async function apiGet<T>(path: string, opts?: ApiOpts): Promise<T> {
+  const url = makeUrl(path, opts);
 
   const res = await fetch(url, {
     cache: "no-store",
     credentials: "omit",
-    headers: { Accept: "application/json" },
+    headers: {
+      Accept: "application/json",
+      ...buildForwardAuthHeaders(opts?.forwardHeaders),
+    },
   });
 
   if (!res.ok) {
@@ -237,12 +165,14 @@ async function apiGet<T>(path: string): Promise<T> {
 async function apiPost<T>(
   path: string,
   body?: unknown,
-  method: "POST" | "PATCH" = "POST"
+  method: "POST" | "PATCH" = "POST",
+  opts?: ApiOpts
 ): Promise<T> {
-  const url = makeUrl(path);
+  const url = makeUrl(path, opts);
 
   const headers: Record<string, string> = {
     Accept: "application/json",
+    ...buildForwardAuthHeaders(opts?.forwardHeaders),
   };
   if (body !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -286,6 +216,8 @@ function toQuery(params: Record<string, string | number | undefined>): string {
   const qs = sp.toString();
   return qs ? `?${qs}` : "";
 }
+
+// -------- Invoices (client + server) --------
 
 export async function fetchInvoices(params?: FetchInvoicesParams): Promise<{
   ok: boolean;
@@ -376,9 +308,67 @@ export async function expireInvoice(
   );
 }
 
-// Optional: create invoice (если где-то в dashboard нужно)
 export async function createInvoice(
   payload: CreateInvoicePayload
 ): Promise<{ ok: boolean; invoice: Invoice }> {
   return apiPost<{ ok: boolean; invoice: Invoice }>(`/invoices`, payload);
+}
+
+export async function fetchInvoiceProviderEvents(
+  invoiceId: string,
+  limit = 50
+): Promise<ProviderEvent[]> {
+  return apiGet<ProviderEvent[]>(
+    `/accounting/provider-events?invoiceId=${encodeURIComponent(
+      invoiceId
+    )}&limit=${limit}`
+  );
+}
+
+// -------- Accounting (server-safe, via forwarded headers) --------
+
+export type BackfillConfirmedResponse = {
+  inserted: number;
+  skipped?: number;
+  merchantId?: string | null;
+};
+
+export async function fetchAccountingEntries(params: {
+  merchantId: string;
+  limit: number;
+  headers: Headers;
+  from?: string;
+  to?: string;
+}): Promise<unknown> {
+  const qs = toQuery({
+    merchantId: params.merchantId,
+    limit: params.limit,
+    from: params.from,
+    to: params.to,
+  });
+
+  // NOTE: server-safe call (absolute URL + forwarded auth headers)
+  return apiGet<unknown>(`/accounting/entries${qs}`, {
+    forwardHeaders: params.headers,
+  });
+}
+
+export async function runBackfillConfirmed(params: {
+  merchantId: string;
+  headers: Headers;
+  from?: string;
+  to?: string;
+}): Promise<BackfillConfirmedResponse> {
+  const qs = toQuery({
+    merchantId: params.merchantId,
+    from: params.from,
+    to: params.to,
+  });
+
+  const data = await apiGet<BackfillConfirmedResponse>(
+    `/accounting/backfill/confirmed${qs}`,
+    { forwardHeaders: params.headers }
+  );
+
+  return data;
 }

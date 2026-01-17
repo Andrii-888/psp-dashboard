@@ -1,11 +1,24 @@
 // src/app/accounting/components/ReconciliationPanel.tsx
 
-import type { ReconciliationResponse } from "../lib/api";
+type ReconciliationIssue = {
+  type: string;
+  severity: "low" | "medium" | "high" | "critical" | string;
+  invoiceId?: string | null;
+  message?: string | null;
+  createdAt?: string | null;
+  meta?: unknown;
+};
 
-type Issue = ReconciliationResponse["issues"][number];
+type ReconciliationData = {
+  merchantId?: string | null;
+  issues: ReconciliationIssue[];
+  checkedAt?: string | null;
+};
+
+type Issue = ReconciliationIssue;
 
 type Props = {
-  data: ReconciliationResponse | null;
+  data: ReconciliationData | null;
 
   merchantId?: string;
   limit?: number;
@@ -89,7 +102,7 @@ export default function ReconciliationPanel({
                 <>
                   merchantId:{" "}
                   <span className="font-mono text-zinc-800">
-                    {data.merchantId ?? "—"}
+                    {data.merchantId ?? merchantId ?? "—"}
                   </span>
                   {from ? (
                     <>
