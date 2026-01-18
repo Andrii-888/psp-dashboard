@@ -110,6 +110,25 @@ function getBaseUrlFromHeaders(h: Headers): string {
   return `${proto}://${host}`;
 }
 
+function getBaseUrlForNode(): string | null {
+  // In browser we always use relative proxy path (/api/psp/...)
+  if (typeof window !== "undefined") return null;
+
+  // Prefer explicit app URL (works for local + prod checks)
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (appUrl) return appUrl.replace(/\/+$/, "");
+
+  // Vercel provides VERCEL_URL without protocol sometimes
+  const vercel = process.env.VERCEL_URL?.trim();
+  if (vercel) {
+    const withProto = vercel.startsWith("http") ? vercel : `https://${vercel}`;
+    return withProto.replace(/\/+$/, "");
+  }
+
+  // Fallback for local scripts
+  return "http://localhost:3000";
+}
+
 function buildForwardAuthHeaders(h?: Headers): Record<string, string> {
   if (!h) return {};
 
@@ -131,9 +150,13 @@ function makeUrl(path: string, opts?: ApiOpts): string {
   // Client-side: relative URL is perfect.
   if (!opts?.forwardHeaders) return proxyPath;
 
-  // Server-side: must be absolute (Next server fetch)
-  const base = getBaseUrlFromHeaders(opts.forwardHeaders);
-  return `${base}${proxyPath}`;
+  // Server-side: absolute URL, client-side: relative proxy path
+  const base = opts?.forwardHeaders
+    ? getBaseUrlFromHeaders(opts.forwardHeaders)
+    : getBaseUrlForNode();
+
+  const url = base ? `${base}${proxyPath}` : proxyPath;
+  return url;
 }
 
 // ===================== CORE FETCHERS =====================
@@ -216,7 +239,6 @@ function toQuery(params: Record<string, string | number | undefined>): string {
   const qs = sp.toString();
   return qs ? `?${qs}` : "";
 }
-
 // -------- Invoices (client + server) --------
 
 export async function fetchInvoices(params?: FetchInvoicesParams): Promise<{
@@ -232,9 +254,25 @@ export async function fetchInvoices(params?: FetchInvoicesParams): Promise<{
     offset: params?.offset ?? 0,
   });
 
-  return apiGet<{ ok: boolean; items: Invoice[]; total?: number }>(
-    `/invoices${qs}`
-  );
+  const res = await apiGet<unknown>(`/invoices${qs}`);
+
+  // Backend may return:
+  // 1) array of invoices
+  // 2) { ok, items, total }
+  if (Array.isArray(res)) {
+    return { ok: true, items: res as Invoice[], total: res.length };
+  }
+
+  if (res && typeof res === "object" && "items" in res) {
+    const r = res as { ok?: unknown; items?: unknown; total?: unknown };
+    const items = Array.isArray(r.items) ? (r.items as Invoice[]) : [];
+    const ok = typeof r.ok === "boolean" ? r.ok : true;
+    const total = typeof r.total === "number" ? r.total : items.length;
+    return { ok, items, total };
+  }
+
+  // Fallback (unexpected shape)
+  return { ok: false, items: [], total: 0 };
 }
 
 export async function fetchInvoiceById(
