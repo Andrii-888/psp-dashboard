@@ -120,8 +120,17 @@ export function useInvoicesPage(): UseInvoicesPageResult {
         setError(null);
       }
 
-      const data = await fetchInvoices();
-      const next = Array.isArray(data) ? data : [];
+      const res = await fetchInvoices();
+
+      const next = Array.isArray(res)
+        ? res
+        : res &&
+          typeof res === "object" &&
+          "items" in res &&
+          Array.isArray((res as { items?: unknown }).items)
+        ? (res as { items: Invoice[] }).items
+        : [];
+
       const nextFp = fingerprint(next);
 
       if (nextFp === lastFpRef.current) {
