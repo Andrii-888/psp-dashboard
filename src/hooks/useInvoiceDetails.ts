@@ -160,7 +160,10 @@ export function useInvoiceDetails(
         if (cancelled) return;
 
         const invoice = invoiceRes.invoice;
-        const webhooks = webhooksRes.items;
+        const webhooks = Array.isArray(webhooksRes?.items)
+          ? webhooksRes.items
+          : [];
+
         const providerEvents = providerEventsRes;
 
         setInvoice(invoice);
