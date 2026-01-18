@@ -228,7 +228,7 @@ export async function fetchInvoices(params?: FetchInvoicesParams): Promise<{
     status: params?.status,
     from: params?.from,
     to: params?.to,
-    limit: params?.limit ?? 50,
+    limit: params?.limit ?? 500,
     offset: params?.offset ?? 0,
   });
 
