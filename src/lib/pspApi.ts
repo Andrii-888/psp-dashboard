@@ -240,7 +240,13 @@ export async function fetchInvoices(params?: FetchInvoicesParams): Promise<{
 export async function fetchInvoiceById(
   invoiceId: string
 ): Promise<{ ok: boolean; invoice: Invoice }> {
-  return apiGet<{ ok: boolean; invoice: Invoice }>(`/invoices/${invoiceId}`);
+  const res = await apiGet<unknown>(`/invoices/${invoiceId}`);
+
+  if (res && typeof res === "object" && "invoice" in res) {
+    return res as { ok: boolean; invoice: Invoice };
+  }
+
+  return { ok: true, invoice: res as Invoice };
 }
 
 export async function fetchInvoiceWebhooks(
