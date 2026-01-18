@@ -252,9 +252,28 @@ export async function fetchInvoiceById(
 export async function fetchInvoiceWebhooks(
   invoiceId: string
 ): Promise<{ ok: boolean; items: WebhookEvent[] }> {
-  return apiGet<{ ok: boolean; items: WebhookEvent[] }>(
-    `/invoices/${invoiceId}/webhooks`
-  );
+  const res = await apiGet<unknown>(`/invoices/${invoiceId}/webhooks`);
+
+  // case 1: backend returns array directly
+  if (Array.isArray(res)) {
+    return { ok: true, items: res as WebhookEvent[] };
+  }
+
+  // case 2: backend returns { ok, items }
+  if (res && typeof res === "object") {
+    const obj = res as Record<string, unknown>;
+    const items = obj["items"];
+
+    if (Array.isArray(items)) {
+      return {
+        ok: typeof obj["ok"] === "boolean" ? (obj["ok"] as boolean) : true,
+        items: items as WebhookEvent[],
+      };
+    }
+  }
+
+  // fallback: never crash UI
+  return { ok: true, items: [] };
 }
 
 export async function dispatchInvoiceWebhooks(
