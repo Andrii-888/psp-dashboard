@@ -239,13 +239,13 @@ function toQuery(params: Record<string, string | number | undefined>): string {
   const qs = sp.toString();
   return qs ? `?${qs}` : "";
 }
+
 // -------- Invoices (client + server) --------
 
-export async function fetchInvoices(params?: FetchInvoicesParams): Promise<{
-  ok: boolean;
-  items: Invoice[];
-  total?: number;
-}> {
+export async function fetchInvoices(
+  params?: FetchInvoicesParams,
+  opts?: { forwardHeaders?: Headers }
+): Promise<{ ok: boolean; items: Invoice[]; total?: number }> {
   const qs = toQuery({
     status: params?.status,
     from: params?.from,
@@ -254,24 +254,26 @@ export async function fetchInvoices(params?: FetchInvoicesParams): Promise<{
     offset: params?.offset ?? 0,
   });
 
-  const res = await apiGet<unknown>(`/invoices${qs}`);
+  const res = await apiGet<unknown>(`/invoices${qs}`, {
+    forwardHeaders: opts?.forwardHeaders,
+  });
 
-  // Backend may return:
-  // 1) array of invoices
-  // 2) { ok, items, total }
+  // ✅ Support both formats:
+  // 1) { ok, items, total }
+  // 2) Invoice[] (array)
+  if (res && typeof res === "object" && "items" in res) {
+    const r = res as { ok?: boolean; items?: unknown; total?: number };
+    return {
+      ok: Boolean(r.ok ?? true),
+      items: Array.isArray(r.items) ? (r.items as Invoice[]) : [],
+      total: typeof r.total === "number" ? r.total : undefined,
+    };
+  }
+
   if (Array.isArray(res)) {
     return { ok: true, items: res as Invoice[], total: res.length };
   }
 
-  if (res && typeof res === "object" && "items" in res) {
-    const r = res as { ok?: unknown; items?: unknown; total?: unknown };
-    const items = Array.isArray(r.items) ? (r.items as Invoice[]) : [];
-    const ok = typeof r.ok === "boolean" ? r.ok : true;
-    const total = typeof r.total === "number" ? r.total : items.length;
-    return { ok, items, total };
-  }
-
-  // Fallback (unexpected shape)
   return { ok: false, items: [], total: 0 };
 }
 

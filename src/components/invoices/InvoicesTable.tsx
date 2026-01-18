@@ -81,6 +81,7 @@ export function InvoicesTable({
             <th className="px-3 py-2 text-right">Amount</th>
             <th className="px-3 py-2 text-left">Status</th>
             <th className="px-3 py-2 text-left">AML</th>
+            <th className="px-3 py-2 text-left">FX</th>
             <th className="px-3 py-2 text-left">Network</th>
             <th className="px-3 py-2 text-left">Actions</th>
           </tr>
@@ -131,6 +132,24 @@ export function InvoicesTable({
                   assetStatus={inv.assetStatus ?? null}
                   assetRiskScore={inv.assetRiskScore ?? null}
                 />
+              </td>
+
+              {/* FX */}
+              <td className="px-3 py-3 text-[11px] text-slate-400">
+                {typeof inv.fxRate === "number" &&
+                Number.isFinite(inv.fxRate) &&
+                inv.fxRate > 0 ? (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="uppercase tracking-[0.16em] text-slate-500">
+                      {inv.fxPair ?? "FX"}
+                    </span>
+                    <span className="font-mono text-[11px] text-slate-300">
+                      {inv.fxRate.toFixed(4)}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-slate-500">—</span>
+                )}
               </td>
 
               {/* Network / tx hash */}

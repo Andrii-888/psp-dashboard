@@ -97,8 +97,14 @@ export default async function AccountingPage({
     pipelineTotalsItems = pipelineTotalsRes.value.items;
   }
 
-  items = mergePipelineWithLedger(pipelineItems, items);
-  totalsItems = mergePipelineWithLedger(pipelineTotalsItems, totalsItems);
+  // ✅ Pipeline is fallback only (ledger is SSOT)
+  if (items.length === 0) {
+    items = mergePipelineWithLedger(pipelineItems, items);
+  }
+
+  if (totalsItems.length === 0) {
+    totalsItems = mergePipelineWithLedger(pipelineTotalsItems, totalsItems);
+  }
 
   // ✅ Single, clean UI contract (no casts in JSX)
   const ui = toAccountingUiModel({

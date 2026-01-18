@@ -75,12 +75,10 @@ export async function fetchInvoiceHistoryAsEntries(params: {
 }): Promise<{ items: AccountingEntryRaw[] }> {
   const { limit, from, to } = params;
 
-  const res = await fetchInvoices({
-    limit,
-    offset: 0,
-    from,
-    to,
-  });
+  const res = await fetchInvoices(
+    { limit, offset: 0, from, to },
+    { forwardHeaders: params.headers }
+  );
 
   const invoices = Array.isArray(res.items) ? res.items : [];
   const items = invoicesToAccountingEntries(invoices);
