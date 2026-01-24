@@ -1,5 +1,6 @@
 //src/app/accounting/components/AccountingHeader.tsx
 import Link from "next/link";
+import ExportCsvButton from "../actions/ExportCsvButton";
 
 export default function AccountingHeader({
   merchantId,
@@ -10,10 +11,6 @@ export default function AccountingHeader({
   limit: number;
   rows: number;
 }) {
-  const csvHref = `/api/psp/accounting/entries.csv?merchantId=${encodeURIComponent(
-    merchantId
-  )}&limit=${encodeURIComponent(String(limit))}`;
-
   const rowsValueClass = rows > 0 ? "text-emerald-300" : "text-amber-300";
 
   return (
@@ -56,14 +53,7 @@ export default function AccountingHeader({
 
       {/* Right: actions */}
       <div className="flex items-center gap-2">
-        <a
-          href={csvHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center rounded-full border border-slate-700 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-slate-100 backdrop-blur hover:bg-slate-800 hover:border-slate-600 hover:text-white"
-        >
-          Download CSV
-        </a>
+        <ExportCsvButton />
       </div>
     </div>
   );
