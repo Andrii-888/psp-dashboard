@@ -56,12 +56,57 @@ async function readParams(
     : (p as { path?: string[] | string });
 }
 
+type FetchCause = {
+  name?: string;
+  message?: string;
+  code?: string;
+  errno?: string;
+  syscall?: string;
+  address?: string;
+  port?: number;
+};
+
+function getFetchCause(e: unknown): FetchCause | null {
+  if (typeof e !== "object" || e === null) return null;
+
+  const withCause = e as { cause?: unknown };
+  const c = withCause.cause;
+  if (typeof c !== "object" || c === null) return null;
+
+  const obj = c as Record<string, unknown>;
+
+  const pickStr = (k: string): string | undefined => {
+    const v = obj[k];
+    return typeof v === "string" ? v : undefined;
+  };
+
+  const pickNum = (k: string): number | undefined => {
+    const v = obj[k];
+    return typeof v === "number" ? v : undefined;
+  };
+
+  return {
+    name: pickStr("name"),
+    message: pickStr("message"),
+    code: pickStr("code"),
+    errno: pickStr("errno"),
+    syscall: pickStr("syscall"),
+    address: pickStr("address"),
+    port: pickNum("port"),
+  };
+}
+
 async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
+  let isCsv = false;
+  let baseDebug = "";
+
   try {
     // ✅ Base URL of PSP Core (NO /api). Prefer server-only envs.
     const base =
       envAnyOpt(["PSP_API_URL", "PSP_API_BASE", "NEXT_PUBLIC_PSP_API_URL"]) ??
       "http://localhost:3001";
+
+    baseDebug = base;
 
     const baseClean = stripTrailingSlashes(base);
 
@@ -99,7 +144,8 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     const path = pathFromParams.length
       ? pathFromParams
       : derivePathFromUrl(req);
-    const pathname = path.join("/"); // e.g. "invoices/123"
+    const pathname = path.join("/");
+    isCsv = pathname.toLowerCase().endsWith(".csv");
 
     // ✅ Build upstream URL safely + preserve querystring
     const url = new URL(baseClean);
@@ -108,24 +154,29 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     const qs = req.nextUrl.search; // includes leading "?"
     url.search = qs.startsWith("?") ? qs.slice(1) : qs;
 
-    // ✅ Copy incoming headers + remove hop-by-hop headers
-    const headers = new Headers(req.headers);
+    // ✅ Minimal upstream headers (avoid forwarding browser/hop-by-hop headers)
+    const headers = new Headers();
 
-    headers.delete("accept-encoding");
-    headers.delete("host");
-    headers.delete("connection");
-    headers.delete("content-length");
+    // Preserve content-type for requests with body
+    const ctIn = pickHeader(req.headers, "content-type");
+    if (ctIn) headers.set("content-type", ctIn);
 
-    // ✅ Always control auth headers (avoid leaking client auth)
-    headers.delete("x-merchant-id");
-    headers.delete("x-merchant");
-    headers.delete("x-api-key");
-    headers.delete("authorization");
+    // Accept: CSV vs JSON
+    if (isCsv) {
+      headers.set("accept", "text/csv");
+    } else {
+      headers.set("accept", "application/json");
+    }
 
+    // Stable user-agent for CDNs / upstream logs
+    headers.set("user-agent", "psp-dashboard-proxy/1.0");
+
+    // Auth (server-controlled)
     if (merchantId) headers.set("x-merchant-id", merchantId);
     if (apiKey) headers.set("x-api-key", apiKey);
 
-    if (!headers.get("accept")) headers.set("accept", "application/json");
+    // Required for some CDNs / Fly.io to avoid connection drop
+    headers.set("user-agent", "psp-dashboard-proxy/1.0");
 
     const hasBody = req.method !== "GET" && req.method !== "HEAD";
     const body = hasBody ? await req.arrayBuffer() : undefined;
@@ -141,6 +192,8 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     // ✅ Return only safe headers back to client
     const resHeaders = new Headers();
     const ct = upstream.headers.get("content-type");
+    const cd = upstream.headers.get("content-disposition");
+    if (cd) resHeaders.set("content-disposition", cd);
     if (ct) resHeaders.set("content-type", ct);
     resHeaders.set("cache-control", "no-store");
 
@@ -152,8 +205,31 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
+    const cause = getFetchCause(e);
+
+    if (isCsv) {
+      const causeText = cause
+        ? `\nCause: ${cause.code ?? "-"} ${cause.syscall ?? ""} ${
+            cause.address ?? ""
+          }${typeof cause.port === "number" ? `:${cause.port}` : ""}${
+            cause.message ? ` (${cause.message})` : ""
+          }\n`
+        : "";
+
+      return new NextResponse(
+        `CSV export failed (proxy could not reach PSP Core).\n\nDetails: ${message}\n${causeText}`,
+        {
+          status: 502,
+          headers: {
+            "content-type": "text/plain; charset=utf-8",
+            "cache-control": "no-store",
+          },
+        }
+      );
+    }
+
     return NextResponse.json(
-      { ok: false, where: "api/psp proxy", error: message },
+      { ok: false, where: "api/psp proxy", error: message, cause, baseDebug },
       { status: 500, headers: { "cache-control": "no-store" } }
     );
   }

@@ -116,7 +116,7 @@ export default async function AccountingPage({
   });
 
   return (
-    <div className="p-6">
+    <div className="min-h-screen bg-slate-950 p-6 text-slate-50">
       <AccountingHeader
         merchantId={merchantId}
         limit={limit}

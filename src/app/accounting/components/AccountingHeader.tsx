@@ -1,3 +1,4 @@
+//src/app/accounting/components/AccountingHeader.tsx
 import Link from "next/link";
 
 export default function AccountingHeader({
@@ -13,33 +14,42 @@ export default function AccountingHeader({
     merchantId
   )}&limit=${encodeURIComponent(String(limit))}`;
 
+  const rowsValueClass = rows > 0 ? "text-emerald-300" : "text-amber-300";
+
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
       {/* Left: back + title */}
       <div>
         <Link
           href="/invoices"
-          className="mb-1 inline-flex items-center text-sm text-sky-600 hover:text-sky-700 hover:underline"
+          className="mb-1 inline-flex items-center text-sm text-slate-400 hover:text-slate-200 hover:underline"
         >
           ← Back to invoices
         </Link>
 
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-50">
           Accounting
         </h1>
 
-        <div className="mt-1 text-sm text-zinc-600">
-          <span className="mr-2">
-            merchantId:{" "}
-            <span className="font-mono text-zinc-800">{merchantId}</span>
+        {/* Context line */}
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-400">
+          <span>
+            <span className="text-slate-500">merchantId:</span>{" "}
+            <span className="font-mono text-slate-200">{merchantId}</span>
           </span>
-          ·
-          <span className="mx-2">
-            limit: <span className="font-mono text-zinc-800">{limit}</span>
+
+          <span className="text-slate-600">•</span>
+
+          <span>
+            <span className="text-slate-500">limit:</span>{" "}
+            <span className="font-mono text-sky-200">{limit}</span>
           </span>
-          ·
-          <span className="ml-2">
-            rows: <span className="font-mono text-zinc-800">{rows}</span>
+
+          <span className="text-slate-600">•</span>
+
+          <span>
+            <span className="text-slate-500">rows:</span>{" "}
+            <span className={`font-mono ${rowsValueClass}`}>{rows}</span>
           </span>
         </div>
       </div>
@@ -50,7 +60,7 @@ export default function AccountingHeader({
           href={csvHref}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
+          className="inline-flex items-center rounded-full border border-slate-700 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-slate-100 backdrop-blur hover:bg-slate-800 hover:border-slate-600 hover:text-white"
         >
           Download CSV
         </a>
