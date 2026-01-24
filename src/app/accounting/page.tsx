@@ -123,9 +123,14 @@ export default async function AccountingPage({
         rows={items.length}
       />
 
-      <AccountingKpis entries={items} summary={ui.kpisSummary} />
+      <AccountingFilters
+        merchantId={merchantId}
+        limit={limit}
+        from={from}
+        to={to}
+      />
 
-      <AccountingFilters merchantId={merchantId} limit={limit} />
+      <AccountingKpis entries={items} summary={ui.kpisSummary} />
 
       <ReconciliationPanel
         data={ui.reconciliation}

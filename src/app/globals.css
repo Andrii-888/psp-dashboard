@@ -102,3 +102,40 @@ body {
 .payment-link {
   @apply break-all font-mono text-[11px] text-emerald-300 hover:text-emerald-200 hover:underline;
 }
+
+/* ===== react-day-picker light theme fix ===== */
+.daypicker-light {
+  --rdp-accent-color: #0f172a; /* slate-900 */
+  --rdp-background-color: #ffffff;
+  --rdp-outline: 2px solid #cbd5e1; /* slate-300 */
+}
+
+.daypicker-light .rdp {
+  color: #0f172a; /* текст */
+}
+
+.daypicker-light .rdp-caption_label {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.daypicker-light .rdp-head_cell {
+  color: #64748b; /* slate-500 */
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.daypicker-light .rdp-day {
+  color: #0f172a;
+}
+
+.daypicker-light .rdp-day_selected,
+.daypicker-light .rdp-day_selected:hover {
+  background-color: #0f172a;
+  color: #ffffff;
+}
+
+.daypicker-light .rdp-day_today {
+  font-weight: 600;
+  color: #2563eb; /* blue-600 */
+}

@@ -3,6 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
+// ---------------------------
+// Dev base resolution (no prod fallback)
+// ---------------------------
+let cachedBase: string | null = null;
+let lastProbeAt = 0;
+const PROBE_TTL_MS = 15_000; // dev: probe at most once per 15s
+let warnedOnce = false;
+
 // Next 15: params can be Promise in route handlers ("sync dynamic APIs")
 type RouteContext = {
   params?: Promise<{ path?: string[] | string }> | { path?: string[] | string };
@@ -56,6 +64,68 @@ async function readParams(
     : (p as { path?: string[] | string });
 }
 
+async function canReach(baseUrl: string): Promise<boolean> {
+  try {
+    const u = new URL(baseUrl);
+    u.pathname = joinPaths(u.pathname || "/", "health");
+    u.search = "";
+    const r = await fetch(u.toString(), { method: "GET", cache: "no-store" });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Returns:
+ * - production: preferredClean (no probing)
+ * - dev:
+ *   - if preferred is not local -> preferredClean
+ *   - if preferred is local and reachable -> preferredClean
+ *   - if preferred is local and NOT reachable -> "" (meaning "offline")
+ */
+async function resolveBase(preferredBase: string): Promise<string> {
+  const preferredClean = stripTrailingSlashes(preferredBase);
+
+  // prod: deterministic, no probing
+  if (process.env.NODE_ENV === "production") return preferredClean;
+
+  // dev cache
+  const now = Date.now();
+  if (cachedBase !== null && now - lastProbeAt < PROBE_TTL_MS)
+    return cachedBase;
+  lastProbeAt = now;
+
+  const isLocal =
+    preferredClean.includes("localhost") ||
+    preferredClean.includes("127.0.0.1");
+
+  if (!isLocal) {
+    cachedBase = preferredClean;
+    return cachedBase;
+  }
+
+  const ok = await canReach(preferredClean);
+  if (ok) {
+    cachedBase = preferredClean;
+    return cachedBase;
+  }
+
+  cachedBase = "";
+
+  if (!warnedOnce) {
+    warnedOnce = true;
+    console.warn(
+      `[api/psp proxy] PSP Core is not reachable at ${preferredClean}. Start psp-core locally (or set PSP_API_URL).`
+    );
+  }
+
+  return cachedBase;
+}
+
+// ---------------------------
+// Error cause helper (safe)
+// ---------------------------
 type FetchCause = {
   name?: string;
   message?: string;
@@ -96,20 +166,60 @@ function getFetchCause(e: unknown): FetchCause | null {
   };
 }
 
+// ---------------------------
+// Proxy
+// ---------------------------
 async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
-  let isCsv = false;
-  let baseDebug = "";
+  // We need pathname early (for CSV/dev offline responses)
+  const params = await readParams(ctx);
+  const raw = params.path;
+
+  const pathFromParams = Array.isArray(raw)
+    ? raw
+    : typeof raw === "string"
+    ? [raw]
+    : [];
+
+  const path = pathFromParams.length ? pathFromParams : derivePathFromUrl(req);
+  const pathname = path.join("/"); // e.g. "accounting/entries.csv"
+  const isCsv =
+    pathname.toLowerCase().endsWith(".csv") ||
+    (req.headers.get("accept") ?? "").toLowerCase().includes("text/csv");
+
+  // Base URL of PSP Core (NO /api). Prefer server-only envs.
+  const basePreferred =
+    envAnyOpt(["PSP_API_URL", "PSP_API_BASE", "NEXT_PUBLIC_PSP_API_URL"]) ??
+    "http://localhost:3001";
+
+  const baseClean = await resolveBase(basePreferred);
+
+  // Dev offline: do NOT fallback to prod, return fast 503
+  if (!baseClean) {
+    if (isCsv) {
+      return new NextResponse(
+        `CSV export unavailable: PSP Core is offline in dev.\nStart psp-core locally on ${basePreferred}.\n`,
+        {
+          status: 503,
+          headers: {
+            "content-type": "text/plain; charset=utf-8",
+            "cache-control": "no-store",
+          },
+        }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        ok: false,
+        where: "api/psp proxy",
+        error:
+          "PSP Core is offline (dev). Start psp-core locally or set PSP_API_URL.",
+      },
+      { status: 503, headers: { "cache-control": "no-store" } }
+    );
+  }
 
   try {
-    // ✅ Base URL of PSP Core (NO /api). Prefer server-only envs.
-    const base =
-      envAnyOpt(["PSP_API_URL", "PSP_API_BASE", "NEXT_PUBLIC_PSP_API_URL"]) ??
-      "http://localhost:3001";
-
-    baseDebug = base;
-
-    const baseClean = stripTrailingSlashes(base);
-
     // ✅ Credentials:
     // - Prefer incoming request headers (dev / manual testing)
     // - Fallback to env (production)
@@ -132,21 +242,6 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     const merchantId = incomingMerchantId ?? envMerchantId;
     const apiKey = incomingApiKey ?? envApiKey;
 
-    const params = await readParams(ctx);
-    const raw = params.path;
-
-    const pathFromParams = Array.isArray(raw)
-      ? raw
-      : typeof raw === "string"
-      ? [raw]
-      : [];
-
-    const path = pathFromParams.length
-      ? pathFromParams
-      : derivePathFromUrl(req);
-    const pathname = path.join("/");
-    isCsv = pathname.toLowerCase().endsWith(".csv");
-
     // ✅ Build upstream URL safely + preserve querystring
     const url = new URL(baseClean);
     url.pathname = joinPaths(url.pathname || "/", pathname);
@@ -162,21 +257,14 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     if (ctIn) headers.set("content-type", ctIn);
 
     // Accept: CSV vs JSON
-    if (isCsv) {
-      headers.set("accept", "text/csv");
-    } else {
-      headers.set("accept", "application/json");
-    }
+    headers.set("accept", isCsv ? "text/csv" : "application/json");
 
-    // Stable user-agent for CDNs / upstream logs
+    // Stable user-agent for upstream logs
     headers.set("user-agent", "psp-dashboard-proxy/1.0");
 
     // Auth (server-controlled)
     if (merchantId) headers.set("x-merchant-id", merchantId);
     if (apiKey) headers.set("x-api-key", apiKey);
-
-    // Required for some CDNs / Fly.io to avoid connection drop
-    headers.set("user-agent", "psp-dashboard-proxy/1.0");
 
     const hasBody = req.method !== "GET" && req.method !== "HEAD";
     const body = hasBody ? await req.arrayBuffer() : undefined;
@@ -191,10 +279,11 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
 
     // ✅ Return only safe headers back to client
     const resHeaders = new Headers();
-    const ct = upstream.headers.get("content-type");
-    const cd = upstream.headers.get("content-disposition");
-    if (cd) resHeaders.set("content-disposition", cd);
-    if (ct) resHeaders.set("content-type", ct);
+    const outCt = upstream.headers.get("content-type");
+    const outCd = upstream.headers.get("content-disposition");
+
+    if (outCt) resHeaders.set("content-type", outCt);
+    if (outCd) resHeaders.set("content-disposition", outCd);
     resHeaders.set("cache-control", "no-store");
 
     const data = await upstream.arrayBuffer();
@@ -228,8 +317,13 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
       );
     }
 
+    // Server-side debug only (do not leak infra details to clients)
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[api/psp proxy] error:", { message, cause });
+    }
+
     return NextResponse.json(
-      { ok: false, where: "api/psp proxy", error: message, cause, baseDebug },
+      { ok: false, where: "api/psp proxy", error: message },
       { status: 500, headers: { "cache-control": "no-store" } }
     );
   }
