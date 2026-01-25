@@ -63,9 +63,9 @@ export default async function AccountingPage({
 
   // ✅ CHF-first (UI): hide non-CHF history (EUR/USD) without deleting data
   const CHF = "CHF";
-  const onlyChf = <T extends Record<string, any>>(rows: T[]): T[] =>
+  const onlyChf = (rows: AccountingEntryRaw[]): AccountingEntryRaw[] =>
     (rows ?? []).filter((r) => {
-      const cur = String(r?.currency ?? r?.fiatCurrency ?? "")
+      const cur = String(r?.currency ?? "")
         .trim()
         .toUpperCase();
       return cur === CHF;

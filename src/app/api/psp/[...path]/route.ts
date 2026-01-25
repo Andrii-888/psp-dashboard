@@ -172,21 +172,28 @@ function getFetchCause(e: unknown): FetchCause | null {
 const CHF = "CHF";
 
 function filterInvoicesChf(payload: unknown): unknown {
-  const isChf = (x: any) =>
-    String(x?.fiatCurrency ?? "")
-      .trim()
-      .toUpperCase() === CHF;
+  const isChf = (x: unknown): boolean => {
+    if (typeof x !== "object" || x === null) return false;
+    const fiatCurrency = (x as { fiatCurrency?: unknown }).fiatCurrency;
+    return (
+      String(fiatCurrency ?? "")
+        .trim()
+        .toUpperCase() === CHF
+    );
+  };
 
   // core returns array for /invoices
   if (Array.isArray(payload)) return payload.filter(isChf);
 
   // if someday it returns { items: [...] }
-  if (
-    payload &&
-    typeof payload === "object" &&
-    Array.isArray((payload as any).items)
-  ) {
-    return { ...(payload as any), items: (payload as any).items.filter(isChf) };
+  if (payload && typeof payload === "object") {
+    const obj = payload as { items?: unknown };
+    if (Array.isArray(obj.items)) {
+      return {
+        ...(payload as object),
+        items: (obj.items as unknown[]).filter(isChf),
+      };
+    }
   }
 
   return payload;
@@ -334,13 +341,16 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     if (!isCsv && pathname === "accounting/entries") {
       const json = await upstream.json().catch(() => null);
 
-      const onlyChf = (arr: any[]) =>
-        (arr ?? []).filter(
-          (x) =>
-            String(x?.currency ?? "")
+      const onlyChf = (arr: unknown[]) =>
+        (arr ?? []).filter((x) => {
+          if (typeof x !== "object" || x === null) return false;
+          const currency = (x as { currency?: unknown }).currency;
+          return (
+            String(currency ?? "")
               .trim()
               .toUpperCase() === "CHF"
-        );
+          );
+        });
 
       const out = upstream.ok && Array.isArray(json) ? onlyChf(json) : json;
 
@@ -350,7 +360,6 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
       });
     }
 
-    // Default passthrough (supports CSV and any binary)
     const data = await upstream.arrayBuffer();
 
     return new NextResponse(data, {
