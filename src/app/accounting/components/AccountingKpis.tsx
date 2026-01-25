@@ -12,7 +12,7 @@ type SummaryLike = {
 type Props = {
   entries: AccountingEntryRaw[];
   summary?: SummaryLike | null;
-  currency?: "EUR"; // optional, defaults to EUR
+  currency?: "EUR"; // keep as-is (no API/styling changes)
 };
 
 type KpiItem = {
@@ -40,15 +40,21 @@ function isCurrency(e: AccountingEntryRaw, currency: "EUR"): boolean {
 export default function AccountingKpis({ entries, summary, currency }: Props) {
   const curr: "EUR" = currency ?? "EUR";
 
+  // Fallback is intentionally conservative:
+  // - gross/net only from confirmed entries
+  // - fee from fee_charged (if your backend summary is present, it always wins)
   const fallback = entries.reduce(
     (acc, e) => {
-      if (e.eventType === "invoice.confirmed" && isCurrency(e, curr)) {
+      if (!isCurrency(e, curr)) return acc;
+
+      if (e.eventType === "invoice.confirmed") {
         acc.gross += toNumber(e.grossAmount, 0);
         acc.net += toNumber(e.netAmount, 0);
         acc.count += 1;
+        return acc;
       }
 
-      if (e.eventType === "fee_charged" && isCurrency(e, curr)) {
+      if (e.eventType === "fee_charged") {
         acc.fee += toNumber(e.feeAmount, 0);
       }
 
