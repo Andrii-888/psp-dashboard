@@ -1,8 +1,9 @@
 // src/app/accounting/components/filters/hooks.ts
 import { useEffect } from "react";
+import type { RefObject } from "react";
 
 export function useOnClickOutside<T extends HTMLElement>(
-  ref: React.RefObject<T | null>,
+  ref: RefObject<T | null>,
   onOutside: () => void
 ) {
   useEffect(() => {

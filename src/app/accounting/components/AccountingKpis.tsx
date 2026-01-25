@@ -12,7 +12,7 @@ type SummaryLike = {
 type Props = {
   entries: AccountingEntryRaw[];
   summary?: SummaryLike | null;
-  currency?: "EUR"; // keep as-is (no API/styling changes)
+  currency?: "CHF"; // CHF-only (UI uses CHF as base fiat)
 };
 
 type KpiItem = {
@@ -33,12 +33,12 @@ function KpiCard({ label, value }: KpiItem) {
   );
 }
 
-function isCurrency(e: AccountingEntryRaw, currency: "EUR"): boolean {
+function isCurrency(e: AccountingEntryRaw, currency: "CHF"): boolean {
   return String(e.currency ?? "").toUpperCase() === currency;
 }
 
 export default function AccountingKpis({ entries, summary, currency }: Props) {
-  const curr: "EUR" = currency ?? "EUR";
+  const curr: "CHF" = currency ?? "CHF";
 
   // Fallback is intentionally conservative:
   // - gross/net only from confirmed entries

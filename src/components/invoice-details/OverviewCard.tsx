@@ -27,10 +27,11 @@ function formatDateTime(iso: string | null | undefined) {
   });
 }
 
-function formatFiatChf(amount: number) {
+function formatFiat(amount: number, currency: string | null | undefined) {
   const n = Number(amount);
   if (!Number.isFinite(n)) return "—";
-  return `${n.toFixed(2)} CHF`;
+  const c = (currency ?? "").trim().toUpperCase();
+  return c ? `${n.toFixed(2)} ${c}` : `${n.toFixed(2)}`;
 }
 
 function formatAsset(amount: number, asset: string) {
@@ -58,6 +59,18 @@ export function OverviewCard({
     Number.isFinite(invoice.cryptoAmount) &&
     Math.abs(payAmountNum - Number(invoice.cryptoAmount)) > 0.000001;
 
+  const fxRateNum =
+    typeof invoice.fxRate === "number" && Number.isFinite(invoice.fxRate)
+      ? invoice.fxRate
+      : null;
+
+  const fxHumanRate =
+    fxRateNum && fxRateNum > 0
+      ? `1 ${invoice.cryptoCurrency} ≈ ${fxRateNum.toFixed(6)} ${
+          invoice.fiatCurrency
+        }`
+      : "—";
+
   return (
     <section className="apple-card p-4 md:p-6">
       <div className="flex flex-col gap-6 md:flex-row">
@@ -73,7 +86,7 @@ export function OverviewCard({
                 Fiat amount
               </p>
               <p className="mt-1 text-base font-semibold text-slate-50">
-                {formatFiatChf(invoice.fiatAmount)}
+                {formatFiat(invoice.fiatAmount, invoice.fiatCurrency)}
               </p>
             </div>
 
@@ -211,6 +224,23 @@ export function OverviewCard({
                       Number.isFinite(invoice.fxRate)
                         ? invoice.fxRate.toFixed(6)
                         : "—"}
+                    </span>
+                  </div>
+                  <div>
+                    Human rate:{" "}
+                    <span className="font-mono text-slate-100">
+                      {fxHumanRate}
+                    </span>
+                  </div>
+
+                  <div className="text-slate-400">
+                    Source / lockedAt:{" "}
+                    <span className="font-mono text-slate-100">
+                      {invoice.fxSource ?? "—"}
+                    </span>{" "}
+                    ·{" "}
+                    <span className="font-mono text-slate-100">
+                      {formatDateTime(invoice.fxLockedAt ?? null)}
                     </span>
                   </div>
                 </div>

@@ -128,7 +128,7 @@ export default function InvoicesPage() {
     <main className="min-h-screen bg-slate-950 px-4 py-6 text-slate-50 md:px-8 md:py-8">
       <ToastStack toasts={toasts} onRemove={removeToast} />
 
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 md:gap-6">
+      <div className="mx-auto flex w-full max-w-none flex-col gap-4 md:gap-6">
         <InvoicesPageHeader
           apiOk={apiOk}
           apiError={apiError}

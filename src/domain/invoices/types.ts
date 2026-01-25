@@ -67,6 +67,10 @@ export interface Invoice {
   fxRate?: number | null;
   fxPair?: string | null;
 
+  // FX audit (from ledger meta)
+  fxSource?: string | null;
+  fxLockedAt?: string | null;
+
   network: string | null;
 
   // tx

@@ -49,8 +49,8 @@ function isFiniteNumber(v: unknown): v is number {
 ========================= */
 
 export function useLiveFxQuote(params: {
-  from: string; // e.g. "EUR"
-  to: string; // e.g. "USDT"
+  from: string; // currency code, e.g. "CHF"
+  to: string; // currency code, e.g. "USDT"
   refreshMs?: number; // default: 20000
   enabled?: boolean; // default: true
 }) {

@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useLiveFxQuote } from "@/hooks/useLiveFxQuote";
 
 type Props = {
   apiOk: boolean | null;
@@ -33,17 +32,6 @@ export function InvoicesPageHeader({
   onRefresh,
 }: Props) {
   const router = useRouter();
-
-  const {
-    quote,
-    loading: fxLoading,
-    error: fxError,
-  } = useLiveFxQuote({
-    from: "USD",
-    to: "CHF",
-    refreshMs: 20_000,
-    enabled: true,
-  });
 
   return (
     <header className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
@@ -137,24 +125,8 @@ export function InvoicesPageHeader({
         {/* FX (single source of truth) */}
         <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/50 px-3 py-1.5 text-[11px] text-slate-300 ring-1 ring-slate-700/60">
           <span className="text-slate-400">FX</span>
-          <span className="font-medium text-slate-200">USD → CHF</span>
-
-          {fxLoading ? (
-            <span className="text-slate-400">loading…</span>
-          ) : fxError ? (
-            <span className="max-w-xs truncate text-rose-200/80">
-              {fxError}
-            </span>
-          ) : quote ? (
-            <>
-              <span className="font-semibold text-slate-50">
-                {quote.rate.toFixed(4)}
-              </span>
-              <span className="text-slate-500">({quote.source})</span>
-            </>
-          ) : (
-            <span className="text-slate-400">—</span>
-          )}
+          <span className="font-medium text-slate-200">CHF-only</span>
+          <span className="text-slate-500">SSOT</span>
         </div>
 
         {/* Meta */}
