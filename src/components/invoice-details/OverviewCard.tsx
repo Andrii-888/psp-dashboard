@@ -50,6 +50,14 @@ export function OverviewCard({
   const hasTx = !!invoice.txHash && invoice.txHash.trim().length > 0;
   const isScreeningPending = hasTx && invoice.amlStatus === null;
 
+  const payAmountNum = invoice.pay?.amount
+    ? Number(String(invoice.pay.amount).replace(",", "."))
+    : NaN;
+  const hasAmountMismatch =
+    Number.isFinite(payAmountNum) &&
+    Number.isFinite(invoice.cryptoAmount) &&
+    Math.abs(payAmountNum - Number(invoice.cryptoAmount)) > 0.000001;
+
   return (
     <section className="apple-card p-4 md:p-6">
       <div className="flex flex-col gap-6 md:flex-row">
@@ -147,6 +155,64 @@ export function OverviewCard({
 
                 <div className="text-slate-400">
                   Expires at: {formatDateTime(invoice.pay.expiresAt)}
+                </div>
+              </div>
+              <div className="mt-3 rounded-2xl bg-slate-900/60 p-3 ring-1 ring-slate-800/80">
+                <p className="text-[11px] uppercase text-slate-500">
+                  FX / SSOT
+                </p>
+
+                <div className="mt-2 space-y-1 text-[11px] text-slate-200">
+                  <div>
+                    SSOT cryptoAmount:{" "}
+                    {hasAmountMismatch ? (
+                      <div className="rounded-lg bg-amber-500/10 p-2 ring-1 ring-amber-500/30">
+                        <div className="text-[11px] font-semibold text-amber-200">
+                          ⚠ Amount mismatch detected
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-amber-200/80">
+                          SSOT cryptoAmount differs from provider pay amount.
+                          Check provider_raw / pricing flow.
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg bg-emerald-500/10 p-2 ring-1 ring-emerald-500/30">
+                        <div className="text-[11px] font-semibold text-emerald-200">
+                          ✅ Amounts match (SSOT)
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-emerald-200/80">
+                          cryptoAmount equals provider pay amount.
+                        </div>
+                      </div>
+                    )}
+                    <span className="font-mono text-slate-100">
+                      {invoice.cryptoAmount} {invoice.cryptoCurrency}
+                    </span>
+                  </div>
+
+                  <div>
+                    Provider pay amount:{" "}
+                    <span className="font-mono text-slate-100">
+                      {invoice.pay?.amount} {invoice.pay?.currency}
+                    </span>
+                  </div>
+
+                  <div>
+                    FX pair:{" "}
+                    <span className="font-mono text-slate-100">
+                      {invoice.fxPair ?? "—"}
+                    </span>
+                  </div>
+
+                  <div>
+                    FX rate:{" "}
+                    <span className="font-mono text-slate-100">
+                      {typeof invoice.fxRate === "number" &&
+                      Number.isFinite(invoice.fxRate)
+                        ? invoice.fxRate.toFixed(6)
+                        : "—"}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
