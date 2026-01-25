@@ -330,6 +330,26 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
       });
     }
 
+    // ✅ Special case: CHF-first for accounting entries list (JSON only)
+    if (!isCsv && pathname === "accounting/entries") {
+      const json = await upstream.json().catch(() => null);
+
+      const onlyChf = (arr: any[]) =>
+        (arr ?? []).filter(
+          (x) =>
+            String(x?.currency ?? "")
+              .trim()
+              .toUpperCase() === "CHF"
+        );
+
+      const out = upstream.ok && Array.isArray(json) ? onlyChf(json) : json;
+
+      return NextResponse.json(out, {
+        status: upstream.status,
+        headers: resHeaders,
+      });
+    }
+
     // Default passthrough (supports CSV and any binary)
     const data = await upstream.arrayBuffer();
 

@@ -61,6 +61,16 @@ export default async function AccountingPage({
 
   let errorMsg = "";
 
+  // ✅ CHF-first (UI): hide non-CHF history (EUR/USD) without deleting data
+  const CHF = "CHF";
+  const onlyChf = <T extends Record<string, any>>(rows: T[]): T[] =>
+    (rows ?? []).filter((r) => {
+      const cur = String(r?.currency ?? r?.fiatCurrency ?? "")
+        .trim()
+        .toUpperCase();
+      return cur === CHF;
+    });
+
   const results = await Promise.allSettled([
     // ledger (accounting_entries)
     fetchEntries({ merchantId, limit, headers: h, from, to }), // table
@@ -101,6 +111,10 @@ export default async function AccountingPage({
   if (items.length === 0) {
     items = mergePipelineWithLedger(pipelineItems, items);
   }
+
+  // ✅ Apply CHF-only view to both ledger + pipeline fallbacks
+  items = onlyChf(items);
+  totalsItems = onlyChf(totalsItems);
 
   if (totalsItems.length === 0) {
     totalsItems = mergePipelineWithLedger(pipelineTotalsItems, totalsItems);
