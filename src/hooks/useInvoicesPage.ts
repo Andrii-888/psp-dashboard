@@ -56,6 +56,8 @@ interface UseInvoicesPageResult {
 
 const POLL_INTERVAL_MS = 3000;
 
+const CHF = "CHF";
+
 // ✅ стабильный fingerprint (без sort; предполагаем stable order от API)
 function fingerprint(invoices: Invoice[]): string {
   return invoices
@@ -109,9 +111,7 @@ export function useInvoicesPage(): UseInvoicesPageResult {
   const reload = useCallback(async (opts?: ReloadOptions) => {
     const silent = opts?.silent === true;
 
-    // если уже идёт запрос — не запускаем второй
     if (inFlightRef.current) return;
-
     inFlightRef.current = true;
 
     try {
@@ -120,25 +120,20 @@ export function useInvoicesPage(): UseInvoicesPageResult {
         setError(null);
       }
 
-      const res = await fetchInvoices();
+      const { items } = await fetchInvoices();
 
-      const next = Array.isArray(res)
-        ? res
-        : res &&
-          typeof res === "object" &&
-          "items" in res &&
-          Array.isArray((res as { items?: unknown }).items)
-        ? (res as { items: Invoice[] }).items
-        : [];
+      const nextChf = items.filter(
+        (i) =>
+          String(i.fiatCurrency ?? "")
+            .trim()
+            .toUpperCase() === CHF
+      );
 
-      const nextFp = fingerprint(next);
-
-      if (nextFp === lastFpRef.current) {
-        return;
-      }
+      const nextFp = fingerprint(nextChf);
+      if (nextFp === lastFpRef.current) return;
 
       lastFpRef.current = nextFp;
-      setAllInvoices(next);
+      setAllInvoices(nextChf);
       setLastUpdatedAt(new Date());
       if (!silent) setError(null);
     } catch (err: unknown) {

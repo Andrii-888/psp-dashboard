@@ -167,6 +167,32 @@ function getFetchCause(e: unknown): FetchCause | null {
 }
 
 // ---------------------------
+// CHF-first helpers
+// ---------------------------
+const CHF = "CHF";
+
+function filterInvoicesChf(payload: unknown): unknown {
+  const isChf = (x: any) =>
+    String(x?.fiatCurrency ?? "")
+      .trim()
+      .toUpperCase() === CHF;
+
+  // core returns array for /invoices
+  if (Array.isArray(payload)) return payload.filter(isChf);
+
+  // if someday it returns { items: [...] }
+  if (
+    payload &&
+    typeof payload === "object" &&
+    Array.isArray((payload as any).items)
+  ) {
+    return { ...(payload as any), items: (payload as any).items.filter(isChf) };
+  }
+
+  return payload;
+}
+
+// ---------------------------
 // Proxy
 // ---------------------------
 async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
@@ -221,8 +247,11 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
 
   try {
     // ✅ Credentials:
-    // - Prefer incoming request headers (dev / manual testing)
-    // - Fallback to env (production)
+    // Prefer ENV (server-controlled) so browser requests work.
+    // In dev, allow override from incoming headers ONLY if provided.
+    const envMerchantId = envAnyOpt(["PSP_MERCHANT_ID", "DEMO_MERCHANT_ID"]);
+    const envApiKey = envAnyOpt(["PSP_API_KEY", "DEMO_API_KEY"]);
+
     const incomingMerchantId =
       pickHeader(req.headers, "x-merchant-id") ??
       pickHeader(req.headers, "x-merchant");
@@ -236,11 +265,15 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
         return m?.[1]?.trim() ? m[1].trim() : null;
       })();
 
-    const envMerchantId = envAnyOpt(["PSP_MERCHANT_ID", "DEMO_MERCHANT_ID"]);
-    const envApiKey = envAnyOpt(["PSP_API_KEY", "DEMO_API_KEY"]);
+    const allowIncomingOverride = process.env.NODE_ENV !== "production";
 
-    const merchantId = incomingMerchantId ?? envMerchantId;
-    const apiKey = incomingApiKey ?? envApiKey;
+    // ✅ ENV wins always. Incoming headers are fallback (dev/manual).
+    const merchantId =
+      envMerchantId ??
+      (allowIncomingOverride ? incomingMerchantId : null) ??
+      null;
+    const apiKey =
+      envApiKey ?? (allowIncomingOverride ? incomingApiKey : null) ?? null;
 
     // ✅ Build upstream URL safely + preserve querystring
     const url = new URL(baseClean);
@@ -286,6 +319,18 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     if (outCd) resHeaders.set("content-disposition", outCd);
     resHeaders.set("cache-control", "no-store");
 
+    // ✅ Special case: CHF-first for invoices list (JSON only)
+    if (!isCsv && pathname === "invoices") {
+      const json = await upstream.json().catch(() => null);
+      const out = upstream.ok ? filterInvoicesChf(json) : json;
+
+      return NextResponse.json(out, {
+        status: upstream.status,
+        headers: resHeaders,
+      });
+    }
+
+    // Default passthrough (supports CSV and any binary)
     const data = await upstream.arrayBuffer();
 
     return new NextResponse(data, {
