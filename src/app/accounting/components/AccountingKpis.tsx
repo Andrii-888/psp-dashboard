@@ -69,9 +69,9 @@ export default function AccountingKpis({ entries, summary, currency }: Props) {
   const count = summary ? Number(summary.confirmedCount ?? 0) : fallback.count;
 
   const items: KpiItem[] = [
-    { label: "Gross volume", value: fmtMoney(gross, curr) },
-    { label: "Fees", value: fmtMoney(fee, curr) },
-    { label: "Net volume", value: fmtMoney(net, curr) },
+    { label: "Gross volume", value: fmtMoney(gross) },
+    { label: "Fees", value: fmtMoney(fee) },
+    { label: "Net volume", value: fmtMoney(net) },
     {
       label: "Transactions",
       value: String(Number.isFinite(count) ? count : 0),

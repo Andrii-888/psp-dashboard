@@ -29,7 +29,9 @@ export function toNumber(
  * - No locale currency style
  * - Deterministic for accounting & audit
  */
-export function fmtMoney(value: number, currency = "USD") {
+export function fmtMoney(value: number) {
+  const currency = "CHF"; // SSOT: accounting UI is CHF-only
+
   const n = Number(value);
 
   if (!Number.isFinite(n)) {

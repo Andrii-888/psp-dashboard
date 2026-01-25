@@ -2,6 +2,7 @@
 
 import type { Invoice } from "@/domain/invoices/types";
 import { Row } from "../ui/Row";
+import { fmtMoney, toNumber } from "../../lib/format";
 
 function fmtDateTime(iso?: string | null) {
   if (!iso) return "—";
@@ -10,16 +11,17 @@ function fmtDateTime(iso?: string | null) {
   return d.toLocaleString();
 }
 
-function fmtMoney(amount?: string | number | null, currency?: string | null) {
+function fmtAsset(amount?: string | number | null, asset?: string | null) {
   if (amount === null || amount === undefined || amount === "") return "—";
-  const c = currency ?? "";
-  return c ? `${amount} ${c}` : String(amount);
+  const a = (asset ?? "").trim();
+  return a ? `${amount} ${a}` : String(amount);
 }
 
 function fmtAmounts(invoice: Invoice) {
-  const gross = invoice.grossAmount ?? "—";
-  const fee = invoice.feeAmount ?? "—";
-  const net = invoice.netAmount ?? "—";
+  const gross = fmtMoney(toNumber(invoice.grossAmount ?? null, 0));
+  const fee = fmtMoney(toNumber(invoice.feeAmount ?? null, 0));
+  const net = fmtMoney(toNumber(invoice.netAmount ?? null, 0));
+
   const feeBps = invoice.feeBps ?? "—";
   const feePayer = invoice.feePayer ?? "—";
 
@@ -48,17 +50,14 @@ export function InvoiceOverview({ invoice }: Props) {
         <Row label="expiresAt" value={fmtDateTime(invoice.expiresAt)} />
 
         <Row
-          label="fiat"
-          value={fmtMoney(
-            invoice.fiatAmount ?? null,
-            invoice.fiatCurrency ?? null
-          )}
+          label="fiat (CHF)"
+          value={fmtMoney(toNumber(invoice.fiatAmount ?? null, 0))}
           mono
         />
 
         <Row
-          label="crypto"
-          value={fmtMoney(
+          label="asset"
+          value={fmtAsset(
             invoice.cryptoAmount ?? null,
             invoice.cryptoCurrency ?? null
           )}

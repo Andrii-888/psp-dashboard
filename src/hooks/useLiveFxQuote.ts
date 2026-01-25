@@ -105,7 +105,7 @@ export function useLiveFxQuote(params: {
 
         const quote: FxQuote = {
           from: isNonEmptyString(raw.from) ? raw.from : from,
-          to: isNonEmptyString(raw.to) ? raw.to : "USD",
+          to: isNonEmptyString(raw.to) ? raw.to : to,
           rate: raw.rate,
           source: isNonEmptyString(raw.source) ? raw.source : "unknown",
           lockedAt: isNonEmptyString(raw.lockedAt)

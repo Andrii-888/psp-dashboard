@@ -16,8 +16,17 @@ function formatDate(dateIso: string) {
   });
 }
 
-function formatAmount(amount: number, currency: string) {
-  return `${amount.toFixed(2)} ${currency}`;
+function formatFiatChf(amount: number) {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toFixed(2)} CHF`;
+}
+
+function formatAsset(amount: number, asset: string) {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return "—";
+  const a = (asset ?? "").trim();
+  return a ? `${n.toFixed(2)} ${a}` : `${n.toFixed(2)}`;
 }
 
 interface InvoicesTableProps {
@@ -113,9 +122,9 @@ export function InvoicesTable({
 
               {/* Amounts */}
               <td className="whitespace-nowrap px-3 py-3 text-right text-xs font-semibold text-slate-50">
-                <div>{formatAmount(inv.fiatAmount, inv.fiatCurrency)}</div>
+                <div>{formatFiatChf(inv.fiatAmount)}</div>
                 <div className="mt-0.5 text-[10px] text-slate-500">
-                  {formatAmount(inv.cryptoAmount, inv.cryptoCurrency)}
+                  {formatAsset(inv.cryptoAmount, inv.cryptoCurrency)}
                 </div>
               </td>
 

@@ -40,17 +40,17 @@ export default function AccountingRow({
 
       {/* Gross */}
       <td className="px-4 py-3 text-right font-mono text-sm tabular-nums text-zinc-900">
-        {gross ? fmtMoney(gross, "USD") : "—"}
+        {gross ? fmtMoney(gross) : "—"}
       </td>
 
       {/* Fee */}
       <td className="px-4 py-3 text-right font-mono text-sm tabular-nums text-zinc-700">
-        {fee ? fmtMoney(fee, "USD") : "—"}
+        {fee ? fmtMoney(fee) : "—"}
       </td>
 
       {/* Net */}
       <td className="px-4 py-3 text-right font-mono text-sm tabular-nums text-zinc-900">
-        {net ? fmtMoney(net, "USD") : "—"}
+        {net ? fmtMoney(net) : "—"}
       </td>
 
       {/* Asset */}

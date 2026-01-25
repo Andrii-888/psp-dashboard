@@ -27,8 +27,17 @@ function formatDateTime(iso: string | null | undefined) {
   });
 }
 
-function formatAmount(amount: number, currency: string) {
-  return `${amount.toFixed(2)} ${currency}`;
+function formatFiatChf(amount: number) {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toFixed(2)} CHF`;
+}
+
+function formatAsset(amount: number, asset: string) {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return "—";
+  const a = (asset ?? "").trim();
+  return a ? `${n.toFixed(2)} ${a}` : `${n.toFixed(2)}`;
 }
 
 export function OverviewCard({
@@ -56,16 +65,16 @@ export function OverviewCard({
                 Fiat amount
               </p>
               <p className="mt-1 text-base font-semibold text-slate-50">
-                {formatAmount(invoice.fiatAmount, invoice.fiatCurrency)}
+                {formatFiatChf(invoice.fiatAmount)}
               </p>
             </div>
 
             <div className="rounded-2xl bg-slate-900/60 p-3 ring-1 ring-slate-800/80">
               <p className="text-[11px] uppercase text-slate-500">
-                Crypto amount
+                Asset amount
               </p>
               <p className="mt-1 text-base font-semibold text-slate-50">
-                {formatAmount(invoice.cryptoAmount, invoice.cryptoCurrency)}
+                {formatAsset(invoice.cryptoAmount, invoice.cryptoCurrency)}
               </p>
             </div>
 

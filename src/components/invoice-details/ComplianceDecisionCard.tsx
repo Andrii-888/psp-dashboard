@@ -12,8 +12,10 @@ type Props = {
   }) => Promise<void> | void;
 };
 
-function formatAmount(amount: number, currency: string) {
-  return `${amount.toFixed(2)} ${currency}`;
+function formatFiatChf(amount: number) {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toFixed(2)} CHF`;
 }
 
 function getAmountTier(fiatAmount: number): "small" | "medium" | "large" {
@@ -200,7 +202,7 @@ export function ComplianceDecisionCard({ invoice, onDecide }: Props) {
           <p className="mt-1 text-sm font-semibold text-slate-50">
             {getAmountTier(invoice.fiatAmount).toUpperCase()}{" "}
             <span className="text-[11px] font-normal text-slate-400">
-              · {formatAmount(invoice.fiatAmount, invoice.fiatCurrency)}
+              ·· {formatFiatChf(invoice.fiatAmount)}
             </span>
           </p>
         </div>

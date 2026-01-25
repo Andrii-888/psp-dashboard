@@ -39,8 +39,8 @@ export function InvoicesPageHeader({
     loading: fxLoading,
     error: fxError,
   } = useLiveFxQuote({
-    from: "EUR",
-    to: "USDT",
+    from: "USD",
+    to: "CHF",
     refreshMs: 20_000,
     enabled: true,
   });
@@ -137,7 +137,7 @@ export function InvoicesPageHeader({
         {/* FX (single source of truth) */}
         <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/50 px-3 py-1.5 text-[11px] text-slate-300 ring-1 ring-slate-700/60">
           <span className="text-slate-400">FX</span>
-          <span className="font-medium text-slate-200">EUR → USDT</span>
+          <span className="font-medium text-slate-200">USD → CHF</span>
 
           {fxLoading ? (
             <span className="text-slate-400">loading…</span>
