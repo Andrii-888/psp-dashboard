@@ -129,12 +129,20 @@ export default async function AccountingPage({
     to,
   });
 
+  const hasNonChf = [...items, ...totalsItems].some(
+    (r) =>
+      String(r.currency ?? "")
+        .trim()
+        .toUpperCase() !== "CHF"
+  );
+
   return (
     <div className="min-h-screen bg-slate-950 p-6 text-slate-50">
       <AccountingHeader
         merchantId={merchantId}
         limit={limit}
         rows={items.length}
+        hasNonChf={hasNonChf}
       />
 
       <AccountingFilters

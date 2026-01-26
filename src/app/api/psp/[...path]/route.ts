@@ -16,6 +16,63 @@ type RouteContext = {
   params?: Promise<{ path?: string[] | string }> | { path?: string[] | string };
 };
 
+type FeesByCurrencyRow = {
+  currency: string;
+  sum: string;
+};
+
+type FeesSummaryResponse = {
+  merchantId: string;
+  from: string | null;
+  to: string | null;
+  totalFiatSum: string;
+  feesByCurrency: FeesByCurrencyRow[];
+};
+
+function isFeesSummaryResponse(x: unknown): x is FeesSummaryResponse {
+  if (typeof x !== "object" || x === null) return false;
+
+  const obj = x as {
+    merchantId?: unknown;
+    from?: unknown;
+    to?: unknown;
+    totalFiatSum?: unknown;
+    feesByCurrency?: unknown;
+  };
+
+  if (typeof obj.merchantId !== "string") return false;
+  if (!(obj.from === null || typeof obj.from === "string")) return false;
+  if (!(obj.to === null || typeof obj.to === "string")) return false;
+  if (typeof obj.totalFiatSum !== "string") return false;
+  if (!Array.isArray(obj.feesByCurrency)) return false;
+
+  for (const row of obj.feesByCurrency) {
+    if (typeof row !== "object" || row === null) return false;
+    const r = row as { currency?: unknown; sum?: unknown };
+    if (typeof r.currency !== "string") return false;
+    if (typeof r.sum !== "string") return false;
+  }
+
+  return true;
+}
+
+function chfOnlyFeesSummary(payload: unknown): unknown {
+  if (!isFeesSummaryResponse(payload)) return payload;
+
+  const chfRow = payload.feesByCurrency.find(
+    (r) => r.currency.trim().toUpperCase() === "CHF"
+  );
+
+  const chfSumNum = chfRow ? Number(chfRow.sum) : 0;
+  const chfSum = Number.isFinite(chfSumNum) ? chfSumNum.toFixed(2) : "0.00";
+
+  return {
+    ...payload,
+    totalFiatSum: chfSum,
+    feesByCurrency: chfRow ? [{ currency: "CHF", sum: chfSum }] : [],
+  };
+}
+
 // Reads first non-empty env from the list (optional)
 function envAnyOpt(names: string[]): string | null {
   for (const n of names) {
@@ -213,8 +270,13 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     ? [raw]
     : [];
 
-  const path = pathFromParams.length ? pathFromParams : derivePathFromUrl(req);
-  const pathname = path.join("/"); // e.g. "accounting/entries.csv"
+  const path = (pathFromParams.length ? pathFromParams : derivePathFromUrl(req))
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  // ⬇️ нормализуем: убираем возможный trailing slash
+  const pathname = path.join("/").replace(/\/+$/, "");
+
   const isCsv =
     pathname.toLowerCase().endsWith(".csv") ||
     (req.headers.get("accept") ?? "").toLowerCase().includes("text/csv");
@@ -360,6 +422,17 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
       });
     }
 
+    // ✅ CHF-only: fees summary endpoint (JSON)
+    if (!isCsv && pathname === "accounting/summary/fees") {
+      const json = await upstream.json().catch(() => null);
+      const out = upstream.ok ? chfOnlyFeesSummary(json) : json;
+
+      return NextResponse.json(out, {
+        status: upstream.status,
+        headers: resHeaders,
+      });
+    }
+
     const data = await upstream.arrayBuffer();
 
     return new NextResponse(data, {
@@ -370,6 +443,7 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     const message = e instanceof Error ? e.message : "Unknown error";
     const cause = getFetchCause(e);
 
+    // ✅ CSV-friendly error (so download/export doesn't break on JSON)
     if (isCsv) {
       const causeText = cause
         ? `\nCause: ${cause.code ?? "-"} ${cause.syscall ?? ""} ${
@@ -391,14 +465,15 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
       );
     }
 
-    // Server-side debug only (do not leak infra details to clients)
+    // Server-side debug only
     if (process.env.NODE_ENV !== "production") {
       console.error("[api/psp proxy] error:", { message, cause });
     }
 
+    // ✅ For proxy/network failures return 502 (not 500)
     return NextResponse.json(
       { ok: false, where: "api/psp proxy", error: message },
-      { status: 500, headers: { "cache-control": "no-store" } }
+      { status: 502, headers: { "cache-control": "no-store" } }
     );
   }
 }

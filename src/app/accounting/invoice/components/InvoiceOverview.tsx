@@ -75,6 +75,12 @@ export function InvoiceOverview({ invoice }: Props) {
           }
           mono
         />
+
+        <Row
+          label="fxLockedAt"
+          value={fmtDateTime(invoice.fxLockedAt ?? null)}
+          mono
+        />
       </div>
     </div>
   );

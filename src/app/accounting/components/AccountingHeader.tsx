@@ -6,10 +6,12 @@ export default function AccountingHeader({
   merchantId,
   limit,
   rows,
+  hasNonChf,
 }: {
   merchantId: string;
   limit: number;
   rows: number;
+  hasNonChf: boolean;
 }) {
   const rowsValueClass = rows > 0 ? "text-emerald-300" : "text-amber-300";
 
@@ -53,6 +55,16 @@ export default function AccountingHeader({
 
       {/* Right: actions */}
       <div className="flex items-center gap-2">
+        {hasNonChf ? (
+          <span className="inline-flex items-center rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
+            Non-CHF hidden
+          </span>
+        ) : null}
+
+        <span className="inline-flex items-center rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
+          CHF-only
+        </span>
+
         <ExportCsvButton />
       </div>
     </div>
