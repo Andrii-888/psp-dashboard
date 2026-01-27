@@ -173,7 +173,11 @@ export default async function AccountingInvoicePage({
 
             <div className="text-xs text-zinc-700">
               <span className="font-semibold text-zinc-900">Fiat:</span>{" "}
-              {fx.fiatAmount} {fx.fiatCurrency}
+              {String(fx.fiatCurrency ?? "")
+                .trim()
+                .toUpperCase() === "CHF"
+                ? `${fx.fiatAmount} CHF`
+                : "—"}
             </div>
             <div className="text-xs text-zinc-700">
               <span className="font-semibold text-zinc-900">Crypto:</span>{" "}

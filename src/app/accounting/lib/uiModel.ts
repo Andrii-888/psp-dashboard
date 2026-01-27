@@ -5,6 +5,8 @@ import ReconciliationPanel from "../components/ReconciliationPanel";
 import type { AccountingEntryRaw } from "./types";
 import type { Asset, Network } from "./types";
 
+const CHF = "CHF";
+
 export type AccountingKpisSummary = {
   merchantId: string;
   from: string | null;
@@ -115,7 +117,7 @@ export function toAccountingUiModel(args: {
     feeSum: String(feeSum),
     netSum: String(netSum),
     feeFiatSum: "0",
-    feeFiatCurrency: null,
+    feeFiatCurrency: CHF,
   };
 
   const confirmedTotals = totalsEntries.filter(
@@ -131,7 +133,7 @@ export function toAccountingUiModel(args: {
     feeSum: String(confirmedTotals.reduce((s, e) => s + n(e.feeAmount), 0)),
     netSum: String(confirmedTotals.reduce((s, e) => s + n(e.netAmount), 0)),
     feeFiatSum: "0",
-    feeFiatCurrency: null,
+    feeFiatCurrency: CHF,
   };
 
   const reconciliation: ReconciliationModel = {

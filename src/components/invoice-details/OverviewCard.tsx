@@ -64,11 +64,14 @@ export function OverviewCard({
       ? invoice.fxRate
       : null;
 
+  const isChfFiat =
+    String(invoice.fiatCurrency ?? "")
+      .trim()
+      .toUpperCase() === "CHF";
+
   const fxHumanRate =
-    fxRateNum && fxRateNum > 0
-      ? `1 ${invoice.cryptoCurrency} ≈ ${fxRateNum.toFixed(6)} ${
-          invoice.fiatCurrency
-        }`
+    fxRateNum && fxRateNum > 0 && isChfFiat
+      ? `1 ${invoice.cryptoCurrency} ≈ ${fxRateNum.toFixed(6)} CHF`
       : "—";
 
   return (
@@ -86,7 +89,7 @@ export function OverviewCard({
                 Fiat amount
               </p>
               <p className="mt-1 text-base font-semibold text-slate-50">
-                {formatFiat(invoice.fiatAmount, invoice.fiatCurrency)}
+                {isChfFiat ? formatFiat(invoice.fiatAmount, "CHF") : "—"}
               </p>
             </div>
 

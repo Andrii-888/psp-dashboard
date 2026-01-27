@@ -60,8 +60,16 @@ function applyChfFeeToAccountingSummary(
   summary: AccountingSummaryResponse,
   fees: FeesSummaryResponse
 ): AccountingSummaryResponse {
-  const chfOnly = chfOnlyFeesSummary(fees); // ✅ теперь это FeesSummaryResponse
-  const chfSum = chfOnly.totalFiatSum;
+  // Enforce CHF-first based on feesByCurrency (presentation layer rule)
+  const rows = Array.isArray(fees.feesByCurrency) ? fees.feesByCurrency : [];
+  const chfRow = rows.find(
+    (r) =>
+      String(r.currency ?? "")
+        .trim()
+        .toUpperCase() === "CHF"
+  );
+
+  const chfSum = String(chfRow?.sum ?? "0");
 
   return {
     ...summary,
@@ -385,16 +393,15 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     if (outCd) resHeaders.set("content-disposition", outCd);
     resHeaders.set("cache-control", "no-store");
 
+    // ✅ Health passthrough (JSON only) — used by UI availability check
+    if (!isCsv && pathname === "health") {
+      const json = await upstream.json().catch(() => null);
 
-      // ✅ Health passthrough (JSON only) — used by UI availability check
-      if (!isCsv && pathname === "health") {
-        const json = await upstream.json().catch(() => null);
-
-        return NextResponse.json(json, {
-          status: upstream.status,
-          headers: resHeaders,
-        });
-      }
+      return NextResponse.json(json, {
+        status: upstream.status,
+        headers: resHeaders,
+      });
+    }
 
     // ✅ Special case: CHF-first for invoices list (JSON only)
     if (!isCsv && pathname === "invoices") {
@@ -498,7 +505,7 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
           ? (feesJsonRaw as FeesSummaryResponse)
           : null;
 
-      // Normalize fees -> CHF-first (do not allow null/MIXED in dashboard summary)
+      // Normalize fees -> CHF-first (do not allow null/non-CHF in dashboard summary)
       const feesChf: FeesSummaryResponse | null =
         feesUpstream.ok && feesJson
           ? ({

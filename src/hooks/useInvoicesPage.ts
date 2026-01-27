@@ -122,12 +122,13 @@ export function useInvoicesPage(): UseInvoicesPageResult {
 
       const { items } = await fetchInvoices();
 
-      const nextChf = items.filter(
-        (i) =>
-          String(i.fiatCurrency ?? "")
-            .trim()
-            .toUpperCase() === CHF
-      );
+      const nextChf = items.filter((i) => {
+        // CHF-first: invoices with missing/unknown fiatCurrency are dropped (no non-CHF / no null in UI)
+        const cur = String(i.fiatCurrency ?? "")
+          .trim()
+          .toUpperCase();
+        return cur === CHF;
+      });
 
       const nextFp = fingerprint(nextChf);
       if (nextFp === lastFpRef.current) return;

@@ -61,14 +61,41 @@ export default async function AccountingPage({
 
   let errorMsg = "";
 
-  // ✅ CHF-first (UI): hide non-CHF history (EUR/USD) without deleting data
+  // ✅ CHF-first (UI): allow all crypto rows, but restrict ANY fiat fields to CHF only.
+  // Ledger truth is unchanged; this is presentation filtering only.
   const CHF = "CHF";
-  const onlyChf = (rows: AccountingEntryRaw[]): AccountingEntryRaw[] =>
+
+  type WithFiatFields = {
+    fiatCurrency?: string | null;
+    feeFiatCurrency?: string | null;
+  };
+
+  const hasFiatFields = (
+    r: AccountingEntryRaw
+  ): r is AccountingEntryRaw & WithFiatFields => {
+    return "fiatCurrency" in r || "feeFiatCurrency" in r;
+  };
+
+  // ✅ CHF-first (UI): allow all crypto rows, but restrict ANY fiat fields to CHF only.
+  // Ledger truth is unchanged; this is presentation filtering only.
+  const onlyChfFiatKeepCrypto = (
+    rows: AccountingEntryRaw[]
+  ): AccountingEntryRaw[] =>
     (rows ?? []).filter((r) => {
-      const cur = String(r?.currency ?? "")
+      if (!hasFiatFields(r)) {
+        // crypto rows (no fiat fields at all)
+        return true;
+      }
+
+      const fiat = String(r.fiatCurrency ?? "")
         .trim()
         .toUpperCase();
-      return cur === CHF;
+      const feeFiat = String(r.feeFiatCurrency ?? "")
+        .trim()
+        .toUpperCase();
+
+      // if any fiat is present -> strictly CHF
+      return fiat === CHF && feeFiat === CHF;
     });
 
   const results = await Promise.allSettled([
@@ -113,8 +140,8 @@ export default async function AccountingPage({
   }
 
   // ✅ Apply CHF-only view to both ledger + pipeline fallbacks
-  items = onlyChf(items);
-  totalsItems = onlyChf(totalsItems);
+  items = onlyChfFiatKeepCrypto(items);
+  totalsItems = onlyChfFiatKeepCrypto(totalsItems);
 
   if (totalsItems.length === 0) {
     totalsItems = mergePipelineWithLedger(pipelineTotalsItems, totalsItems);

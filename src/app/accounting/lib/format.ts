@@ -22,7 +22,7 @@ export function toNumber(
 
 /**
  * Format money values (NO currency symbol)
- * Output: 1,234.56 USD
+ * Output: 1,234.56 CHF
  *
  * IMPORTANT:
  * - No `$`
