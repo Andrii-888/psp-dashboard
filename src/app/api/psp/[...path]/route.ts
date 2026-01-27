@@ -523,6 +523,20 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
         headers: resHeaders,
       });
     }
+    // ✅ Default passthrough for all other endpoints (e.g. invoices/:id, invoices/:id/webhooks, etc.)
+    if (isCsv) {
+      const text = await upstream.text();
+      return new NextResponse(text, {
+        status: upstream.status,
+        headers: resHeaders,
+      });
+    }
+
+    const json = await upstream.json().catch(() => null);
+    return NextResponse.json(json, {
+      status: upstream.status,
+      headers: resHeaders,
+    });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
     const cause = getFetchCause(e);
