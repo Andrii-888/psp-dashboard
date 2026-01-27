@@ -385,6 +385,17 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     if (outCd) resHeaders.set("content-disposition", outCd);
     resHeaders.set("cache-control", "no-store");
 
+
+      // ✅ Health passthrough (JSON only) — used by UI availability check
+      if (!isCsv && pathname === "health") {
+        const json = await upstream.json().catch(() => null);
+
+        return NextResponse.json(json, {
+          status: upstream.status,
+          headers: resHeaders,
+        });
+      }
+
     // ✅ Special case: CHF-first for invoices list (JSON only)
     if (!isCsv && pathname === "invoices") {
       const json = await upstream.json().catch(() => null);
