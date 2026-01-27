@@ -29,37 +29,8 @@ type FeesSummaryResponse = {
   feesByCurrency: FeesByCurrencyRow[];
 };
 
-function isFeesSummaryResponse(x: unknown): x is FeesSummaryResponse {
-  if (typeof x !== "object" || x === null) return false;
-
-  const obj = x as {
-    merchantId?: unknown;
-    from?: unknown;
-    to?: unknown;
-    totalFiatSum?: unknown;
-    feesByCurrency?: unknown;
-  };
-
-  if (typeof obj.merchantId !== "string") return false;
-  if (!(obj.from === null || typeof obj.from === "string")) return false;
-  if (!(obj.to === null || typeof obj.to === "string")) return false;
-  if (typeof obj.totalFiatSum !== "string") return false;
-  if (!Array.isArray(obj.feesByCurrency)) return false;
-
-  for (const row of obj.feesByCurrency) {
-    if (typeof row !== "object" || row === null) return false;
-    const r = row as { currency?: unknown; sum?: unknown };
-    if (typeof r.currency !== "string") return false;
-    if (typeof r.sum !== "string") return false;
-  }
-
-  return true;
-}
-
-function chfOnlyFeesSummary(payload: unknown): unknown {
-  if (!isFeesSummaryResponse(payload)) return payload;
-
-  const chfRow = payload.feesByCurrency.find(
+function chfOnlyFeesSummary(data: FeesSummaryResponse): FeesSummaryResponse {
+  const chfRow = data.feesByCurrency.find(
     (r) => r.currency.trim().toUpperCase() === "CHF"
   );
 
@@ -67,9 +38,35 @@ function chfOnlyFeesSummary(payload: unknown): unknown {
   const chfSum = Number.isFinite(chfSumNum) ? chfSumNum.toFixed(2) : "0.00";
 
   return {
-    ...payload,
+    ...data,
     totalFiatSum: chfSum,
     feesByCurrency: chfRow ? [{ currency: "CHF", sum: chfSum }] : [],
+  };
+}
+
+type AccountingSummaryResponse = {
+  merchantId: string;
+  from: string | null;
+  to: string | null;
+  confirmedCount: number;
+  grossSum: string;
+  feeSum: string;
+  netSum: string;
+  feeFiatSum: string;
+  feeFiatCurrency: string;
+};
+
+function applyChfFeeToAccountingSummary(
+  summary: AccountingSummaryResponse,
+  fees: FeesSummaryResponse
+): AccountingSummaryResponse {
+  const chfOnly = chfOnlyFeesSummary(fees); // ✅ теперь это FeesSummaryResponse
+  const chfSum = chfOnly.totalFiatSum;
+
+  return {
+    ...summary,
+    feeFiatCurrency: "CHF",
+    feeFiatSum: chfSum,
   };
 }
 
@@ -403,18 +400,38 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     if (!isCsv && pathname === "accounting/entries") {
       const json = await upstream.json().catch(() => null);
 
-      const onlyChf = (arr: unknown[]) =>
-        (arr ?? []).filter((x) => {
-          if (typeof x !== "object" || x === null) return false;
-          const currency = (x as { currency?: unknown }).currency;
-          return (
-            String(currency ?? "")
-              .trim()
-              .toUpperCase() === "CHF"
-          );
-        });
+      type EntryLike = Record<string, unknown>;
 
-      const out = upstream.ok && Array.isArray(json) ? onlyChf(json) : json;
+      const isObj = (v: unknown): v is EntryLike =>
+        typeof v === "object" && v !== null;
+
+      const normalizeChfEntry = (x: EntryLike): EntryLike => {
+        const currency = String(x.currency ?? "")
+          .trim()
+          .toUpperCase();
+        if (currency !== "CHF") return x;
+
+        return {
+          ...x,
+          currency: "CHF",
+          fiatCurrency: x.fiatCurrency ?? "CHF",
+          feeFiatCurrency: x.feeFiatCurrency ?? "CHF",
+        };
+      };
+
+      const onlyChfAndNormalized = (arr: unknown[]) =>
+        (arr ?? [])
+          .filter(isObj)
+          .filter(
+            (x) =>
+              String(x.currency ?? "")
+                .trim()
+                .toUpperCase() === "CHF"
+          )
+          .map(normalizeChfEntry);
+
+      const out =
+        upstream.ok && Array.isArray(json) ? onlyChfAndNormalized(json) : json;
 
       return NextResponse.json(out, {
         status: upstream.status,
@@ -433,37 +450,64 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
       });
     }
 
-    const data = await upstream.arrayBuffer();
+    // ✅ CHF-only: accounting summary (feeFiatSum + feeFiatCurrency)
+    if (!isCsv && pathname === "accounting/summary") {
+      const summaryJson = (await upstream
+        .json()
+        .catch(() => null)) as AccountingSummaryResponse | null;
 
-    return new NextResponse(data, {
-      status: upstream.status,
-      headers: resHeaders,
-    });
+      if (!upstream.ok || !summaryJson) {
+        return NextResponse.json(summaryJson, {
+          status: upstream.status,
+          headers: resHeaders,
+        });
+      }
+
+      // fetch fees summary and enforce CHF-only
+      const feesUrl = new URL(baseClean);
+      feesUrl.pathname = joinPaths(
+        feesUrl.pathname || "/",
+        "accounting/summary/fees"
+      );
+
+      const feesUpstream = await fetch(
+        feesUrl.toString() + (req.nextUrl.search || ""),
+        {
+          method: "GET",
+          headers,
+          cache: "no-store",
+          redirect: "manual",
+        }
+      );
+
+      const feesJsonRaw: unknown = await feesUpstream.json().catch(() => null);
+
+      const feesJson =
+        feesJsonRaw && typeof feesJsonRaw === "object"
+          ? (feesJsonRaw as FeesSummaryResponse)
+          : null;
+
+      // Normalize fees -> CHF-first (do not allow null/MIXED in dashboard summary)
+      const feesChf: FeesSummaryResponse | null =
+        feesUpstream.ok && feesJson
+          ? ({
+              ...feesJson,
+              totalFiatSum: String(feesJson.totalFiatSum ?? "0"),
+            } satisfies FeesSummaryResponse)
+          : null;
+
+      const out = feesChf
+        ? applyChfFeeToAccountingSummary(summaryJson, feesChf)
+        : summaryJson;
+
+      return NextResponse.json(out, {
+        status: upstream.status,
+        headers: resHeaders,
+      });
+    }
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
     const cause = getFetchCause(e);
-
-    // ✅ CSV-friendly error (so download/export doesn't break on JSON)
-    if (isCsv) {
-      const causeText = cause
-        ? `\nCause: ${cause.code ?? "-"} ${cause.syscall ?? ""} ${
-            cause.address ?? ""
-          }${typeof cause.port === "number" ? `:${cause.port}` : ""}${
-            cause.message ? ` (${cause.message})` : ""
-          }\n`
-        : "";
-
-      return new NextResponse(
-        `CSV export failed (proxy could not reach PSP Core).\n\nDetails: ${message}\n${causeText}`,
-        {
-          status: 502,
-          headers: {
-            "content-type": "text/plain; charset=utf-8",
-            "cache-control": "no-store",
-          },
-        }
-      );
-    }
 
     // Server-side debug only
     if (process.env.NODE_ENV !== "production") {
@@ -473,9 +517,23 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     // ✅ For proxy/network failures return 502 (not 500)
     return NextResponse.json(
       { ok: false, where: "api/psp proxy", error: message },
-      { status: 502, headers: { "cache-control": "no-store" } }
+      {
+        status: 502,
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
     );
   }
+  // ✅ TypeScript guard: should never reach here, but keeps Promise<Response> strict
+  return NextResponse.json(
+    {
+      ok: false,
+      where: "api/psp proxy",
+      error: "Proxy fell through without response",
+    },
+    { status: 500, headers: { "cache-control": "no-store" } }
+  );
 }
 
 export async function GET(req: NextRequest, ctx: RouteContext) {
