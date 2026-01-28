@@ -376,6 +376,12 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     const hasBody = req.method !== "GET" && req.method !== "HEAD";
     const body = hasBody ? await req.arrayBuffer() : undefined;
 
+    console.log("[PSP PROXY] upstream url =", url.toString());
+    console.log("[PSP PROXY] upstream auth =", {
+      merchant: headers.get("x-merchant-id"),
+      apiKey: headers.get("x-api-key") ? "***" : null,
+    });
+
     const upstream = await fetch(url.toString(), {
       method: req.method,
       headers,
@@ -488,6 +494,12 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
         "accounting/summary/fees"
       );
 
+      console.log("[PSP PROXY] fees url =", feesUrl.toString());
+      console.log("[PSP PROXY] fees auth =", {
+        merchant: headers.get("x-merchant-id"),
+        apiKey: headers.get("x-api-key") ? "***" : null,
+      });
+
       const feesUpstream = await fetch(
         feesUrl.toString() + (req.nextUrl.search || ""),
         {
@@ -505,24 +517,37 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
           ? (feesJsonRaw as FeesSummaryResponse)
           : null;
 
-      // Normalize fees -> CHF-first (do not allow null/non-CHF in dashboard summary)
+      // Normalize fees -> CHF-first
+      // If /summary/fees is broken, we still force CHF in summary and keep existing feeFiatSum.
       const feesChf: FeesSummaryResponse | null =
         feesUpstream.ok && feesJson
           ? ({
               ...feesJson,
               totalFiatSum: String(feesJson.totalFiatSum ?? "0"),
+              feesByCurrency: Array.isArray(feesJson.feesByCurrency)
+                ? feesJson.feesByCurrency
+                : [],
             } satisfies FeesSummaryResponse)
           : null;
 
-      const out = feesChf
-        ? applyChfFeeToAccountingSummary(summaryJson, feesChf)
-        : summaryJson;
-
-      return NextResponse.json(out, {
-        status: upstream.status,
-        headers: resHeaders,
-      });
+      return NextResponse.json(
+        feesChf
+          ? applyChfFeeToAccountingSummary(
+              summaryJson,
+              chfOnlyFeesSummary(feesChf)
+            )
+          : {
+              ...summaryJson,
+              feeFiatCurrency: "CHF",
+              feeFiatSum: String(summaryJson.feeFiatSum ?? "0"),
+            },
+        {
+          status: upstream.status,
+          headers: resHeaders,
+        }
+      );
     }
+
     // ✅ Default passthrough for all other endpoints (e.g. invoices/:id, invoices/:id/webhooks, etc.)
     if (isCsv) {
       const text = await upstream.text();
