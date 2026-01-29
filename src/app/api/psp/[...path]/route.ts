@@ -420,7 +420,10 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
       });
     }
 
-    // ✅ Special case: CHF-first for accounting entries list (JSON only)
+    // ✅ Special case: CHF-first normalization for accounting entries list (JSON only)
+    // - Keep ALL entries (including invoice.confirmed in USDT/USDC)
+    // - Force fee_charged rows to CHF
+    // - Normalize CHF-related fields when currency is CHF
     if (!isCsv && pathname === "accounting/entries") {
       const json = await upstream.json().catch(() => null);
 
@@ -429,11 +432,18 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
       const isObj = (v: unknown): v is EntryLike =>
         typeof v === "object" && v !== null;
 
-      const normalizeChfEntry = (x: EntryLike): EntryLike => {
-        const currency = String(x.currency ?? "")
+      const normalizeEntry = (x: EntryLike): EntryLike => {
+        const eventType = String(x.eventType ?? "")
+          .trim()
+          .toLowerCase();
+        const currencyRaw = String(x.currency ?? "")
           .trim()
           .toUpperCase();
-        if (currency !== "CHF") return x;
+
+        const isFee = eventType === "fee_charged";
+        const isChf = isFee || currencyRaw === "CHF";
+
+        if (!isChf) return x;
 
         return {
           ...x,
@@ -443,19 +453,10 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
         };
       };
 
-      const onlyChfAndNormalized = (arr: unknown[]) =>
-        (arr ?? [])
-          .filter(isObj)
-          .filter(
-            (x) =>
-              String(x.currency ?? "")
-                .trim()
-                .toUpperCase() === "CHF"
-          )
-          .map(normalizeChfEntry);
+      const normalized = (arr: unknown[]) =>
+        (arr ?? []).filter(isObj).map(normalizeEntry);
 
-      const out =
-        upstream.ok && Array.isArray(json) ? onlyChfAndNormalized(json) : json;
+      const out = upstream.ok && Array.isArray(json) ? normalized(json) : json;
 
       return NextResponse.json(out, {
         status: upstream.status,
