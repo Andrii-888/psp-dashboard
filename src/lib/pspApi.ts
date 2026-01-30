@@ -418,6 +418,24 @@ export async function fetchAccountingEntries(params: {
   });
 }
 
+export async function fetchAccountingSummary(params: {
+  merchantId: string;
+  headers: Headers;
+  from?: string;
+  to?: string;
+}): Promise<unknown> {
+  const qs = toQuery({
+    merchantId: params.merchantId,
+    from: params.from,
+    to: params.to,
+  });
+
+  // NOTE: server-safe call (absolute URL + forwarded auth headers)
+  return apiGet<unknown>(`/accounting/summary${qs}`, {
+    forwardHeaders: params.headers,
+  });
+}
+
 export async function runBackfillConfirmed(params: {
   merchantId: string;
   headers: Headers;

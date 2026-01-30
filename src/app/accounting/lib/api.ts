@@ -16,6 +16,7 @@ import {
   fetchInvoices,
   fetchAccountingEntries,
   runBackfillConfirmed as pspRunBackfillConfirmed,
+  fetchAccountingSummary,
   type BackfillConfirmedResponse,
 } from "@/lib/pspApi";
 
@@ -58,6 +59,22 @@ export async function fetchEntries(params: {
   });
 
   return { items: extractEntryItems(data) };
+}
+
+export async function fetchSummary(params: {
+  merchantId: string;
+  headers: Headers;
+  from?: string;
+  to?: string;
+}): Promise<{ summary: unknown }> {
+  const data = await fetchAccountingSummary({
+    merchantId: params.merchantId,
+    headers: params.headers,
+    from: params.from,
+    to: params.to,
+  });
+
+  return { summary: data };
 }
 
 /**

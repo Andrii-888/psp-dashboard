@@ -18,7 +18,12 @@ import TotalsReconciliationPanel from "./components/TotalsReconciliationPanel";
 
 import type { AccountingEntryRaw } from "./lib/types";
 
-import { fetchEntries, fetchInvoiceHistoryAsEntries } from "./lib/api";
+import {
+  fetchEntries,
+  fetchInvoiceHistoryAsEntries,
+  fetchSummary,
+} from "./lib/api";
+
 import { pick, type SearchParams } from "./lib/searchParams";
 import {
   getErrorMessage,
@@ -58,6 +63,8 @@ export default async function AccountingPage({
   // Pipeline data
   let pipelineItems: AccountingEntryRaw[] = [];
   let pipelineTotalsItems: AccountingEntryRaw[] = [];
+
+  let summary: unknown = null;
 
   let errorMsg = "";
 
@@ -103,6 +110,8 @@ export default async function AccountingPage({
     fetchEntries({ merchantId, limit, headers: h, from, to }), // table
     fetchEntries({ merchantId, limit: totalsLimit, headers: h, from, to }), // totals
 
+    fetchSummary({ merchantId, headers: h, from, to }),
+
     // pipeline (invoices as accounting-like rows)
     fetchInvoiceHistoryAsEntries({ limit, headers: h, from, to }), // table
     fetchInvoiceHistoryAsEntries({
@@ -113,8 +122,13 @@ export default async function AccountingPage({
     }), // totals
   ] as const);
 
-  const [entriesRes, totalsEntriesRes, pipelineRes, pipelineTotalsRes] =
-    results;
+  const [
+    entriesRes,
+    totalsEntriesRes,
+    summaryRes,
+    pipelineRes,
+    pipelineTotalsRes,
+  ] = results;
 
   if (entriesRes.status === "fulfilled") {
     items = entriesRes.value.items;
@@ -124,6 +138,10 @@ export default async function AccountingPage({
 
   if (totalsEntriesRes.status === "fulfilled") {
     totalsItems = totalsEntriesRes.value.items;
+  }
+
+  if (summaryRes.status === "fulfilled") {
+    summary = summaryRes.value.summary;
   }
 
   if (pipelineRes.status === "fulfilled") {
@@ -151,6 +169,7 @@ export default async function AccountingPage({
   const ui = toAccountingUiModel({
     entries: items,
     totalsEntries: totalsItems,
+    summary,
     merchantId,
     from,
     to,
