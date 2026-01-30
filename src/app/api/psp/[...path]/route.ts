@@ -3,6 +3,19 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
+const PASS_THROUGH_HEADERS = new Set([
+  "x-psp-version",
+  "x-psp-merchant-id",
+  "x-psp-result-count",
+  "x-psp-next-cursor",
+
+  "x-ratelimit-limit",
+  "x-ratelimit-remaining",
+  "x-ratelimit-reset",
+
+  "etag",
+]);
+
 // ---------------------------
 // Dev base resolution (no prod fallback)
 // ---------------------------
@@ -398,6 +411,13 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     if (outCt) resHeaders.set("content-type", outCt);
     if (outCd) resHeaders.set("content-disposition", outCd);
     resHeaders.set("cache-control", "no-store");
+
+    // Pass through selected safe headers from upstream (audit / rate-limit)
+    upstream.headers.forEach((value, key) => {
+      if (PASS_THROUGH_HEADERS.has(key.toLowerCase())) {
+        resHeaders.set(key, value);
+      }
+    });
 
     // ✅ Health passthrough (JSON only) — used by UI availability check
     if (!isCsv && pathname === "health") {
