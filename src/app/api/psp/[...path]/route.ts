@@ -389,11 +389,13 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     const hasBody = req.method !== "GET" && req.method !== "HEAD";
     const body = hasBody ? await req.arrayBuffer() : undefined;
 
-    console.log("[PSP PROXY] upstream url =", url.toString());
-    console.log("[PSP PROXY] upstream auth =", {
-      merchant: headers.get("x-merchant-id"),
-      apiKey: headers.get("x-api-key") ? "***" : null,
-    });
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[PSP PROXY] upstream url =", url.toString());
+      console.log("[PSP PROXY] upstream auth =", {
+        merchant: headers.get("x-merchant-id"),
+        apiKey: headers.get("x-api-key") ? "***" : null,
+      });
+    }
 
     const upstream = await fetch(url.toString(), {
       method: req.method,
@@ -515,11 +517,13 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
         "accounting/summary/fees"
       );
 
-      console.log("[PSP PROXY] fees url =", feesUrl.toString());
-      console.log("[PSP PROXY] fees auth =", {
-        merchant: headers.get("x-merchant-id"),
-        apiKey: headers.get("x-api-key") ? "***" : null,
-      });
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[PSP PROXY] fees url =", feesUrl.toString());
+        console.log("[PSP PROXY] fees auth =", {
+          merchant: headers.get("x-merchant-id"),
+          apiKey: headers.get("x-api-key") ? "***" : null,
+        });
+      }
 
       const feesUpstream = await fetch(
         feesUrl.toString() + (req.nextUrl.search || ""),
