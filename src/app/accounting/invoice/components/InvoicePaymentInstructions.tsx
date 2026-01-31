@@ -7,7 +7,17 @@ function fmtDateTime(iso?: string | null) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString();
+  return (
+    new Intl.DateTimeFormat("de-CH", {
+      timeZone: "UTC",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(d) + " UTC"
+  );
 }
 
 function fmtAmount(amount?: string | number | null, currency?: string | null) {

@@ -167,7 +167,15 @@ export default async function AccountingInvoicePage({
             <div className="text-xs text-zinc-700">
               <span className="font-semibold text-zinc-900">Locked at:</span>{" "}
               {fx.fxLockedAt
-                ? new Date(fx.fxLockedAt).toLocaleString("de-CH")
+                ? new Intl.DateTimeFormat("de-CH", {
+                    timeZone: "UTC",
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  }).format(new Date(fx.fxLockedAt)) + " UTC"
                 : "—"}
             </div>
 
