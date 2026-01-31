@@ -70,6 +70,95 @@ function fmtDate(iso?: string | null) {
   return d.toLocaleString();
 }
 
+function buildDebugUrls(args: {
+  merchantId?: string;
+  limit?: number;
+  from?: string;
+  to?: string;
+}) {
+  const qs = new URLSearchParams();
+
+  if (args.merchantId) qs.set("merchantId", args.merchantId);
+  if (typeof args.limit === "number") qs.set("limit", String(args.limit));
+  if (args.from) qs.set("from", args.from);
+  if (args.to) qs.set("to", args.to);
+
+  const query = qs.toString();
+  const suffix = query ? `?${query}` : "";
+
+  return {
+    entriesJsonUrl: `/api/psp/accounting/entries${suffix}`,
+    summaryJsonUrl: `/api/psp/accounting/summary${suffix}`,
+    reloadUrl: `./${suffix}`,
+  };
+}
+
+function parseMismatch(
+  issueType: string,
+  message?: string | null
+): {
+  entries?: number;
+  summary?: number;
+} {
+  const t = String(issueType || "").toLowerCase();
+  const msg = String(message || "");
+
+  // expected formats:
+  // "confirmedCount mismatch: entries=9, summary=8"
+  // "grossSum mismatch: entries=2053.79, summary=425.08"
+  // "netSum mismatch: entries=..., summary=..."
+  if (
+    !(
+      t.includes("count_mismatch") ||
+      t.includes("gross_mismatch") ||
+      t.includes("fee_mismatch") ||
+      t.includes("net_mismatch")
+    )
+  ) {
+    return {};
+  }
+
+  const m = msg.match(
+    /entries=([0-9]+(?:\.[0-9]+)?),\s*summary=([0-9]+(?:\.[0-9]+)?)/i
+  );
+  if (!m) return {};
+
+  const a = Number(m[1]);
+  const b = Number(m[2]);
+
+  return {
+    entries: Number.isFinite(a) ? a : undefined,
+    summary: Number.isFinite(b) ? b : undefined,
+  };
+}
+
+function fmtNum(x?: number) {
+  if (x === undefined) return "—";
+  // compact, but stable
+  return x.toLocaleString(undefined, { maximumFractionDigits: 6 });
+}
+
+function likelyCause(issues: Issue[]): string | null {
+  const hasGross = issues.some((i) =>
+    String(i.type).toLowerCase().includes("gross_mismatch")
+  );
+  const hasNet = issues.some((i) =>
+    String(i.type).toLowerCase().includes("net_mismatch")
+  );
+  const hasCount = issues.some((i) =>
+    String(i.type).toLowerCase().includes("count_mismatch")
+  );
+
+  // heuristic: if gross+net mismatches exist, it's usually scope/taxonomy mismatch
+  if (hasGross && hasNet) {
+    return "Likely: backend summary uses a different scope (e.g. CHF-only or different event filters) than the entries shown in UI.";
+  }
+  if (hasCount) {
+    return "Likely: summary confirmedCount uses a different filter/window than entries (missing/extra confirmed in summary).";
+  }
+  return null;
+}
+
 export default function ReconciliationPanel({
   data,
   merchantId,
@@ -134,33 +223,82 @@ export default function ReconciliationPanel({
             </div>
           </div>
 
-          <div className="flex items-start gap-3">
-            <div
-              className={
-                ok
-                  ? "rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700"
-                  : "rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700"
-              }
-            >
-              {ok ? "OK" : `Issues: ${issues.length}`}
-            </div>
+          <div className="flex flex-wrap items-start justify-end gap-2">
+            {(() => {
+              const { entriesJsonUrl, summaryJsonUrl, reloadUrl } =
+                buildDebugUrls({
+                  merchantId,
+                  limit,
+                  from,
+                  to,
+                });
 
-            {canBackfill ? (
-              <form action={onBackfill}>
-                <input type="hidden" name="merchantId" value={merchantId} />
-                <input type="hidden" name="limit" value={String(limit)} />
-                <input type="hidden" name="from" value={from ?? ""} />
-                <input type="hidden" name="to" value={to ?? ""} />
+              const linkBtn =
+                "rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50";
 
-                <button
-                  type="submit"
-                  className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
-                  title="Create missing invoice.confirmed accounting entries"
-                >
-                  Run backfill confirmed
-                </button>
-              </form>
-            ) : null}
+              return (
+                <>
+                  <a
+                    href={reloadUrl}
+                    className={linkBtn}
+                    title="Reload the page with the same filters"
+                  >
+                    Reload
+                  </a>
+
+                  <a
+                    href={summaryJsonUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={linkBtn}
+                    title="Open backend summary JSON via /api/psp proxy"
+                  >
+                    Open summary JSON
+                  </a>
+
+                  <a
+                    href={entriesJsonUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={linkBtn}
+                    title="Open entries JSON via /api/psp proxy"
+                  >
+                    Open entries JSON
+                  </a>
+
+                  <div
+                    className={
+                      ok
+                        ? "ml-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700"
+                        : "ml-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700"
+                    }
+                  >
+                    {ok ? "OK" : `Issues: ${issues.length}`}
+                  </div>
+
+                  {canBackfill ? (
+                    <form action={onBackfill}>
+                      <input
+                        type="hidden"
+                        name="merchantId"
+                        value={merchantId}
+                      />
+                      <input type="hidden" name="limit" value={String(limit)} />
+                      <input type="hidden" name="from" value={from ?? ""} />
+                      <input type="hidden" name="to" value={to ?? ""} />
+
+                      <button
+                        type="submit"
+                        className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
+                        title="Create missing invoice.confirmed accounting entries"
+                      >
+                        Run backfill confirmed
+                      </button>
+                    </form>
+                  ) : null}
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -177,6 +315,118 @@ export default function ReconciliationPanel({
             <span className="font-semibold">{backfillError}</span>
           </div>
         ) : null}
+
+        {!ok
+          ? (() => {
+              const byType = new Map<
+                string,
+                { entries?: number; summary?: number }
+              >();
+
+              for (const it of issues) {
+                const t = String(it.type || "").toLowerCase();
+                const parsed = parseMismatch(t, it.message);
+                if (
+                  parsed.entries === undefined &&
+                  parsed.summary === undefined
+                )
+                  continue;
+                byType.set(t, parsed);
+              }
+
+              const get = (key: string) => byType.get(key)?.entries;
+              const getS = (key: string) => byType.get(key)?.summary;
+
+              const rows: Array<{ label: string; k: string; unit?: string }> = [
+                { label: "Confirmed count", k: "count_mismatch" },
+                { label: "Gross", k: "gross_mismatch", unit: "CHF" },
+                { label: "Fees", k: "fee_mismatch", unit: "CHF" },
+                { label: "Net", k: "net_mismatch", unit: "CHF" },
+              ];
+
+              const cause = likelyCause(issues);
+
+              return (
+                <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="text-sm font-semibold text-zinc-900">
+                      Summary vs Entries
+                    </div>
+                    <div className="text-xs text-zinc-600">
+                      Values are taken from mismatch details (entries=...,
+                      summary=...).
+                    </div>
+                  </div>
+
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="text-xs uppercase tracking-wide text-zinc-500">
+                        <tr className="border-b border-zinc-200">
+                          <th className="py-2 pr-4">Metric</th>
+                          <th className="py-2 pr-4">Entries</th>
+                          <th className="py-2 pr-4">Summary</th>
+                          <th className="py-2 pr-2">Δ (entries - summary)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-zinc-900">
+                        {rows.map((r) => {
+                          const e =
+                            r.k === "count_mismatch" ? get(r.k) : get(r.k);
+                          const s =
+                            r.k === "count_mismatch" ? getS(r.k) : getS(r.k);
+
+                          // If no mismatch row exists for this metric, show — (meaning it matched or wasn’t checked)
+                          const delta =
+                            e !== undefined && s !== undefined
+                              ? e - s
+                              : undefined;
+
+                          return (
+                            <tr key={r.k} className="border-b border-zinc-100">
+                              <td className="py-3 pr-4 font-medium text-zinc-900">
+                                {r.label}
+                              </td>
+                              <td className="py-3 pr-4 font-mono text-xs text-zinc-800">
+                                {fmtNum(e)}
+                                {r.unit && e !== undefined ? ` ${r.unit}` : ""}
+                              </td>
+                              <td className="py-3 pr-4 font-mono text-xs text-zinc-800">
+                                {fmtNum(s)}
+                                {r.unit && s !== undefined ? ` ${r.unit}` : ""}
+                              </td>
+                              <td className="py-3 pr-2 font-mono text-xs">
+                                {delta === undefined ? (
+                                  <span className="text-zinc-500">—</span>
+                                ) : delta === 0 ? (
+                                  <span className="text-emerald-700">
+                                    {fmtNum(delta)}
+                                  </span>
+                                ) : (
+                                  <span className="text-red-700">
+                                    {fmtNum(delta)}
+                                  </span>
+                                )}
+                                {r.unit && delta !== undefined
+                                  ? ` ${r.unit}`
+                                  : ""}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {cause ? (
+                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                      <span className="font-semibold">Likely cause:</span>{" "}
+                      {cause}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })()
+          : null}
       </div>
 
       <div className="p-4">
