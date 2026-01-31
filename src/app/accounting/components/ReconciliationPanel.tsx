@@ -89,7 +89,7 @@ function buildDebugUrls(args: {
   return {
     entriesJsonUrl: `/api/psp/accounting/entries${suffix}`,
     summaryJsonUrl: `/api/psp/accounting/summary${suffix}`,
-    reloadUrl: `./${suffix}`,
+    reloadUrl: suffix || "/accounting",
   };
 }
 
