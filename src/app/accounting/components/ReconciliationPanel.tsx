@@ -63,11 +63,21 @@ function SeverityPill({ severity }: { severity: Issue["severity"] }) {
   );
 }
 
+const DATE_FMT = new Intl.DateTimeFormat("en-CH", {
+  timeZone: "Europe/Zurich",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
 function fmtDate(iso?: string | null) {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
+  return DATE_FMT.format(d);
 }
 
 function buildDebugUrls(args: {
@@ -132,10 +142,13 @@ function parseMismatch(
   };
 }
 
+const NUM_FMT = new Intl.NumberFormat("en-CH", {
+  maximumFractionDigits: 6,
+});
+
 function fmtNum(x?: number) {
   if (x === undefined) return "—";
-  // compact, but stable
-  return x.toLocaleString(undefined, { maximumFractionDigits: 6 });
+  return NUM_FMT.format(x);
 }
 
 function likelyCause(issues: Issue[]): string | null {
