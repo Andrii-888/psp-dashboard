@@ -151,6 +151,117 @@ function fmtNum(x?: number) {
   return NUM_FMT.format(x);
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === "object" && !Array.isArray(v);
+}
+
+function readNumber(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function issueDetails(it: Issue): {
+  delta?: number | null;
+  absDelta?: number | null;
+  relDelta?: number | null;
+  legacyUsdttrc20Gross?: number | null;
+  hasLegacyUsdttrc20?: boolean | null;
+} {
+  if (!isRecord(it.meta)) return {};
+
+  const delta = readNumber(it.meta["delta"]);
+  const absDelta = readNumber(it.meta["absDelta"]);
+  const relDelta = readNumber(it.meta["relDelta"]);
+
+  const legacy = isRecord(it.meta["legacy"]) ? it.meta["legacy"] : null;
+  const legacyUsdttrc20Gross = legacy
+    ? readNumber(legacy["usdttrc20Gross"])
+    : null;
+
+  const hasLegacyUsdttrc20Raw = legacy ? legacy["hasLegacyUsdttrc20"] : null;
+  const hasLegacyUsdttrc20 =
+    typeof hasLegacyUsdttrc20Raw === "boolean" ? hasLegacyUsdttrc20Raw : null;
+
+  return {
+    delta,
+    absDelta,
+    relDelta,
+    legacyUsdttrc20Gross,
+    hasLegacyUsdttrc20,
+  };
+}
+
+function guidedText(it: Issue): {
+  cause?: string;
+  impact?: string;
+  action?: string;
+} {
+  const t = String(it.type || "").toLowerCase();
+  const d = issueDetails(it);
+
+  if (t.includes("gross_mismatch")) {
+    const legacyHint = d.hasLegacyUsdttrc20
+      ? `Legacy taxonomy detected: USDTTRC20 gross ≈ ${fmtNum(
+          d.legacyUsdttrc20Gross ?? undefined
+        )} (likely TRON).`
+      : null;
+
+    return {
+      cause:
+        legacyHint ??
+        "Entries and backend summary appear to be computed under different scope/taxonomy.",
+      impact:
+        "Operator totals may not match SSOT summary; reconciliation can show false-critical until taxonomy is aligned.",
+      action: d.hasLegacyUsdttrc20
+        ? "Action: normalize legacy currency in UI (USDTTRC20@TRON → USDT), or run a backend backfill to rewrite legacy taxonomy in ledger."
+        : "Action: verify summary scope (filters/valuation) and align UI aggregation rules with summary.",
+    };
+  }
+
+  if (t.includes("net_mismatch")) {
+    return {
+      cause:
+        "Net is derived from gross/fees; if gross or fee scope differs, net will also differ.",
+      impact:
+        "Net KPI and settlement totals become unreliable for the selected window.",
+      action:
+        "Action: fix gross/fee scope first; then re-check net. If needed, run backfill for missing confirmed/fee rows.",
+    };
+  }
+
+  if (t.includes("fee_mismatch")) {
+    return {
+      cause:
+        "Fees may be missing fee_charged rows or summary uses different fee policy/valuation.",
+      impact: "Fee revenue KPI may be wrong; can cause net mismatch.",
+      action:
+        "Action: confirm feeSource policy (fee_charged only) and ensure ledger contains fee_charged rows for the window.",
+    };
+  }
+
+  if (t.includes("count_mismatch")) {
+    return {
+      cause:
+        "ConfirmedCount differs when finality rules differ (e.g. confirmed vs confirmed_reversed) or when rows are missing in ledger.",
+      impact:
+        "Counts and totals can’t be trusted for reconciliation decisions.",
+      action:
+        "Action: run backfill confirmed (button above) and ensure reversed confirmed are excluded consistently.",
+    };
+  }
+
+  return {
+    cause: "Unknown issue type — inspect JSON payloads.",
+    impact: "May affect operator totals and trust in KPI panels.",
+    action:
+      "Action: open summary/entries JSON and compare the specific fields for this issue.",
+  };
+}
+
 function likelyCause(issues: Issue[]): string | null {
   const hasGross = issues.some((i) =>
     String(i.type).toLowerCase().includes("gross_mismatch")
@@ -460,32 +571,77 @@ export default function ReconciliationPanel({
                 </tr>
               </thead>
               <tbody className="text-zinc-900">
-                {issues.map((it, idx) => (
-                  <tr
-                    key={`${it.type}-${it.invoiceId ?? "—"}-${
-                      it.createdAt ?? "—"
-                    }-${idx}`}
-                    className="border-b border-zinc-100"
-                  >
-                    <td className="py-3 pr-4">
-                      <SeverityPill severity={it.severity} />
-                    </td>
-                    <td className="py-3 pr-4">
-                      <span className="font-mono text-xs">{it.type}</span>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <span className="font-mono text-xs">
-                        {it.invoiceId ?? "—"}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4 text-zinc-700">
-                      {it.message ?? "—"}
-                    </td>
-                    <td className="py-3 pr-2 text-zinc-600">
-                      {fmtDate(it.createdAt)}
-                    </td>
-                  </tr>
-                ))}
+                {issues.map((it, idx) => {
+                  const g = guidedText(it);
+
+                  return (
+                    <>
+                      <tr
+                        key={`${it.type}-${it.invoiceId ?? "—"}-${
+                          it.createdAt ?? "—"
+                        }-${idx}`}
+                        className="border-b border-zinc-100"
+                      >
+                        <td className="py-3 pr-4">
+                          <SeverityPill severity={it.severity} />
+                        </td>
+                        <td className="py-3 pr-4">
+                          <span className="font-mono text-xs">{it.type}</span>
+                        </td>
+                        <td className="py-3 pr-4">
+                          <span className="font-mono text-xs">
+                            {it.invoiceId ?? "—"}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4 text-zinc-700">
+                          {it.message ?? "—"}
+                        </td>
+                        <td className="py-3 pr-2 text-zinc-600">
+                          {fmtDate(it.createdAt)}
+                        </td>
+                      </tr>
+
+                      <tr
+                        key={`guided-${it.type}-${it.invoiceId ?? "—"}-${
+                          it.createdAt ?? "—"
+                        }-${idx}`}
+                        className="border-b border-zinc-100"
+                      >
+                        <td className="py-3 pr-4" />
+                        <td className="py-3 pr-4" colSpan={4}>
+                          <div className="grid gap-2 md:grid-cols-3">
+                            <div className="rounded-xl border border-zinc-200 bg-white p-3">
+                              <div className="text-xs font-semibold text-zinc-900">
+                                Cause
+                              </div>
+                              <div className="mt-1 text-sm text-zinc-700">
+                                {g.cause}
+                              </div>
+                            </div>
+
+                            <div className="rounded-xl border border-zinc-200 bg-white p-3">
+                              <div className="text-xs font-semibold text-zinc-900">
+                                Impact
+                              </div>
+                              <div className="mt-1 text-sm text-zinc-700">
+                                {g.impact}
+                              </div>
+                            </div>
+
+                            <div className="rounded-xl border border-zinc-200 bg-white p-3">
+                              <div className="text-xs font-semibold text-zinc-900">
+                                Action
+                              </div>
+                              <div className="mt-1 text-sm text-zinc-700">
+                                {g.action}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    </>
+                  );
+                })}
               </tbody>
             </table>
           </div>
