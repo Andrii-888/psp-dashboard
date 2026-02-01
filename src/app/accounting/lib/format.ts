@@ -4,7 +4,7 @@
 // Used across Accounting page, KPIs and table
 // --------------------------------------------
 
-import { formatDateTimeCH, formatNumberCH } from "@/lib/formatters";
+import { formatDateTimeCH } from "@/lib/formatters";
 
 /**
  * Safely convert backend values (string | number | null)
@@ -24,28 +24,33 @@ export function toNumber(
 
 /**
  * Format money values (NO currency symbol)
- * Output: 1,234.56 CHF
+ * Output example: 1'628.72 CHF
  *
  * IMPORTANT:
- * - No `$`
- * - No locale currency style
- * - Deterministic for accounting & audit
+ * - Deterministic across server + client (NO Intl.NumberFormat here)
+ * - Swiss grouping with ASCII apostrophe (')
+ * - Fixed 2 decimals
  */
 export function fmtMoney(value: number) {
   const currency = "CHF"; // SSOT: accounting UI is CHF-only
-
   const n = Number(value);
 
   if (!Number.isFinite(n)) {
     return `0.00 ${currency}`;
   }
 
-  const formatted = formatNumberCH(n, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.abs(n);
 
-  return `${formatted} ${currency}`;
+  const fixed = abs.toFixed(2); // "1628.72"
+  let [intPart, fracPart] = fixed.split(".");
+  if (!intPart) intPart = "0";
+  if (!fracPart) fracPart = "00";
+
+  // Swiss-style grouping with ASCII apostrophe (deterministic)
+  intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
+
+  return `${sign}${intPart}.${fracPart} ${currency}`;
 }
 
 /**

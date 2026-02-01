@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 
 import { backfillConfirmedAction } from "./actions/backfillConfirmed";
+import AccountingStatusBanner from "./components/AccountingStatusBanner";
 
 import AccountingFilters from "./components/AccountingFilters";
 import AccountingHeader from "./components/AccountingHeader";
@@ -31,6 +32,24 @@ import {
   toFetchHeaders,
 } from "./lib/serverUtils";
 import { toAccountingUiModel } from "./lib/uiModel";
+
+// ✅ Normalize legacy currency labels so UI + backend summary use the same taxonomy.
+// Today: entries may contain "USDTTRC20" (legacy) but backend summary counts it as "USDT".
+function normalizeLegacyCurrencies(
+  rows: AccountingEntryRaw[]
+): AccountingEntryRaw[] {
+  return (rows ?? []).map((r) => {
+    const cur = String((r as { currency?: unknown }).currency ?? "").trim();
+    const net = String((r as { network?: unknown }).network ?? "").trim();
+
+    // ✅ legacy: USDTTRC20 on TRON -> normalize to USDT
+    if (cur === "USDTTRC20" && net === "TRON") {
+      return { ...r, currency: "USDT" as AccountingEntryRaw["currency"] };
+    }
+
+    return r;
+  });
+}
 
 export default async function AccountingPage({
   searchParams,
@@ -157,12 +176,14 @@ export default async function AccountingPage({
     items = mergePipelineWithLedger(pipelineItems, items);
   }
 
-  // ✅ Apply CHF-only view to both ledger + pipeline fallbacks
-  items = onlyChfFiatKeepCrypto(items);
-  totalsItems = onlyChfFiatKeepCrypto(totalsItems);
+  // ✅ Normalize + Apply CHF-only view to both ledger + pipeline fallbacks
+  items = normalizeLegacyCurrencies(onlyChfFiatKeepCrypto(items));
+  totalsItems = normalizeLegacyCurrencies(onlyChfFiatKeepCrypto(totalsItems));
 
   if (totalsItems.length === 0) {
-    totalsItems = mergePipelineWithLedger(pipelineTotalsItems, totalsItems);
+    totalsItems = onlyChfFiatKeepCrypto(
+      mergePipelineWithLedger(pipelineTotalsItems, totalsItems)
+    );
   }
 
   // ✅ Single, clean UI contract (no casts in JSX)
@@ -199,6 +220,19 @@ export default async function AccountingPage({
       />
 
       <AccountingKpis entries={items} summary={ui.kpisSummary} />
+
+      <AccountingStatusBanner
+        merchantId={merchantId}
+        from={from}
+        to={to}
+        limit={limit}
+        entries={items}
+        totalsSummary={ui.totalsSummary}
+        reconciliation={ui.reconciliation}
+        summaryAvailable={Boolean(summary)}
+        backfillInserted={backfillInserted}
+        backfillError={backfillError}
+      />
 
       <ReconciliationPanel
         data={ui.reconciliation}

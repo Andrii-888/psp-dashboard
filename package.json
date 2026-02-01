@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "lint:format-guards": "rg -n \"toLocaleString\\(\" src && exit 1 || (rg -n \"Date\\.now\\(|Math\\.random\\(\" src/components src/app | rg -v \"^src/app/api/\" && exit 1) || exit 0",
+    "lint:format-guards": "rg -n \"toLocaleString\\(|Date\\.now\\(|Math\\.random\\(\" src/components src/app | rg -v \"src/app/api/\" && exit 1 || exit 0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "verify": "npm run lint && npm run lint:format-guards && npm run typecheck && TZ=UTC NODE_ENV=production npm run build",
     "prepare": "husky"

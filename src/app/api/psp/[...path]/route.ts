@@ -447,7 +447,17 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     // - Force fee_charged rows to CHF
     // - Normalize CHF-related fields when currency is CHF
     if (!isCsv && pathname === "accounting/entries") {
-      const json = await upstream.json().catch(() => null);
+      const contentType = upstream.headers.get("content-type") || "";
+
+      // Prefer JSON, but never crash if upstream returns non-JSON
+      let payload: unknown = null;
+
+      if (contentType.includes("application/json")) {
+        payload = await upstream.json().catch(() => null);
+      } else {
+        // keep text for debugging (operator-grade)
+        payload = await upstream.text().catch(() => null);
+      }
 
       type EntryLike = Record<string, unknown>;
 
@@ -464,7 +474,6 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
 
         const isFee = eventType === "fee_charged";
         const isChf = isFee || currencyRaw === "CHF";
-
         if (!isChf) return x;
 
         return {
@@ -478,7 +487,16 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
       const normalized = (arr: unknown[]) =>
         (arr ?? []).filter(isObj).map(normalizeEntry);
 
-      const out = upstream.ok && Array.isArray(json) ? normalized(json) : json;
+      const out =
+        upstream.ok && Array.isArray(payload) ? normalized(payload) : payload;
+
+      // If upstream returned text error, wrap it into JSON so frontend sees it
+      if (!upstream.ok && typeof out === "string") {
+        return NextResponse.json(
+          { statusCode: upstream.status, message: out || "Upstream error" },
+          { status: upstream.status, headers: resHeaders }
+        );
+      }
 
       return NextResponse.json(out, {
         status: upstream.status,
