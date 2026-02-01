@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "lint:format-guards": "rg -n \"toLocaleString\\(\" src && exit 1 || (rg -n \"Date\\.now\\(|Math\\.random\\(\" src/components src/app | rg -v \"^src/app/api/\" && exit 1) || exit 0",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "verify": "npm run lint && npm run lint:format-guards && npm run typecheck && TZ=UTC NODE_ENV=production npm run build",
+    "prepare": "husky"
   },
   "dependencies": {
     "@vercel/kv": "^3.0.0",
@@ -28,6 +30,7 @@
     "baseline-browser-mapping": "^2.9.19",
     "eslint": "^9",
     "eslint-config-next": "16.0.7",
+    "husky": "^9.1.7",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
