@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "lint:format-guards": "rg -n \"toLocaleString\\(\" src && exit 1 || (rg -n \"Date\\.now\\(|Math\\.random\\(\" src/components src/app | rg -v \"^src/app/api/\" && exit 1) || exit 0",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

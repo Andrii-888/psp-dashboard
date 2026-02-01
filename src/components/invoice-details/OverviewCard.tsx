@@ -1,6 +1,7 @@
 "use client";
 
 import type { Invoice, AttachTransactionPayload } from "@/lib/pspApi";
+import { formatDateTimeCH } from "@/lib/formatters";
 import { AmlBadge } from "@/components/invoices/AmlBadge";
 import { ScreeningStatus } from "@/components/invoice-details/overview/ScreeningStatus";
 import { AmlActionButton } from "@/components/invoice-details/overview/AmlActionButton";
@@ -17,14 +18,7 @@ interface OverviewCardProps {
 
 function formatDateTime(iso: string | null | undefined) {
   if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleString("de-CH", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTimeCH(iso);
 }
 
 function formatFiat(amount: number, currency: string | null | undefined) {

@@ -1,21 +1,15 @@
 "use client";
 
 import type { Invoice } from "@/lib/pspApi";
-
-interface AuditTrailCardProps {
-  invoice: Invoice;
-}
+import { formatDateTimeCH } from "@/lib/formatters";
 
 function formatDateTime(iso?: string | null) {
   if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleString("de-CH", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTimeCH(iso);
+}
+
+interface AuditTrailCardProps {
+  invoice: Invoice;
 }
 
 export function AuditTrailCard({ invoice }: AuditTrailCardProps) {

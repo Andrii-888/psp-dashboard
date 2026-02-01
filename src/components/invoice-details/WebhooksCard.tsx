@@ -1,6 +1,7 @@
 "use client";
 
 import type { WebhookEvent, WebhookDispatchResult } from "@/lib/pspApi";
+import { formatDateTimeCH } from "@/lib/formatters";
 
 interface Props {
   webhooks: WebhookEvent[];
@@ -100,13 +101,7 @@ export function WebhooksCard({
                   <td className="px-2 py-2 text-slate-300">{wh.status}</td>
                   <td className="px-2 py-2 text-slate-300">{wh.retryCount}</td>
                   <td className="px-2 py-2 text-slate-400">
-                    {new Date(wh.createdAt).toLocaleString("de-CH", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {formatDateTimeCH(wh.createdAt)}
                   </td>
                 </tr>
               ))}

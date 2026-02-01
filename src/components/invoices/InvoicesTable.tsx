@@ -4,16 +4,10 @@ import { useRouter } from "next/navigation";
 import type { Invoice } from "@/lib/pspApi";
 import { StatusBadge } from "@/components/invoices/StatusBadge";
 import { AmlBadge } from "@/components/invoices/AmlBadge";
+import { formatDateTimeCH } from "@/lib/formatters";
 
 function formatDate(dateIso: string) {
-  const d = new Date(dateIso);
-  return d.toLocaleString("de-CH", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTimeCH(dateIso);
 }
 
 function formatFiatChf(amount: number) {

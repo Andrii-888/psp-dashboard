@@ -33,11 +33,7 @@ function toEventType(inv: Invoice): string {
 
 function toCreatedAt(inv: Invoice): string {
   return (
-    inv.confirmedAt ??
-    inv.detectedAt ??
-    inv.createdAt ??
-    inv.expiresAt ??
-    new Date().toISOString()
+    inv.confirmedAt ?? inv.detectedAt ?? inv.createdAt ?? inv.expiresAt ?? ""
   );
 }
 

@@ -158,7 +158,7 @@ function makeIssue(args: {
     type: args.type,
     severity: args.severity,
     message: args.message,
-    createdAt: new Date().toISOString(),
+    createdAt: "",
     meta: args.meta,
   };
 }
@@ -312,7 +312,7 @@ export function toAccountingUiModel(args: {
   const reconciliation: ReconciliationModel = {
     merchantId,
     issues: reconIssues,
-    checkedAt: new Date().toISOString(),
+    checkedAt: "",
   };
 
   const feesByCurrency =

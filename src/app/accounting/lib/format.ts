@@ -4,6 +4,8 @@
 // Used across Accounting page, KPIs and table
 // --------------------------------------------
 
+import { formatDateTimeCH, formatNumberCH } from "@/lib/formatters";
+
 /**
  * Safely convert backend values (string | number | null)
  * to number without throwing.
@@ -38,31 +40,21 @@ export function fmtMoney(value: number) {
     return `0.00 ${currency}`;
   }
 
-  const formatted = new Intl.NumberFormat("en-US", {
+  const formatted = formatNumberCH(n, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(n);
+  });
 
   return `${formatted} ${currency}`;
 }
 
 /**
  * Format ISO date for tables
- * Output example: 14.01.2026, 09:13:19
+ * (Deterministic: fixed Europe/Zurich timezone in SSOT formatter)
  */
 export function fmtDate(v?: string) {
   if (!v) return "—";
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return v;
-
-  return new Intl.DateTimeFormat("en-GB", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(d);
+  return formatDateTimeCH(v);
 }
 
 /**

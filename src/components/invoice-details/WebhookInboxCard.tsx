@@ -2,6 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+const DATE_FMT = new Intl.DateTimeFormat("de-CH", {
+  timeZone: "Europe/Zurich",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function formatTs(ts?: string | null) {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return String(ts);
+  return DATE_FMT.format(d);
+}
+
 type InboxListItem = {
   id: string;
   ts: string;
@@ -23,14 +39,6 @@ type InboxItem = {
   rawBody?: string;
   headers?: Record<string, string>;
 };
-
-function formatTs(ts: string) {
-  try {
-    return new Date(ts).toLocaleString();
-  } catch {
-    return ts;
-  }
-}
 
 // ---------- safe helpers (no any) ----------
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -251,7 +259,7 @@ export function WebhookInboxCard() {
 
       const typedItem: InboxItem = {
         id: typeof it.id === "string" ? it.id : id,
-        ts: typeof it.ts === "string" ? it.ts : new Date().toISOString(),
+        ts: typeof it.ts === "string" ? it.ts : "",
         preview: typeof it.preview === "string" ? it.preview : undefined,
         rawBody: typeof it.rawBody === "string" ? it.rawBody : undefined,
         headers: isRecord(it.headers)

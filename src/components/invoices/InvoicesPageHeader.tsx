@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { formatDateTimeCH } from "@/lib/formatters";
 
 type Props = {
   apiOk: boolean | null;
@@ -133,13 +134,9 @@ export function InvoicesPageHeader({
         {lastUpdatedAt ? (
           <p className="text-[11px] text-slate-400">
             Updated:{" "}
-            {lastUpdatedAt.toLocaleString("de-CH", {
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {lastUpdatedAt
+              ? formatDateTimeCH(lastUpdatedAt.toISOString())
+              : "—"}
           </p>
         ) : null}
 
