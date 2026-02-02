@@ -30,8 +30,11 @@ export default function ByAssetTable({
       <div className="text-sm font-semibold text-zinc-900">By asset</div>
 
       {rows.length === 0 ? (
-        <div className="mt-3 text-sm text-zinc-500">
-          {emptyText || "No rows in this range."}
+        <div className="mt-3 rounded-lg border border-zinc-100 bg-zinc-50 px-4 py-3">
+          <div className="text-sm font-medium text-zinc-700">No rows</div>
+          <div className="mt-0.5 text-xs text-zinc-500">
+            {emptyText || "No rows in this range."}
+          </div>
         </div>
       ) : (
         <div className="mt-3 overflow-x-auto">
