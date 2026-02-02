@@ -83,11 +83,81 @@ export type AccountingUiModel = {
     status: "ok" | "warn" | "error";
     headline: string;
     subline?: string;
+    checkedAt: string;
+
+    action?: {
+      kind:
+        | "open_summary_json"
+        | "open_entries_json"
+        | "run_backfill_confirmed"
+        | "reload";
+      label: string;
+    };
   };
 
   reconciliation: ReconciliationModel;
   totalsSummary: TotalsSummary;
 };
+
+type UiStatus = "ok" | "warn" | "error";
+
+type UiActionKind =
+  | "open_summary_json"
+  | "open_entries_json"
+  | "run_backfill_confirmed"
+  | "reload";
+
+type UiAction = {
+  kind: UiActionKind;
+  label: string;
+};
+
+type UiIssue = {
+  type: string;
+  severity?: string;
+};
+
+function selectBannerAction(args: {
+  status: UiStatus;
+  issues: UiIssue[];
+}): UiAction | undefined {
+  const { status, issues } = args;
+
+  if (status === "ok") return undefined;
+
+  const hasSummaryNotAvailable = issues.some((i) => {
+    const t = String(i.type ?? "").toLowerCase();
+    return t === "summary_not_available" || t === "summary_missing";
+  });
+
+  const hasMismatchCriticalHigh = issues.some((i) => {
+    const t = String(i.type ?? "").toLowerCase();
+    const sev = String(i.severity ?? "").toLowerCase();
+    return t.includes("mismatch") && (sev === "critical" || sev === "high");
+  });
+
+  // error: summary_not_available → open_entries_json
+  if (status === "error" && hasSummaryNotAvailable) {
+    return { kind: "open_entries_json", label: "Open entries JSON" };
+  }
+
+  // error: mismatch critical/high → open_summary_json
+  if (status === "error" && hasMismatchCriticalHigh) {
+    return { kind: "open_summary_json", label: "Open summary JSON" };
+  }
+
+  // warn: summary missing → open_entries_json
+  if (status === "warn" && hasSummaryNotAvailable) {
+    return { kind: "open_entries_json", label: "Open entries JSON" };
+  }
+
+  // warn: есть issues → open_summary_json
+  if (status === "warn" && issues.length > 0) {
+    return { kind: "open_summary_json", label: "Open summary JSON" };
+  }
+
+  return undefined;
+}
 
 function n(v: unknown): number {
   if (typeof v === "number") return Number.isFinite(v) ? v : 0;
@@ -476,10 +546,12 @@ export function toAccountingUiModel(args: {
     }
   }
 
+  const checkedAt = new Date().toISOString();
+
   const reconciliation: ReconciliationModel = {
     merchantId,
     issues: reconIssues,
-    checkedAt: "",
+    checkedAt,
   };
 
   const feesByCurrency =
@@ -558,6 +630,11 @@ export function toAccountingUiModel(args: {
           reconIssues.length === 1 ? "" : "s"
         } (worst: ${worstLabel}). ${hint}`;
 
+  const uiAction = selectBannerAction({
+    status: uiStatus,
+    issues: reconIssues,
+  });
+
   return {
     kpisSummary,
     totalsSummary,
@@ -585,6 +662,8 @@ export function toAccountingUiModel(args: {
       status: uiStatus,
       headline: uiHeadline,
       subline: uiSubline,
+      checkedAt,
+      action: uiAction,
     },
 
     reconciliation,
