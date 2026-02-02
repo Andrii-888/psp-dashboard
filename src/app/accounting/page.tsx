@@ -226,10 +226,7 @@ export default async function AccountingPage({
         from={from}
         to={to}
         limit={limit}
-        entries={items}
-        totalsSummary={ui.totalsSummary}
-        reconciliation={ui.reconciliation}
-        summaryAvailable={Boolean(summary)}
+        ui={ui.ui}
         backfillInserted={backfillInserted}
         backfillError={backfillError}
       />

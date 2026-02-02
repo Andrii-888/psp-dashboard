@@ -82,7 +82,7 @@ export type AccountingUiModel = {
   ui: {
     status: "ok" | "warn" | "error";
     headline: string;
-    subline: string;
+    subline?: string;
   };
 
   reconciliation: ReconciliationModel;
@@ -490,20 +490,47 @@ export function toAccountingUiModel(args: {
   // ---- UI status (SSOT) ----
   const summaryAvailable = Boolean(summaryObj);
 
-  const worstSeverity = reconIssues.reduce((acc, it) => {
-    const s = String(it.severity ?? "").toLowerCase();
-    const r =
-      s === "critical"
-        ? 4
-        : s === "high"
-        ? 3
-        : s === "medium"
-        ? 2
-        : s === "low"
-        ? 1
-        : 0;
-    return Math.max(acc, r);
-  }, 0);
+  const severityRank = (sev: unknown): number => {
+    const s = String(sev ?? "").toLowerCase();
+    if (s === "critical") return 4;
+    if (s === "high") return 3;
+    if (s === "medium") return 2;
+    if (s === "low") return 1;
+    return 0;
+  };
+
+  const worstSeverity = reconIssues.reduce(
+    (acc, it) => Math.max(acc, severityRank(it.severity)),
+    0
+  );
+
+  const worstLabel =
+    worstSeverity >= 4
+      ? "CRITICAL"
+      : worstSeverity === 3
+      ? "HIGH"
+      : worstSeverity === 2
+      ? "MEDIUM"
+      : worstSeverity === 1
+      ? "LOW"
+      : "NONE";
+
+  const hasType = (t: string) =>
+    reconIssues.some((i) => String(i.type ?? "").toLowerCase() === t);
+
+  const hint = (() => {
+    if (!summaryAvailable)
+      return "Backend summary not available. Operating in entries-only mode.";
+    if (hasType("net_mismatch"))
+      return "Net mismatch. Usually means valuation scope/filter mismatch.";
+    if (hasType("gross_mismatch"))
+      return "Gross mismatch. Check currency normalization / scope boundaries.";
+    if (hasType("fee_mismatch"))
+      return "Fee mismatch. Verify fee_charged inclusion and fee scope.";
+    if (hasType("count_mismatch"))
+      return "Count mismatch. Check confirmed finality and date window.";
+    return "Review reconciliation issues for details.";
+  })();
 
   const uiStatus: "ok" | "warn" | "error" = !summaryAvailable
     ? "warn"
@@ -517,16 +544,19 @@ export function toAccountingUiModel(args: {
     uiStatus === "ok"
       ? "System OK"
       : uiStatus === "warn"
-      ? "Attention required"
+      ? summaryAvailable
+        ? "Attention required"
+        : "Degraded mode"
       : "Action required";
 
-  const uiSubline = !summaryAvailable
-    ? "Backend summary not available. Reconciliation uses entries only."
-    : reconIssues.length === 0
-    ? "Summary and entries are consistent for the selected period."
-    : `Detected ${reconIssues.length} reconciliation issue${
-        reconIssues.length === 1 ? "" : "s"
-      }.`;
+  const uiSubline =
+    reconIssues.length === 0
+      ? summaryAvailable
+        ? "Summary and entries are consistent for the selected period."
+        : "Summary unavailable, but no issues detected in entries-only checks."
+      : `Detected ${reconIssues.length} issue${
+          reconIssues.length === 1 ? "" : "s"
+        } (worst: ${worstLabel}). ${hint}`;
 
   return {
     kpisSummary,
