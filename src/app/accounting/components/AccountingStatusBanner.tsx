@@ -3,11 +3,6 @@
 import type { AccountingEntryRaw } from "../lib/types";
 import type { TotalsSummary, ReconciliationModel } from "../lib/uiModel";
 
-type ReconciliationIssueLike = {
-  severity?: string | null;
-  type?: string | null;
-};
-
 type Props = {
   merchantId: string;
   from: string;
@@ -23,21 +18,6 @@ type Props = {
 
 function isConfirmedRow(e: AccountingEntryRaw): boolean {
   return String(e.eventType ?? "").trim() === "invoice.confirmed";
-}
-
-function severityRank(s?: string | null): number {
-  switch (String(s ?? "").toLowerCase()) {
-    case "critical":
-      return 4;
-    case "high":
-      return 3;
-    case "medium":
-      return 2;
-    case "low":
-      return 1;
-    default:
-      return 0;
-  }
 }
 
 function formatRange(from: string, to: string): string {
@@ -66,6 +46,21 @@ function statusPillClass(worst: number, issuesCount: number): string {
   return `${base} border-emerald-200 bg-emerald-50 text-emerald-700`;
 }
 
+function severityRank(s?: string | null): number {
+  switch (String(s ?? "").toLowerCase()) {
+    case "critical":
+      return 4;
+    case "high":
+      return 3;
+    case "medium":
+      return 2;
+    case "low":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
 export default function AccountingStatusBanner({
   merchantId,
   from,
@@ -78,8 +73,11 @@ export default function AccountingStatusBanner({
   backfillInserted,
   backfillError,
 }: Props) {
-  const issues: ReconciliationIssueLike[] = (reconciliation?.issues ??
-    []) as ReconciliationIssueLike[];
+  const issues = reconciliation?.issues ?? [];
+  const hasFeeIssue = issues.some(
+    (i) => String(i.type ?? "") === "fee_mismatch"
+  );
+
   const issuesCount = issues.length;
 
   const worst = issues.reduce((acc, it) => {
@@ -91,10 +89,6 @@ export default function AccountingStatusBanner({
 
   const totalsMismatch =
     Number(totalsSummary?.confirmedCount ?? 0) !== Number(confirmedRows);
-
-  const hasFeeIssue = issues.some(
-    (i) => String(i.type ?? "") === "fee_mismatch"
-  );
 
   const header = statusLabel(worst, issuesCount);
   const badgeClass = statusPillClass(worst, issuesCount);

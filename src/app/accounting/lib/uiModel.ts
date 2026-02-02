@@ -78,6 +78,13 @@ export type AccountingUiModel = {
   fees: FeesModel;
   byDay: ByDayModel;
   byAsset: ByAssetModel;
+
+  ui: {
+    status: "ok" | "warn" | "error";
+    headline: string;
+    subline: string;
+  };
+
   reconciliation: ReconciliationModel;
   totalsSummary: TotalsSummary;
 };
@@ -480,6 +487,47 @@ export function toAccountingUiModel(args: {
       ? [{ currency: CHF, sum: String(entriesTotals.feeFiatSum) }]
       : [];
 
+  // ---- UI status (SSOT) ----
+  const summaryAvailable = Boolean(summaryObj);
+
+  const worstSeverity = reconIssues.reduce((acc, it) => {
+    const s = String(it.severity ?? "").toLowerCase();
+    const r =
+      s === "critical"
+        ? 4
+        : s === "high"
+        ? 3
+        : s === "medium"
+        ? 2
+        : s === "low"
+        ? 1
+        : 0;
+    return Math.max(acc, r);
+  }, 0);
+
+  const uiStatus: "ok" | "warn" | "error" = !summaryAvailable
+    ? "warn"
+    : worstSeverity >= 3
+    ? "error"
+    : worstSeverity >= 1
+    ? "warn"
+    : "ok";
+
+  const uiHeadline =
+    uiStatus === "ok"
+      ? "System OK"
+      : uiStatus === "warn"
+      ? "Attention required"
+      : "Action required";
+
+  const uiSubline = !summaryAvailable
+    ? "Backend summary not available. Reconciliation uses entries only."
+    : reconIssues.length === 0
+    ? "Summary and entries are consistent for the selected period."
+    : `Detected ${reconIssues.length} reconciliation issue${
+        reconIssues.length === 1 ? "" : "s"
+      }.`;
+
   return {
     kpisSummary,
     totalsSummary,
@@ -502,6 +550,13 @@ export function toAccountingUiModel(args: {
       to: toOrNull,
       rows: [],
     },
+
+    ui: {
+      status: uiStatus,
+      headline: uiHeadline,
+      subline: uiSubline,
+    },
+
     reconciliation,
   };
 }
