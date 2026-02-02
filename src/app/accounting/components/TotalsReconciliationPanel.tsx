@@ -125,12 +125,23 @@ function formatDelta(summaryVal: string, entriesVal: string) {
   return normalizeFromNumberIfPossible(`${sign}${d}`);
 }
 
-type BadgeKind = "na" | "ok" | "partial" | "mismatch";
+function deltaClass(summaryVal: string, entriesVal: string) {
+  const a = Number(summaryVal);
+  const b = Number(entriesVal);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return "text-zinc-400";
+
+  const d = b - a;
+  if (d > 0) return "text-emerald-700";
+  if (d < 0) return "text-red-700";
+  return "text-zinc-600";
+}
+
+type BadgeKind = "na" | "ok" | "warn" | "partial" | "mismatch";
 
 function Badge({ kind }: { kind: BadgeKind }) {
   if (kind === "na") {
     return (
-      <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-semibold text-zinc-700">
+      <div className="inline-flex items-center rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-semibold text-zinc-700">
         Not available
       </div>
     );
@@ -138,23 +149,31 @@ function Badge({ kind }: { kind: BadgeKind }) {
 
   if (kind === "ok") {
     return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+      <div className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
         OK
+      </div>
+    );
+  }
+
+  if (kind === "warn") {
+    return (
+      <div className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+        WARN
       </div>
     );
   }
 
   if (kind === "partial") {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+      <div className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
         Partial (not comparable)
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
-      Mismatch
+    <div className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
+      ERROR
     </div>
   );
 }
@@ -186,6 +205,7 @@ export default function TotalsReconciliationPanel({ entries, summary }: Props) {
     hasSummary && (summaryCount === 0 || confirmedEntriesCount >= summaryCount);
 
   const okGross = isComparable && nearlyEqual(summaryGross, computedGross);
+  const okNet = isComparable && nearlyEqual(summaryNet, computedNet);
 
   // Fee comparison:
   // If backend summary feeSum is "0", treat fee as not comparable and do NOT fail totals.
@@ -193,41 +213,37 @@ export default function TotalsReconciliationPanel({ entries, summary }: Props) {
   const okFee =
     !isComparable || !canCompareFee || nearlyEqual(summaryFee, computedFee);
 
-  const okNet = isComparable && nearlyEqual(summaryNet, computedNet);
-
-  const allOk = okGross && okNet && okFee;
+  const isError = isComparable && (!okGross || !okNet);
+  const isWarn = isComparable && !isError && canCompareFee && !okFee;
+  const allOk = isComparable && !isError && !isWarn;
 
   let badge: BadgeKind = "na";
   if (!hasSummary) badge = "na";
   else if (!isComparable) badge = "partial";
-  else badge = allOk ? "ok" : "mismatch";
+  else if (allOk) badge = "ok";
+  else if (isWarn) badge = "warn";
+  else badge = "mismatch";
 
   return (
-    <div className="mt-6 rounded-2xl border border-zinc-200 bg-white">
-      <div className="flex items-start justify-between gap-4 border-b border-zinc-200 p-4">
+    <div className="mt-6 rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4">
         <div>
           <div className="text-sm font-semibold text-zinc-900">
             Totals reconciliation
           </div>
-          <div className="mt-1 text-xs text-zinc-600">
-            Compares totals vs sum of confirmed rows from{" "}
-            <span className="font-mono">/accounting/entries</span> for the same
-            period. period.
+          <div className="mt-1 text-sm text-zinc-500">
+            Verifies totals for the selected range
           </div>
 
           {hasSummary ? (
-            <div className="mt-2 text-xs text-zinc-600">
-              confirmed entries loaded:{" "}
-              <span className="font-mono text-zinc-800">
+            <div className="mt-2 text-sm text-zinc-500">
+              Coverage:&nbsp;
+              <span className="font-mono text-zinc-900">
                 {confirmedEntriesCount}
               </span>
-              {" · "}confirmedCount:{" "}
-              <span className="font-mono text-zinc-800">{summaryCount}</span>
-              {!isComparable ? (
-                <span className="text-amber-700">
-                  {" · "}comparison disabled (limit/pagination)
-                </span>
-              ) : null}
+              <span className="mx-1 text-zinc-400">·</span>
+              Summary:&nbsp;
+              <span className="font-mono text-zinc-900">{summaryCount}</span>
             </div>
           ) : null}
         </div>
@@ -242,62 +258,117 @@ export default function TotalsReconciliationPanel({ entries, summary }: Props) {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase tracking-wide text-zinc-500">
-                <tr className="border-b border-zinc-200">
-                  <th className="py-2 pr-4">Metric</th>
-                  <th className="py-2 pr-4">Summary</th>
-                  <th className="py-2 pr-4">Entries sum (confirmed)</th>
-                  <th className="py-2 pr-2">Δ (entries - summary)</th>
-                </tr>
-              </thead>
-              <tbody className="text-zinc-900">
-                <tr className="border-b border-zinc-100">
-                  <td className="py-3 pr-4 font-medium">Gross</td>
-                  <td className="py-3 pr-4 font-mono text-xs">
-                    {summaryGross}
-                  </td>
-                  <td className="py-3 pr-4 font-mono text-xs">
-                    {computedGross}
-                  </td>
-                  <td className="py-3 pr-2 font-mono text-xs text-zinc-700">
+            {/* Operator summary — scope + fee policy (compact, Apple/ChatGPT style) */}
+            <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-2 text-sm">
+              <span className="text-zinc-500">Scope</span>
+              <span className="rounded-lg border border-zinc-200 bg-white px-2 py-1 font-mono text-xs text-zinc-900">
+                invoice.confirmed
+              </span>
+
+              <span className="text-zinc-300">•</span>
+
+              <span className="text-zinc-500">Fees</span>
+              {summaryFee === "0" ? (
+                <span className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-700">
+                  skipped (summary fee = 0)
+                </span>
+              ) : (
+                <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
+                  included (summary fee ={" "}
+                  <span className="font-mono">{summaryFee}</span>)
+                </span>
+              )}
+            </div>
+
+            {/* Metrics — card columns (Apple/ChatGPT style) */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Metric */}
+              <div className="rounded-xl border border-zinc-200 bg-white p-4">
+                <div className="text-xs font-medium text-zinc-500">Metric</div>
+                <div className="mt-3 divide-y divide-zinc-100 font-mono text-xs tabular-nums leading-6">
+                  <div className="py-2 text-zinc-900">Gross</div>
+                  <div className="py-2 text-zinc-600">Fee</div>
+                  <div className="py-2 text-zinc-900">Net</div>
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="rounded-xl border text-center border-zinc-200 bg-white p-4">
+                <div className="text-xs font-medium text-zinc-600">Summary</div>
+                <div className="mt-3 divide-y divide-zinc-100 font-mono text-xs tabular-nums leading-6">
+                  <div className="py-2 text-zinc-900">{summaryGross}</div>
+                  <div className="py-2 text-amber-700">{summaryFee}</div>
+                  <div className="py-2 text-emerald-700">{summaryNet}</div>
+                </div>
+              </div>
+
+              {/* Entries */}
+              <div className="rounded-xl border text-center border-zinc-200 bg-white p-4">
+                <div className="text-xs font-medium text-sky-700">
+                  Entries sum (confirmed)
+                </div>
+                <div className="mt-3 divide-y divide-zinc-100 font-mono text-xs tabular-nums leading-6 text-zinc-900">
+                  <div className="py-2">{computedGross}</div>
+                  <div className="py-2">{computedFee}</div>
+                  <div className="py-2">{computedNet}</div>
+                </div>
+              </div>
+
+              {/* Delta */}
+              <div className="rounded-xl border border-zinc-200 bg-white p-4 text-center">
+                <div className="text-xs font-medium text-violet-700">
+                  Δ (entries - summary)
+                </div>
+
+                <div className="mt-3 divide-y divide-zinc-100 font-mono text-xs tabular-nums leading-6">
+                  <div
+                    className={`py-2 ${deltaClass(
+                      summaryGross,
+                      computedGross
+                    )}`}
+                  >
                     {formatDelta(summaryGross, computedGross)}
-                  </td>
-                </tr>
+                  </div>
 
-                <tr className="border-b border-zinc-100">
-                  <td className="py-3 pr-4 font-medium">Fee</td>
-                  <td className="py-3 pr-4 font-mono text-xs">{summaryFee}</td>
-                  <td className="py-3 pr-4 font-mono text-xs">{computedFee}</td>
-                  <td className="py-3 pr-2 font-mono text-xs text-zinc-700">
+                  <div
+                    className={`py-2 ${deltaClass(summaryFee, computedFee)}`}
+                  >
                     {formatDelta(summaryFee, computedFee)}
-                  </td>
-                </tr>
+                  </div>
 
-                <tr>
-                  <td className="py-3 pr-4 font-medium">Net</td>
-                  <td className="py-3 pr-4 font-mono text-xs">{summaryNet}</td>
-                  <td className="py-3 pr-4 font-mono text-xs">{computedNet}</td>
-                  <td className="py-3 pr-2 font-mono text-xs text-zinc-700">
+                  <div
+                    className={`py-2 ${deltaClass(summaryNet, computedNet)}`}
+                  >
                     {formatDelta(summaryNet, computedNet)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {badge === "partial" ? (
               <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                 Totals check is disabled because not all confirmed rows are
                 loaded for the selected period (limit/pagination). Increase
-                limit or add a backend totals-check endpoint for full-period
-                reconciliation.
+                limit for full-period reconciliation.
+              </div>
+            ) : badge === "warn" ? (
+              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                Gross and Net totals match, but Fee totals differ. This is a
+                warning (not an error) because fee accounting can be configured
+                separately (or fee may be intentionally omitted from summary).
               </div>
             ) : badge === "mismatch" ? (
               <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-                Totals mismatch detected for confirmed rows. This usually means
+                Gross/Net totals mismatch for confirmed rows. This usually means
                 missing/duplicate{" "}
                 <span className="font-mono">invoice.confirmed</span> entries for
                 the period.
+              </div>
+            ) : !canCompareFee && isComparable ? (
+              <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
+                Fee reconciliation is not comparable because{" "}
+                <span className="font-mono">summary.feeSum</span> is{" "}
+                <span className="font-mono">0</span> (expected).
               </div>
             ) : null}
           </div>

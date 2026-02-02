@@ -4,6 +4,7 @@ type ByAssetResponse = {
   merchantId: string;
   from: string | null;
   to: string | null;
+  emptyReason?: string;
   rows: Array<{
     currency: string;
     network: string;
@@ -22,13 +23,16 @@ export default function ByAssetTable({
   if (!data) return null;
 
   const rows = Array.isArray(data.rows) ? data.rows : [];
+  const emptyText = String(data.emptyReason ?? "").trim();
 
   return (
     <div className="mt-6 rounded-xl border border-zinc-200 bg-white p-4">
       <div className="text-sm font-semibold text-zinc-900">By asset</div>
 
       {rows.length === 0 ? (
-        <div className="mt-3 text-sm text-zinc-500">No rows in this range.</div>
+        <div className="mt-3 text-sm text-zinc-500">
+          {emptyText || "No rows in this range."}
+        </div>
       ) : (
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm">

@@ -43,6 +43,7 @@ export type ByDayModel = {
   merchantId: string;
   from: string | null;
   to: string | null;
+  emptyReason?: string;
   rows: Array<{
     day: string;
     confirmedCount: number;
@@ -57,6 +58,7 @@ export type ByAssetModel = {
   merchantId: string;
   from: string | null;
   to: string | null;
+  emptyReason?: string;
   rows: Array<{
     currency: Asset;
     network: Network;
@@ -259,6 +261,136 @@ function deriveFeeFiatCurrency(rows: AccountingEntryRaw[]): string | null {
 
   // strictly CHF -> CHF, otherwise MIXED
   return currencies.size === 1 && currencies.has(CHF) ? CHF : "MIXED";
+}
+
+function isoDay(ts: unknown): string {
+  const s = String(ts ?? "").trim();
+  if (!s) return "";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+function akey(currency: unknown, network: unknown): string {
+  return `${String(currency ?? "").trim()}|${String(network ?? "").trim()}`;
+}
+
+function computeByDayConfirmed(
+  rows: AccountingEntryRaw[],
+  reversedInvoiceIds: Set<string>
+): ByDayModel["rows"] {
+  const map = new Map<
+    string,
+    {
+      day: string;
+      confirmedCount: number;
+      grossSum: number;
+      feeSum: number;
+      netSum: number;
+    }
+  >();
+
+  for (const e of rows ?? []) {
+    if (!isFinalConfirmed(e, reversedInvoiceIds)) continue;
+
+    const day = isoDay((e as { createdAt?: unknown }).createdAt);
+    if (!day) continue;
+
+    const cur = map.get(day) ?? {
+      day,
+      confirmedCount: 0,
+      grossSum: 0,
+      feeSum: 0,
+      netSum: 0,
+    };
+
+    cur.confirmedCount += 1;
+    cur.grossSum += n(e.grossAmount);
+    cur.feeSum += n(e.feeAmount);
+    cur.netSum += n(e.netAmount);
+
+    map.set(day, cur);
+  }
+
+  return Array.from(map.values())
+    .sort((a, b) => a.day.localeCompare(b.day))
+    .map((r) => ({
+      day: r.day,
+      confirmedCount: r.confirmedCount,
+      grossSum: String(r.grossSum),
+      feeSum: String(r.feeSum),
+      netSum: String(r.netSum),
+      feeFiatTotal: String(r.feeSum),
+    }));
+}
+
+function computeByAssetConfirmed(
+  rows: AccountingEntryRaw[],
+  reversedInvoiceIds: Set<string>
+): ByAssetModel["rows"] {
+  const map = new Map<
+    string,
+    {
+      currency: Asset;
+      network: Network;
+      confirmedCount: number;
+      grossSum: number;
+      feeSum: number;
+      netSum: number;
+    }
+  >();
+
+  for (const e of rows ?? []) {
+    if (!isFinalConfirmed(e, reversedInvoiceIds)) continue;
+
+    const currency = String(e.currency ?? "").trim() as Asset;
+    const network = String(e.network ?? "").trim() as Network;
+    if (!currency || !network) continue;
+
+    const key = akey(currency, network);
+
+    const cur = map.get(key) ?? {
+      currency,
+      network,
+      confirmedCount: 0,
+      grossSum: 0,
+      feeSum: 0,
+      netSum: 0,
+    };
+
+    cur.confirmedCount += 1;
+    cur.grossSum += n(e.grossAmount);
+    cur.feeSum += n(e.feeAmount);
+    cur.netSum += n(e.netAmount);
+
+    map.set(key, cur);
+  }
+
+  return Array.from(map.values())
+    .sort((a, b) => {
+      const c = String(a.currency).localeCompare(String(b.currency));
+      if (c !== 0) return c;
+      return String(a.network).localeCompare(String(b.network));
+    })
+    .map((r) => ({
+      currency: r.currency,
+      network: r.network,
+      confirmedCount: r.confirmedCount,
+      grossSum: String(r.grossSum),
+      feeSum: String(r.feeSum),
+      netSum: String(r.netSum),
+    }));
+}
+
+function deriveEmptyReason(args: {
+  entries: AccountingEntryRaw[];
+  confirmedFinalCount: number;
+}): string {
+  if (!args.entries || args.entries.length === 0)
+    return "No rows for selected date range.";
+  if (args.confirmedFinalCount === 0)
+    return "No finalized invoice.confirmed rows (all reversed or none).";
+  return "No rows after filters.";
 }
 
 function computeTotals(
@@ -635,6 +767,24 @@ export function toAccountingUiModel(args: {
     issues: reconIssues,
   });
 
+  const byDayRows = computeByDayConfirmed(entries ?? [], reversedInvoiceIds);
+  const byAssetRows = computeByAssetConfirmed(
+    entries ?? [],
+    reversedInvoiceIds
+  );
+
+  const finalConfirmedCount = (entries ?? []).filter((e) =>
+    isFinalConfirmed(e, reversedInvoiceIds)
+  ).length;
+
+  const emptyReason =
+    byDayRows.length === 0 || byAssetRows.length === 0
+      ? deriveEmptyReason({
+          entries: entries ?? [],
+          confirmedFinalCount: finalConfirmedCount,
+        })
+      : undefined;
+
   return {
     kpisSummary,
     totalsSummary,
@@ -649,13 +799,15 @@ export function toAccountingUiModel(args: {
       merchantId,
       from: fromOrNull,
       to: toOrNull,
-      rows: [],
+      rows: byDayRows,
+      emptyReason: byDayRows.length === 0 ? emptyReason : undefined,
     },
     byAsset: {
       merchantId,
       from: fromOrNull,
       to: toOrNull,
-      rows: [],
+      rows: byAssetRows,
+      emptyReason: byAssetRows.length === 0 ? emptyReason : undefined,
     },
 
     ui: {

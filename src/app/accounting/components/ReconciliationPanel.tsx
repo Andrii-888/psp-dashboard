@@ -1,5 +1,7 @@
 // src/app/accounting/components/ReconciliationPanel.tsx
 
+import JsonPretty from "@/components/JsonPretty";
+
 type ReconciliationIssue = {
   type: string;
   severity: "low" | "medium" | "high" | "critical" | string;
@@ -296,6 +298,11 @@ export default function ReconciliationPanel({
   const issues = data?.issues ?? [];
   const ok = issues.length === 0;
 
+  const recommendBackfill =
+    issues.some(
+      (it) => String(it.type ?? "").toLowerCase() === "count_mismatch"
+    ) && typeof onBackfill === "function";
+
   const canBackfill =
     typeof onBackfill === "function" &&
     typeof merchantId === "string" &&
@@ -403,30 +410,67 @@ export default function ReconciliationPanel({
                     {ok ? "OK" : `Issues: ${issues.length}`}
                   </div>
 
-                  {canBackfill ? (
-                    <form action={onBackfill}>
-                      <input
-                        type="hidden"
-                        name="merchantId"
-                        value={merchantId}
-                      />
-                      <input type="hidden" name="limit" value={String(limit)} />
-                      <input type="hidden" name="from" value={from ?? ""} />
-                      <input type="hidden" name="to" value={to ?? ""} />
+                  {canBackfill && recommendBackfill ? (
+                    <div className="ml-2 flex flex-col items-end gap-1">
+                      <form action={onBackfill}>
+                        <input
+                          type="hidden"
+                          name="merchantId"
+                          value={merchantId}
+                        />
+                        <input
+                          type="hidden"
+                          name="limit"
+                          value={String(limit)}
+                        />
+                        <input type="hidden" name="from" value={from ?? ""} />
+                        <input type="hidden" name="to" value={to ?? ""} />
 
-                      <button
-                        type="submit"
-                        className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
-                        title="Create missing invoice.confirmed accounting entries"
-                      >
-                        Run backfill confirmed
-                      </button>
-                    </form>
+                        <button
+                          type="submit"
+                          className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
+                          title="Create missing invoice.confirmed accounting entries"
+                        >
+                          Run backfill confirmed
+                        </button>
+                      </form>
+
+                      <div className="text-[11px] text-zinc-500">
+                        Creates missing{" "}
+                        <span className="font-mono">invoice.confirmed</span>{" "}
+                        rows for this range. Reload after completion.
+                      </div>
+                    </div>
                   ) : null}
                 </>
               );
             })()}
           </div>
+        </div>
+
+        {/* ---- JSON pretty with "jq-like" coloring ---- */}
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <details className="group rounded-2xl border border-zinc-200 bg-zinc-50/60 p-3 shadow-sm">
+            <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900 outline-none">
+              Summary JSON (preview)
+            </summary>
+            <div className="mt-0.5 text-xs text-zinc-600">
+              Local reconciliation payload (what UI receives).
+            </div>
+            <JsonPretty
+              value={data ?? { merchantId, issues, checkedAt: null }}
+            />
+          </details>
+
+          <details className="group rounded-2xl border border-zinc-200 bg-zinc-50/60 p-3 shadow-sm">
+            <summary className="cursor-pointer list-none text-sm font-semibold text-zinc-900 outline-none">
+              Issues JSON (preview)
+            </summary>
+            <div className="text-xs text-zinc-500">
+              Issues only (quick copy/paste).
+            </div>
+            <JsonPretty value={issues} />
+          </details>
         </div>
 
         {backfillInserted ? (
@@ -628,6 +672,15 @@ export default function ReconciliationPanel({
                               </div>
                               <div className="mt-1 text-sm text-zinc-700">
                                 {g.impact}
+                              </div>
+                            </div>
+
+                            <div className="rounded-xl border border-zinc-200 bg-white p-3">
+                              <div className="text-xs font-semibold text-zinc-900">
+                                Next step
+                              </div>
+                              <div className="mt-1 text-sm text-zinc-700">
+                                {g.action ?? "—"}
                               </div>
                             </div>
 
