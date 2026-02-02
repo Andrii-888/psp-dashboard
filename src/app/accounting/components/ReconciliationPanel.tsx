@@ -1,6 +1,6 @@
 // src/app/accounting/components/ReconciliationPanel.tsx
 
-import JsonPretty from "@/components/JsonPretty";
+import JsonPretty from "./JsonPretty";
 
 type ReconciliationIssue = {
   type: string;
