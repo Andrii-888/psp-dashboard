@@ -11,6 +11,8 @@ function eventClass(eventType?: string) {
       return "text-amber-700 bg-amber-50";
     case "invoice.confirmed_reversed":
       return "text-rose-700 bg-rose-50";
+    case "invoice.expired":
+      return "text-zinc-600 bg-zinc-100";
     default:
       return "text-zinc-600 bg-zinc-100";
   }
@@ -24,6 +26,8 @@ function invoiceClass(eventType?: string) {
       return "text-amber-700";
     case "invoice.confirmed_reversed":
       return "text-rose-700";
+    case "invoice.expired":
+      return "text-zinc-500";
     default:
       return "text-zinc-600";
   }
