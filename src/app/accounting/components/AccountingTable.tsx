@@ -23,9 +23,6 @@ export default function AccountingTable({
             <th className="px-4 py-3 text-right">Net</th>
             <th className="px-4 py-3">Asset</th>
             <th className="px-4 py-3">Network</th>
-            <th className="px-4 py-3">Deposit</th>
-            <th className="px-4 py-3">Sender</th>
-            <th className="px-4 py-3">Tx</th>
           </tr>
         </thead>
 

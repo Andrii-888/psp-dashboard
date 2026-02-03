@@ -1,8 +1,33 @@
 // src/app/accounting/components/AccountingRow.tsx
 
 import type { AccountingEntryRaw } from "../lib/types";
-import { fmtDate, fmtMoney, shortId, toNumber } from "../lib/format";
-import { getAddressUrl, getTxUrl } from "../lib/explorer";
+import { fmtDate, fmtMoney, toNumber } from "../lib/format";
+
+function eventClass(eventType?: string) {
+  switch (eventType) {
+    case "invoice.confirmed":
+      return "text-emerald-700 bg-emerald-50";
+    case "fee_charged":
+      return "text-amber-700 bg-amber-50";
+    case "invoice.confirmed_reversed":
+      return "text-rose-700 bg-rose-50";
+    default:
+      return "text-zinc-600 bg-zinc-100";
+  }
+}
+
+function invoiceClass(eventType?: string) {
+  switch (eventType) {
+    case "invoice.confirmed":
+      return "text-emerald-700";
+    case "fee_charged":
+      return "text-amber-700";
+    case "invoice.confirmed_reversed":
+      return "text-rose-700";
+    default:
+      return "text-zinc-600";
+  }
+}
 
 export default function AccountingRow({
   entry,
@@ -13,14 +38,6 @@ export default function AccountingRow({
   const fee = toNumber(entry.feeAmount, 0);
   const net = toNumber(entry.netAmount, 0);
 
-  const deposit = entry.depositAddress;
-  const sender = entry.senderAddress ?? "";
-  const tx = entry.txHash ?? "";
-
-  const depositUrl = deposit ? getAddressUrl(entry.network, deposit) : null;
-  const senderUrl = sender ? getAddressUrl(entry.network, sender) : null;
-  const txUrl = tx ? getTxUrl(entry.network, tx) : null;
-
   return (
     <>
       {/* Created */}
@@ -29,101 +46,54 @@ export default function AccountingRow({
       </td>
 
       {/* Invoice */}
-      <td className="px-4 py-3 font-mono text-sm text-zinc-900">
-        {entry.invoiceId}
+      <td className="px-4 py-3">
+        <div
+          className={`font-mono text-xs leading-snug break-all ${invoiceClass(
+            entry.eventType
+          )}`}
+        >
+          {entry.invoiceId}
+        </div>
       </td>
 
       {/* Event */}
-      <td className="px-4 py-3 font-mono text-xs text-zinc-600">
-        {entry.eventType}
+      <td className="px-4 py-3">
+        <span
+          className={`inline-flex items-center rounded-md px-2 py-1 font-mono text-[11px] leading-none ${eventClass(
+            entry.eventType
+          )}`}
+        >
+          {entry.eventType}
+        </span>
       </td>
 
       {/* Gross */}
-      <td className="px-4 py-3 text-right font-mono text-sm tabular-nums text-zinc-900">
+      <td className="px-4 py-3 text-right font-mono text-xs font-medium tabular-nums text-zinc-600">
         {gross ? fmtMoney(gross) : "—"}
       </td>
 
       {/* Fee */}
-      <td className="px-4 py-3 text-right font-mono text-sm tabular-nums text-zinc-700">
+      <td className="px-4 py-3 text-right font-mono text-xs tabular-nums text-amber-700">
         {fee ? fmtMoney(fee) : "—"}
       </td>
 
       {/* Net */}
-      <td className="px-4 py-3 text-right font-mono text-sm tabular-nums text-zinc-900">
+      <td className="px-4 py-3 text-right font-mono text-xs font-medium tabular-nums text-zinc-800">
         {net ? fmtMoney(net) : "—"}
       </td>
 
       {/* Asset */}
-      <td className="px-4 py-3 font-mono text-sm text-zinc-800">
-        {entry.currency}
+      <td className="px-4 py-3">
+        <span className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs font-medium uppercase tracking-wide text-zinc-800">
+          {entry.currency}
+        </span>
       </td>
 
       {/* Network */}
-      <td className="px-4 py-3 font-mono text-sm text-zinc-600">
-        {entry.network}
-      </td>
-
-      {/* Deposit */}
-      <td className="px-4 py-3 font-mono text-xs text-zinc-600">
-        {deposit ? (
-          depositUrl ? (
-            <a
-              href={depositUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sky-600 hover:text-sky-700 hover:underline"
-              title={deposit}
-            >
-              {shortId(deposit, 8, 6)}
-            </a>
-          ) : (
-            <span title={deposit}>{shortId(deposit, 8, 6)}</span>
-          )
-        ) : (
-          "—"
-        )}
-      </td>
-
-      {/* Sender */}
-      <td className="px-4 py-3 font-mono text-xs text-zinc-600">
-        {sender ? (
-          senderUrl ? (
-            <a
-              href={senderUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sky-600 hover:text-sky-700 hover:underline"
-              title={sender}
-            >
-              {shortId(sender, 8, 6)}
-            </a>
-          ) : (
-            <span title={sender}>{shortId(sender, 8, 6)}</span>
-          )
-        ) : (
-          "—"
-        )}
-      </td>
-
-      {/* Tx */}
-      <td className="px-4 py-3 font-mono text-xs text-zinc-600">
-        {tx ? (
-          txUrl ? (
-            <a
-              href={txUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sky-600 hover:text-sky-700 hover:underline"
-              title={tx}
-            >
-              {shortId(tx, 8, 6)}
-            </a>
-          ) : (
-            <span title={tx}>{shortId(tx, 8, 6)}</span>
-          )
-        ) : (
-          "—"
-        )}
+      <td className="px-4 py-3">
+        <span className="inline-flex items-center rounded-md border border-zinc-200 bg-white px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide text-zinc-500">
+          {entry.network}
+        </span>
       </td>
     </>
   );
