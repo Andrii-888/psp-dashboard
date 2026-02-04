@@ -111,7 +111,6 @@ function buildReceiptText(invoice: Invoice): string {
 
 export function CopyReceiptButton({
   invoice,
-  label = "Copy",
   className = "",
   size = "sm",
 }: {
