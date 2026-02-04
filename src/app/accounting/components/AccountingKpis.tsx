@@ -79,7 +79,7 @@ export default function AccountingKpis({ entries, summary, currency }: Props) {
   ];
 
   return (
-    <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div className="mt-6 grid text-center grid-cols-2 gap-4 sm:grid-cols-4">
       {items.map((it) => (
         <KpiCard key={it.label} label={it.label} value={it.value} />
       ))}

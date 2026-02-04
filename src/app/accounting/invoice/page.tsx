@@ -1,30 +1,17 @@
 // src/app/accounting/invoice/page.tsx
 
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { InvoiceOverview } from "./components/InvoiceOverview";
-import { InvoicePaymentInstructions } from "./components/InvoicePaymentInstructions";
-import { InvoiceTransaction } from "./components/InvoiceTransaction";
-import { InvoiceAmlDecision } from "./components/InvoiceAmlDecision";
+import InvoiceAccountingHeader from "./components/InvoiceAccountingHeader";
+import Identification from "./components/Identification";
+import Money from "./components/Money";
+import FXReceipt from "./components/FXReceipt";
+import BlockchainReference from "./components/BlockchainReference";
+import Compliance from "./components/Compliance";
+import Accounting from "./components/Accounting";
 
+import ErrorState from "../components/ErrorState";
 import { getInvoice } from "./lib/getInvoice";
-import { toQuery } from "../lib/searchParams";
-
-type FxContext = {
-  invoiceId: string;
-
-  fiatAmount: number;
-  fiatCurrency: string;
-
-  cryptoAmount: number;
-  cryptoCurrency: string;
-
-  fxRate: number | null;
-  fxPair: string | null;
-  fxSource: string | null;
-  fxLockedAt: string | null;
-};
 
 type Invoice = Awaited<ReturnType<typeof getInvoice>>;
 
@@ -53,8 +40,6 @@ async function fetchInvoiceFromCore(invoiceId: string): Promise<Invoice> {
   const baseUrl = getPspCoreBaseUrl();
   const { merchantId, apiKey } = getMerchantAuth();
 
-  if (!apiKey) notFound();
-
   const url = `${baseUrl}/invoices/${encodeURIComponent(invoiceId)}`;
 
   const res = await fetch(url, {
@@ -72,138 +57,63 @@ async function fetchInvoiceFromCore(invoiceId: string): Promise<Invoice> {
   return (await res.json()) as Invoice;
 }
 
-async function fetchFxContext(invoiceId: string): Promise<FxContext | null> {
-  const baseUrl = getPspCoreBaseUrl();
-  const { merchantId, apiKey } = getMerchantAuth();
-
-  if (!apiKey) return null;
-
-  const url = `${baseUrl}/accounting/entries/${encodeURIComponent(
-    invoiceId
-  )}/context`;
-
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      "x-merchant-id": merchantId,
-      "x-api-key": apiKey,
-      accept: "application/json",
-    },
-    cache: "no-store",
-  });
-
-  if (!res.ok) return null;
-
-  const data = (await res.json()) as FxContext;
-  if (!data || typeof data.invoiceId !== "string") return null;
-
-  return data;
-}
-
 export default async function AccountingInvoicePage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
-
   const invoiceId = typeof sp.invoiceId === "string" ? sp.invoiceId : "";
-  const merchantIdQs = typeof sp.merchantId === "string" ? sp.merchantId : "";
-  const limit = typeof sp.limit === "string" ? sp.limit : "";
-  const from = typeof sp.from === "string" ? sp.from : "";
-  const to = typeof sp.to === "string" ? sp.to : "";
-
   if (!invoiceId) notFound();
 
-  // ✅ Always fetch invoice from PSP-core via env base URL (no relative /api URLs on server)
+  const apiKey = (process.env.PSP_API_KEY ?? "").trim();
+  if (!apiKey) {
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-8">
+        <ErrorState
+          title="Missing PSP_API_KEY"
+          description="Set PSP_API_KEY in env (Vercel/locals) to load invoice details."
+        />
+      </div>
+    );
+  }
+
   const invoice = await fetchInvoiceFromCore(invoiceId);
 
-  // ✅ FX context (read-only audit metadata)
-  const fx = await fetchFxContext(invoiceId);
-
-  const backQs = toQuery({
-    merchantId: merchantIdQs || (invoice.merchantId ?? ""),
-    limit,
-    from,
-    to,
-  });
-
   return (
-    <div className="p-6">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <div className="text-sm font-semibold text-zinc-900">Invoice</div>
-          <div className="mt-1 font-mono text-xs text-zinc-600">
-            {invoice.id}
-          </div>
+    <div className="mx-auto max-w-5xl px-4 py-8">
+      <InvoiceAccountingHeader invoice={invoice} />
+
+      {/* SINGLE RECEIPT SURFACE (one “check”) */}
+      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        {/* Top subtle accent */}
+        <div className="h-1 w-full bg-zinc-900/5" />
+
+        {/* Sections inside: no individual cards, only dividers */}
+        <div
+          className={[
+            "divide-y divide-zinc-100",
+            "[&>section]:m-0",
+            "[&>section]:rounded-none",
+            "[&>section]:border-0",
+            "[&>section]:shadow-none",
+          ].join(" ")}
+        >
+          <Identification invoice={invoice} />
+          <Money invoice={invoice} />
+          <FXReceipt invoice={invoice} />
+          <BlockchainReference invoice={invoice} />
+          <Compliance invoice={invoice} />
+          <Accounting />
         </div>
 
-        <Link
-          href={`/accounting${backQs}`}
-          className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
-        >
-          ← Back to Accounting
-        </Link>
+        {/* Footer note */}
+        <div className="px-6 pb-6 pt-4 text-xs text-zinc-500">
+          This receipt is a single-page accounting view. Long-term retention (10
+          years) is supported by storing the underlying payment facts (invoice +
+          ledger SSOT) and providing them on request.
+        </div>
       </div>
-
-      {/* ✅ FX Context card */}
-      <div className="mb-4 rounded-2xl border border-zinc-200 bg-white p-4">
-        <div className="text-sm font-semibold text-zinc-900">FX context</div>
-
-        {fx ? (
-          <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
-            <div className="text-xs text-zinc-700">
-              <span className="font-semibold text-zinc-900">Pair:</span>{" "}
-              {fx.fxPair ?? "—"}
-            </div>
-            <div className="text-xs text-zinc-700">
-              <span className="font-semibold text-zinc-900">Rate:</span>{" "}
-              {typeof fx.fxRate === "number" ? fx.fxRate : "—"}
-            </div>
-            <div className="text-xs text-zinc-700">
-              <span className="font-semibold text-zinc-900">Source:</span>{" "}
-              {fx.fxSource ?? "—"}
-            </div>
-            <div className="text-xs text-zinc-700">
-              <span className="font-semibold text-zinc-900">Locked at:</span>{" "}
-              {fx.fxLockedAt
-                ? new Intl.DateTimeFormat("de-CH", {
-                    timeZone: "UTC",
-                    year: "numeric",
-                    month: "2-digit",
-                    day: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  }).format(new Date(fx.fxLockedAt)) + " UTC"
-                : "—"}
-            </div>
-
-            <div className="text-xs text-zinc-700">
-              <span className="font-semibold text-zinc-900">Fiat:</span>{" "}
-              {String(fx.fiatCurrency ?? "")
-                .trim()
-                .toUpperCase() === "CHF"
-                ? `${fx.fiatAmount} CHF`
-                : "—"}
-            </div>
-            <div className="text-xs text-zinc-700">
-              <span className="font-semibold text-zinc-900">Crypto:</span>{" "}
-              {fx.cryptoAmount} {fx.cryptoCurrency}
-            </div>
-          </div>
-        ) : (
-          <p className="mt-2 text-xs text-zinc-500">
-            FX context is not available (missing PSP_API_KEY or API not
-            reachable).
-          </p>
-        )}
-      </div>
-
-      <InvoiceOverview invoice={invoice} />
-      <InvoicePaymentInstructions invoice={invoice} />
-      <InvoiceTransaction invoice={invoice} />
-      <InvoiceAmlDecision invoice={invoice} />
     </div>
   );
 }

@@ -3,33 +3,46 @@
 import type { AccountingEntryRaw } from "../lib/types";
 import { fmtDate, fmtMoney, toNumber } from "../lib/format";
 
-function eventClass(eventType?: string) {
-  switch (eventType) {
-    case "invoice.confirmed":
-      return "text-emerald-700 bg-emerald-50";
-    case "fee_charged":
-      return "text-amber-700 bg-amber-50";
-    case "invoice.confirmed_reversed":
-      return "text-rose-700 bg-rose-50";
-    case "invoice.expired":
-      return "text-zinc-600 bg-zinc-100";
-    default:
-      return "text-zinc-600 bg-zinc-100";
-  }
-}
+type Tone = {
+  invoiceText: string;
+  eventBadge: string;
+};
 
-function invoiceClass(eventType?: string) {
-  switch (eventType) {
+function toneForEvent(eventType?: string): Tone {
+  const t = String(eventType ?? "").trim();
+
+  // One source of truth: the same "tone" drives both invoiceId + badge
+  switch (t) {
     case "invoice.confirmed":
-      return "text-emerald-700";
+      return {
+        invoiceText: "text-emerald-700",
+        eventBadge: "text-emerald-700 bg-emerald-50",
+      };
+
     case "fee_charged":
-      return "text-amber-700";
+      return {
+        invoiceText: "text-amber-700",
+        eventBadge: "text-amber-700 bg-amber-50",
+      };
+
     case "invoice.confirmed_reversed":
-      return "text-rose-700";
+      return {
+        invoiceText: "text-rose-700",
+        eventBadge: "text-rose-700 bg-rose-50",
+      };
+
     case "invoice.expired":
-      return "text-zinc-500";
+      // make it POP (not grey)
+      return {
+        invoiceText: "text-orange-700",
+        eventBadge: "text-orange-700 bg-orange-50",
+      };
+
     default:
-      return "text-zinc-600";
+      return {
+        invoiceText: "text-zinc-600",
+        eventBadge: "text-zinc-600 bg-zinc-100",
+      };
   }
 }
 
@@ -42,6 +55,8 @@ export default function AccountingRow({
   const fee = toNumber(entry.feeAmount, 0);
   const net = toNumber(entry.netAmount, 0);
 
+  const tone = toneForEvent(entry.eventType);
+
   return (
     <>
       {/* Created */}
@@ -52,9 +67,10 @@ export default function AccountingRow({
       {/* Invoice */}
       <td className="px-4 py-3">
         <div
-          className={`font-mono text-xs leading-snug break-all ${invoiceClass(
-            entry.eventType
-          )}`}
+          className={[
+            "font-mono text-xs leading-snug break-all",
+            tone.invoiceText,
+          ].join(" ")}
         >
           {entry.invoiceId}
         </div>
@@ -63,9 +79,10 @@ export default function AccountingRow({
       {/* Event */}
       <td className="px-4 py-3">
         <span
-          className={`inline-flex items-center rounded-md px-2 py-1 font-mono text-[11px] leading-none ${eventClass(
-            entry.eventType
-          )}`}
+          className={[
+            "inline-flex items-center rounded-md px-2 py-1 font-mono text-[11px] leading-none",
+            tone.eventBadge,
+          ].join(" ")}
         >
           {entry.eventType}
         </span>

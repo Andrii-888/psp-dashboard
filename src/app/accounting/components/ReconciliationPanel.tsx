@@ -1,5 +1,6 @@
 // src/app/accounting/components/ReconciliationPanel.tsx
 
+import { Fragment } from "react/jsx-runtime";
 import JsonPretty from "./JsonPretty";
 
 type ReconciliationIssue = {
@@ -622,13 +623,12 @@ export default function ReconciliationPanel({
                   const g = guidedText(it);
 
                   return (
-                    <>
-                      <tr
-                        key={`${it.type}-${it.invoiceId ?? "—"}-${
-                          it.createdAt ?? "—"
-                        }-${idx}`}
-                        className="border-b border-zinc-100"
-                      >
+                    <Fragment
+                      key={`${it.type}-${it.invoiceId ?? "—"}-${
+                        it.createdAt ?? "—"
+                      }`}
+                    >
+                      <tr className="border-b border-zinc-100">
                         <td className="py-3 pr-4">
                           <SeverityPill severity={it.severity} />
                         </td>
@@ -695,7 +695,7 @@ export default function ReconciliationPanel({
                           </div>
                         </td>
                       </tr>
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>

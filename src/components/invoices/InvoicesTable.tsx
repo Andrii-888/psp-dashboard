@@ -2,7 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import type { Invoice } from "@/lib/pspApi";
-import { StatusBadge } from "@/components/invoices/StatusBadge";
+import {
+  StatusBadge,
+  getStatusTextClass,
+} from "@/components/invoices/StatusBadge";
+
 import { AmlBadge } from "@/components/invoices/AmlBadge";
 import { formatDateTimeCH } from "@/lib/formatters";
 
@@ -101,8 +105,12 @@ export function InvoicesTable({
               onKeyDown={(e) => onRowKeyDown(e, inv.id)}
               className="group cursor-pointer rounded-2xl bg-slate-900/60 text-xs text-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-all hover:bg-slate-900/90 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
             >
-              {/* ID */}
-              <td className="max-w-xs truncate px-3 py-3 font-mono text-[11px] text-slate-300">
+              <td
+                className={[
+                  "max-w-xs truncate px-3 py-3 font-mono text-[11px] font-semibold",
+                  getStatusTextClass(inv.status),
+                ].join(" ")}
+              >
                 {inv.id}
               </td>
 
