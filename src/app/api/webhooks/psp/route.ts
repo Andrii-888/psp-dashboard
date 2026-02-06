@@ -131,6 +131,9 @@ export async function POST(req: Request) {
   if (!sig) {
     if (!isProd()) {
       console.log("[psp-webhook] missing signature header", {
+        method: req.method,
+        url: req.url,
+        path: new URL(req.url).pathname,
         headers: Object.fromEntries(req.headers.entries()),
         rawLen: raw.length,
         rawSha: crypto.createHash("sha256").update(raw, "utf8").digest("hex"),
@@ -142,6 +145,17 @@ export async function POST(req: Request) {
       { ok: false, error: "missing psp-signature" },
       { status: 401 }
     );
+  }
+
+  // ✅ STEP-2 DEBUG (minimal, safe)
+  if (!isProd()) {
+    console.log("[psp-webhook] verify input", {
+      method: req.method,
+      url: req.url,
+      path: new URL(req.url).pathname,
+      sigPrefix80: sig.slice(0, 80),
+      rawLen: raw.length,
+    });
   }
 
   const v = verifySignatureDetailed(raw, sig, secret);
