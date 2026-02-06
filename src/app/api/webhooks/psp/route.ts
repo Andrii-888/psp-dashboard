@@ -147,16 +147,14 @@ export async function POST(req: Request) {
     );
   }
 
-  // ✅ STEP-2 DEBUG (minimal, safe)
-  if (!isProd()) {
-    console.log("[psp-webhook] verify input", {
-      method: req.method,
-      url: req.url,
-      path: new URL(req.url).pathname,
-      sigPrefix80: sig.slice(0, 80),
-      rawLen: raw.length,
-    });
-  }
+  // ✅ STEP-2 DEBUG (TEMP, PROD-SAFE)
+  console.log("[psp-webhook] verify input", {
+    method: req.method,
+    url: req.url,
+    path: new URL(req.url).pathname,
+    sigPrefix80: sig.slice(0, 80),
+    rawLen: raw.length,
+  });
 
   const v = verifySignatureDetailed(raw, sig, secret);
 
