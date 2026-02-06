@@ -175,7 +175,22 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(
-      { ok: false, error: "invalid signature" },
+      {
+        ok: false,
+        error: "invalid signature",
+        debug: isProd()
+          ? undefined
+          : {
+              reason: v.reason,
+              sig,
+              parsed: v.parsed ?? null,
+              got: v.got ?? null,
+              expected: v.expected ?? null,
+              rawSha: v.rawSha ?? null,
+              rawLen: raw.length,
+              contentType: req.headers.get("content-type"),
+            },
+      },
       { status: 401 }
     );
   }
