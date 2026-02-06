@@ -8,11 +8,9 @@ const PASS_THROUGH_HEADERS = new Set([
   "x-psp-merchant-id",
   "x-psp-result-count",
   "x-psp-next-cursor",
-
   "x-ratelimit-limit",
   "x-ratelimit-remaining",
   "x-ratelimit-reset",
-
   "etag",
 ]);
 

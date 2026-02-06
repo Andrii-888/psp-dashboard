@@ -147,15 +147,6 @@ export async function POST(req: Request) {
     );
   }
 
-  // ✅ STEP-2 DEBUG (TEMP, PROD-SAFE)
-  console.log("[psp-webhook] verify input", {
-    method: req.method,
-    url: req.url,
-    path: new URL(req.url).pathname,
-    sigPrefix80: sig.slice(0, 80),
-    rawLen: raw.length,
-  });
-
   const v = verifySignatureDetailed(raw, sig, secret);
 
   if (!v.ok) {
@@ -175,12 +166,12 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(
-      {
-        ok: false,
-        error: "invalid signature",
-        debug: isProd()
-          ? undefined
-          : {
+      isProd()
+        ? { ok: false, error: "invalid signature" }
+        : {
+            ok: false,
+            error: "invalid signature",
+            debug: {
               reason: v.reason,
               sig,
               parsed: v.parsed ?? null,
@@ -190,7 +181,7 @@ export async function POST(req: Request) {
               rawLen: raw.length,
               contentType: req.headers.get("content-type"),
             },
-      },
+          },
       { status: 401 }
     );
   }
@@ -253,7 +244,6 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    secretSet: Boolean((process.env.PSP_WEBHOOK_SECRET ?? "").trim()),
     storage: meta.storage,
     count: meta.count,
     max: meta.max,
