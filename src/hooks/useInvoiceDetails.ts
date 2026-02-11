@@ -70,6 +70,24 @@ function normalizeTx(tx: string | null | undefined): string | null {
   return t ? t : null;
 }
 
+function ensureInvoice(res: unknown, fallbackMessage: string): Invoice {
+  if (!res || typeof res !== "object") {
+    throw new Error(fallbackMessage);
+  }
+
+  const r = res as { ok?: boolean; invoice?: Invoice | null };
+
+  if (r.ok === false) {
+    throw new Error(fallbackMessage);
+  }
+
+  if (!r.invoice) {
+    throw new Error(fallbackMessage);
+  }
+
+  return r.invoice;
+}
+
 export function useInvoiceDetails(
   invoiceId: string | null
 ): UseInvoiceDetailsResult {
@@ -159,7 +177,7 @@ export function useInvoiceDetails(
 
         if (cancelled) return;
 
-        const invoice = invoiceRes.invoice;
+        const invoice = ensureInvoice(invoiceRes, "Failed to load invoice");
         const webhooks = Array.isArray(webhooksRes?.items)
           ? webhooksRes.items
           : [];
@@ -199,9 +217,10 @@ export function useInvoiceDetails(
     const txHash = invoice?.txHash ?? null;
     const amlStatus = invoice?.amlStatus ?? null;
 
+    // ❌ nothing to poll
     if (!shouldPollInvoice({ status, txHash, amlStatus })) return;
 
-    // ✅ don't poll during mutations
+    // ❌ do not poll during mutations
     if (isMutating) return;
 
     let cancelled = false;
@@ -217,40 +236,57 @@ export function useInvoiceDetails(
     const tick = async () => {
       if (cancelled) return;
 
-      // ✅ if tab is hidden - slow down by skipping tick
+      // ⏸️ tab hidden → just reschedule
       if (typeof document !== "undefined" && document.hidden) {
         scheduleNext();
         return;
       }
 
-      // ✅ prevent overlapping requests
+      // ⛔ prevent overlapping requests
       if (pollInFlightRef.current) {
         scheduleNext();
         return;
       }
 
       pollInFlightRef.current = true;
+      let shouldContinue = true;
+
       try {
         const res = await fetchInvoiceById(currentId);
         if (cancelled) return;
-        setInvoice(res.invoice);
+
+        const next = ensureInvoice(res, "Failed to load invoice");
+        setInvoice(next);
+
+        // ✅ decide if polling should continue AFTER update
+        shouldContinue = shouldPollInvoice({
+          status: next?.status ?? null,
+          txHash: next?.txHash ?? null,
+          amlStatus: next?.amlStatus ?? null,
+        });
       } catch {
-        // ignore transient errors
+        // transient error → retry later
+        shouldContinue = true;
       } finally {
         pollInFlightRef.current = false;
-        scheduleNext();
+
+        if (!cancelled && shouldContinue) {
+          scheduleNext();
+        }
       }
     };
 
-    // start immediately
+    // ▶️ start immediately
     void tick();
 
     return () => {
       cancelled = true;
+
       if (pollTimerRef.current) {
         window.clearTimeout(pollTimerRef.current);
         pollTimerRef.current = null;
       }
+
       pollInFlightRef.current = false;
     };
   }, [
@@ -380,13 +416,21 @@ export function useInvoiceDetails(
       setError(null);
 
       const res = await runInvoiceAml(invoice.id);
-      const updated = res.invoice;
 
-      setInvoice(updated);
+      // ✅ If API returned updated invoice — apply immediately
+      if (res?.invoice) {
+        setInvoice(res.invoice);
 
-      const tx = normalizeTx(updated?.txHash ?? null);
+        const tx = normalizeTx(res.invoice.txHash ?? null);
+        if (tx) lastAutoAmlTxRef.current = tx;
+      } else {
+        const invoiceRes = await fetchInvoiceById(invoiceId);
+        const fresh = ensureInvoice(invoiceRes, "Failed to reload invoice");
+        setInvoice(fresh);
 
-      if (tx) lastAutoAmlTxRef.current = tx;
+        const tx = normalizeTx(fresh?.txHash ?? null);
+        if (tx) lastAutoAmlTxRef.current = tx;
+      }
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to run AML check";

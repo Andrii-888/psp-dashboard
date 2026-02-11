@@ -33,6 +33,18 @@ interface InvoicesTableProps {
   error: string | null;
 }
 
+function SkeletonRow() {
+  return (
+    <tr className="rounded-2xl bg-slate-900/40">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <td key={i} className="px-3 py-3">
+          <div className="h-3 w-full animate-pulse rounded bg-slate-800/60" />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
 export function InvoicesTable({
   invoices,
   loading,
@@ -51,35 +63,15 @@ export function InvoicesTable({
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-10 text-sm text-slate-400">
-        Loading invoices…
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-        {error}
-      </div>
-    );
-  }
-
-  if (!invoices.length) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-1 py-10 text-center">
-        <p className="text-sm font-medium text-slate-200">No invoices found</p>
-        <p className="text-xs text-slate-500">
-          Try changing filters or create a new test payment.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="overflow-x-auto">
+      {error && (
+        <div className="mb-3 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          <div className="font-medium">Failed to load invoices</div>
+          <div className="mt-0.5 text-xs opacity-90">{error}</div>
+        </div>
+      )}
+
       <table className="min-w-full border-separate border-spacing-y-1">
         <thead>
           <tr className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
@@ -95,6 +87,27 @@ export function InvoicesTable({
         </thead>
 
         <tbody>
+          {loading &&
+            invoices.length === 0 &&
+            Array.from({ length: 5 }).map((_, i) => (
+              <SkeletonRow key={`sk-${i}`} />
+            ))}
+
+          {!loading && invoices.length === 0 && !error && (
+            <tr>
+              <td colSpan={8}>
+                <div className="flex flex-col items-center justify-center gap-1 py-10 text-center">
+                  <p className="text-sm font-medium text-slate-200">
+                    No invoices found
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Try adjusting filters or wait for new payments.
+                  </p>
+                </div>
+              </td>
+            </tr>
+          )}
+
           {invoices.map((inv) => (
             <tr
               key={inv.id}

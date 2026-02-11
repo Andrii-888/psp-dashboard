@@ -106,7 +106,7 @@ export function useInvoicesPage(): UseInvoicesPageResult {
   const inFlightRef = useRef(false);
 
   // ✅ пометка что первый load уже был (после него включаем polling)
-  const didInitialLoadRef = useRef(false);
+  const [didInitialLoad, setDidInitialLoad] = useState(false);
 
   const reload = useCallback(async (opts?: ReloadOptions) => {
     const silent = opts?.silent === true;
@@ -155,7 +155,7 @@ export function useInvoicesPage(): UseInvoicesPageResult {
 
     (async () => {
       await reload({ silent: false });
-      if (!cancelled) didInitialLoadRef.current = true;
+      if (!cancelled) setDidInitialLoad(true);
     })();
 
     return () => {
@@ -163,16 +163,16 @@ export function useInvoicesPage(): UseInvoicesPageResult {
     };
   }, [reload]);
 
-  // ✅ polling: каждые 3 секунды, silently
+  // ✅ polling: every 3s after initial load, silently (no UI flicker)
   useEffect(() => {
-    if (!didInitialLoadRef.current) return;
+    if (!didInitialLoad) return;
 
-    const id = setInterval(() => {
+    const id = window.setInterval(() => {
       void reload({ silent: true });
     }, POLL_INTERVAL_MS);
 
-    return () => clearInterval(id);
-  }, [reload]);
+    return () => window.clearInterval(id);
+  }, [didInitialLoad, reload]);
 
   const filterParams: InvoiceFilterParams = useMemo(
     () => ({

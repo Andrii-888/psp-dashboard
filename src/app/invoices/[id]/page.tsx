@@ -1,20 +1,17 @@
-//src/app/invoices/[id]/page.tsx/
+// src/app/invoices/[id]/page.tsx
 "use client";
 
 import { useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-
 import { useInvoiceDetails } from "@/hooks/useInvoiceDetails";
-
-import { AuditTrailCard } from "@/components/invoice-details/overview/AuditTrailCard";
-
-import { InvoiceHeader } from "@/components/invoice-details/InvoiceHeader";
-import { OverviewCard } from "@/components/invoice-details/OverviewCard";
-import { ComplianceDecisionCard } from "@/components/invoice-details/ComplianceDecisionCard";
-import { BlockchainCard } from "@/components/invoice-details/BlockchainCard";
-import { WebhooksCard } from "@/components/invoice-details/WebhooksCard";
-import { ProviderEventsCard } from "@/components/invoice-details/ProviderEventsCard";
-import { OperatorActionsCard } from "@/components/invoice-details/OperatorActionsCard";
+import { AuditTrailCard } from "@/components/invoice-details/sections/audit-trail";
+import { InvoiceHeader } from "@/components/invoice-details/sections/header";
+import { OverviewCard } from "@/components/invoice-details/sections/overview";
+import { ComplianceDecisionCard } from "@/components/invoice-details/sections/compliance";
+import { BlockchainCard } from "@/components/invoice-details/sections/blockchain";
+import { WebhooksCard } from "@/components/invoice-details/sections/webhooks";
+import { ProviderEventsCard } from "@/components/invoice-details/sections/provider-events";
+import { OperatorActionsCard } from "@/components/invoice-details/sections/operator-actions";
 
 type InvoiceRouteParams = {
   id?: string | string[];
@@ -67,7 +64,20 @@ export default function InvoiceDetailsPage() {
     if (!invoiceId) router.replace("/invoices");
   }, [invoiceId, router]);
 
-  if (!invoiceId) return null;
+  if (!invoiceId) {
+    return (
+      <main className="min-h-screen bg-page-gradient px-4 py-6 text-slate-50 md:px-8 md:py-8">
+        <div className="mx-auto flex max-w-5xl flex-col gap-4 md:gap-6">
+          <section className="apple-card px-4 py-6 md:px-6 md:py-8">
+            <p className="text-sm text-slate-200">Invoice ID is missing.</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Redirecting back to invoices list…
+            </p>
+          </section>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-page-gradient px-4 py-6 text-slate-50 md:px-8 md:py-8">
@@ -86,12 +96,27 @@ export default function InvoiceDetailsPage() {
           </section>
         )}
 
+        {!loading && !error && !invoice && (
+          <section className="apple-card px-4 py-6 md:px-6 md:py-8">
+            <p className="text-sm text-slate-200">Invoice not found.</p>
+            <p className="mt-1 text-xs text-slate-500">
+              It may have been deleted, expired, or the ID is invalid.
+            </p>
+          </section>
+        )}
+
         {!loading && !error && invoice && (
           <>
             <OverviewCard
               invoice={invoice}
               onRunAml={handleRunAml}
               amlLoading={amlLoading}
+              savingTx={savingTx}
+              onAttachTx={handleAttachTx}
+            />
+
+            <BlockchainCard
+              invoice={invoice}
               savingTx={savingTx}
               onAttachTx={handleAttachTx}
             />
@@ -120,12 +145,6 @@ export default function InvoiceDetailsPage() {
             <ProviderEventsCard
               events={providerEvents}
               loading={providerEventsLoading}
-            />
-
-            <BlockchainCard
-              invoice={invoice}
-              savingTx={savingTx}
-              onAttachTx={handleAttachTx}
             />
 
             <WebhooksCard

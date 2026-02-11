@@ -144,6 +144,19 @@ function buildForwardAuthHeaders(h?: Headers): Record<string, string> {
   return out;
 }
 
+function toQuery(params: Record<string, string | number | undefined>) {
+  const qs = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") {
+      qs.set(key, String(value));
+    }
+  }
+
+  const s = qs.toString();
+  return s ? `?${s}` : "";
+}
+
 function makeUrl(path: string, opts?: ApiOpts): string {
   const proxyPath = makeProxyPath(path);
 
@@ -223,21 +236,42 @@ async function apiPost<T>(
 
 // ===================== API (via /api/psp proxy) =====================
 
+// src/lib/pspApi.ts
+
+let healthCache: {
+  value: { ok: boolean; service?: string };
+  ts: number;
+} | null = null;
+
+let healthInFlight: Promise<{ ok: boolean; service?: string }> | null = null;
+
+// How long we consider health "fresh" (ms)
+const HEALTH_TTL_MS = 2_500;
+
 export async function healthCheck(): Promise<{
   ok: boolean;
   service?: string;
 }> {
-  return apiGet<{ ok: boolean; service?: string }>("/health");
-}
+  const now = Date.now();
 
-function toQuery(params: Record<string, string | number | undefined>): string {
-  const sp = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (v === undefined) continue;
-    sp.set(k, String(v));
+  // Serve from cache if fresh
+  if (healthCache && now - healthCache.ts < HEALTH_TTL_MS) {
+    return healthCache.value;
   }
-  const qs = sp.toString();
-  return qs ? `?${qs}` : "";
+
+  // Deduplicate concurrent requests
+  if (healthInFlight) return healthInFlight;
+
+  healthInFlight = apiGet<{ ok: boolean; service?: string }>("/health")
+    .then((res) => {
+      healthCache = { value: res, ts: Date.now() };
+      return res;
+    })
+    .finally(() => {
+      healthInFlight = null;
+    });
+
+  return healthInFlight;
 }
 
 // -------- Invoices (client + server) --------
@@ -329,7 +363,7 @@ export async function runInvoiceAml(
   invoiceId: string
 ): Promise<{ ok: boolean; invoice: Invoice }> {
   return apiPost<{ ok: boolean; invoice: Invoice }>(
-    `/invoices/${invoiceId}/aml/run`,
+    `/invoices/${invoiceId}/aml/check`,
     {}
   );
 }
@@ -339,9 +373,8 @@ export async function attachInvoiceTransaction(
   payload: AttachTransactionPayload
 ): Promise<{ ok: boolean; invoice: Invoice }> {
   return apiPost<{ ok: boolean; invoice: Invoice }>(
-    `/invoices/${invoiceId}/tx/attach`,
-    payload,
-    "PATCH"
+    `/invoices/${invoiceId}/tx`,
+    payload
   );
 }
 

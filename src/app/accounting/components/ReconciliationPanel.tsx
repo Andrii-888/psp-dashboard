@@ -2,6 +2,7 @@
 
 import { Fragment } from "react/jsx-runtime";
 import JsonPretty from "./JsonPretty";
+import { formatNumberCH } from "@/lib/formatters";
 
 type ReconciliationIssue = {
   type: string;
@@ -145,13 +146,14 @@ function parseMismatch(
   };
 }
 
-const NUM_FMT = new Intl.NumberFormat("en-CH", {
-  maximumFractionDigits: 6,
-});
-
 function fmtNum(x?: number) {
-  if (x === undefined) return "—";
-  return NUM_FMT.format(x);
+  if (typeof x !== "number" || !Number.isFinite(x)) return "—";
+
+  // ✅ deterministic across SSR/CSR via our formatter (also normalizes CH apostrophe)
+  const s = formatNumberCH(x, { maximumFractionDigits: 6 });
+
+  // formatNumberCH returns "-" for empty/invalid, but in UI we use "—"
+  return s === "-" ? "—" : s;
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
