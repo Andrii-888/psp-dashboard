@@ -25,21 +25,14 @@ export function ExpiryCountdown({ expiresAt }: Props) {
     return d ? d.getTime() : null;
   }, [expiresAt]);
 
-  const [nowMs, setNowMs] = useState<number>(0);
+  const [nowMs, setNowMs] = useState<number>(() => new Date().getTime());
 
   useEffect(() => {
-    const t0 = setTimeout(() => {
-      setNowMs(0);
-    }, 0);
-
     const t = setInterval(() => {
-      setNowMs((prev) => prev + 1000);
+      setNowMs(new Date().getTime());
     }, 1000);
 
-    return () => {
-      clearTimeout(t0);
-      clearInterval(t);
-    };
+    return () => clearInterval(t);
   }, []);
 
   if (!expiresMs) return null;
