@@ -52,8 +52,17 @@ export function PaymentInstructionsPanel({ invoice, fxHumanRate }: Props) {
         </div>
 
         <div className="text-slate-400">Provider TTL</div>
-        <div className="text-slate-200">
-          <ExpiryCountdown expiresAt={invoice.pay.expiresAt ?? null} />
+        <div className="flex flex-col gap-1 text-slate-200">
+          <ExpiryCountdown
+            expiresAt={invoice.pay.expiresAt ?? null}
+            status={invoice.status ?? null}
+          />
+
+          <span className="text-[10px] text-slate-500">
+            {invoice.pay.expiresAt
+              ? `Provider expires at ${formatDateTime(invoice.pay.expiresAt)}`
+              : "—"}
+          </span>
         </div>
 
         <div className="text-slate-400">Expires at</div>

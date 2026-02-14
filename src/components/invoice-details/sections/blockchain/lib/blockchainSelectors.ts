@@ -208,14 +208,15 @@ export function getOperatorTxModel(invoice: Invoice): OperatorTxViewModel {
 /**
  * NEW: Status pill model for operator UI.
  */
-export function getBlockchainStatus(invoice: Invoice): {
-  label: string;
-  tone: BlockchainStatusTone;
-} {
+export function getBlockchainStatus(
+  invoice: Invoice,
+  nowMs: number
+): { label: string; tone: "neutral" | "success" | "warn" | "final" } {
   const inv = asRecord(invoice);
   const invoiceStatus = cleanString(inv?.["status"]);
 
-  const vm = getOperatorTxModel(invoice);
+  // NOTE: keep vm param for callers; txVm is derived from invoice (operator model)
+  const txVm = getOperatorTxModel(invoice);
 
   // If invoice is locked/final at business layer, show final immediately.
   const businessFinal =
@@ -225,13 +226,13 @@ export function getBlockchainStatus(invoice: Invoice): {
 
   if (businessFinal) return { label: "Final / locked", tone: "final" };
 
-  if (vm.status === "confirmed") {
+  if (txVm.status === "confirmed") {
     // If required confirmations exist and are met -> final, otherwise confirmed.
-    if (vm.isFinal) return { label: "Final", tone: "final" };
+    if (txVm.isFinal) return { label: "Final", tone: "final" };
     return { label: "Confirmed", tone: "success" };
   }
 
-  if (vm.status === "detected" || !!vm.txHash) {
+  if (txVm.status === "detected" || !!txVm.txHash) {
     return { label: "Detected", tone: "warn" };
   }
 
@@ -241,6 +242,23 @@ export function getBlockchainStatus(invoice: Invoice): {
     pi.amount !== null &&
     pi.amount !== undefined &&
     !!pi.currency;
+
+  // PSP-grade: if provider TTL (pay.expiresAt) is in the past but SSOT is still waiting,
+  // show operator warning ("Past provider TTL") instead of neutral "Awaiting payment".
+  const payObj = inv?.["pay"] as unknown;
+  const payExpiresAt =
+    payObj && typeof payObj === "object"
+      ? cleanString((payObj as Record<string, unknown>)["expiresAt"])
+      : null;
+
+  const providerExpiryMs = payExpiresAt ? Date.parse(payExpiresAt) : NaN;
+
+  const providerPastTtl =
+    Number.isFinite(providerExpiryMs) && nowMs > providerExpiryMs;
+
+  if (providerPastTtl) {
+    return { label: "Past provider TTL", tone: "warn" };
+  }
 
   if (hasPay) return { label: "Awaiting payment", tone: "neutral" };
 

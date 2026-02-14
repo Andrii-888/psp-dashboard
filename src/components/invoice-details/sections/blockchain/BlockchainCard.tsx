@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { BlockchainHeader } from "./components/BlockchainHeader";
 import { TransactionCard } from "./components/TransactionCard";
 import { OnChainStatusRail } from "./components/OnChainStatusRail";
@@ -29,13 +29,25 @@ export function BlockchainCard({
   onAttachTx,
 }: BlockchainCardProps) {
   const tx = useMemo(() => getOperatorTxModel(invoice), [invoice]);
+
+  // ✅ UI time tick (no Date.now in render path)
+  const [nowMs, setNowMs] = useState<number>(() => new Date().getTime());
+  useEffect(() => {
+    const t = setInterval(() => {
+      setNowMs(new Date().getTime());
+    }, 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // keep as-is for now; next step will pass nowMs into status selector
+  void nowMs;
+
   const businessStatus = useMemo(
     () => getBlockchainBusinessStatus(invoice),
     [invoice]
   );
 
   const hasTx = !!tx.txHash;
-
   const finalStatus = isFinalStatus(invoice.status);
 
   // Dev attach only in non-production AND only if not final AND tx missing
@@ -47,6 +59,7 @@ export function BlockchainCard({
     () => tx.fromAddress ?? ""
   );
   const [txHash, setTxHash] = useState<string>(() => tx.txHash ?? "");
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 

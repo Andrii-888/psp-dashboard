@@ -12,6 +12,7 @@ type Props = {
 
   createdAt?: string | null;
   expiresAt?: string | null;
+  status?: string | null;
 
   isChfFiat: boolean;
 };
@@ -45,6 +46,7 @@ export function InvoiceSummaryStats({
   cryptoCurrency,
   createdAt,
   expiresAt,
+  status,
   isChfFiat,
 }: Props) {
   return (
@@ -80,7 +82,10 @@ export function InvoiceSummaryStats({
         <div className="mt-1 flex items-center gap-2 text-xs text-slate-100">
           <span>{formatDateTime(expiresAt)}</span>
           <span className="text-slate-400">
-            <ExpiryCountdown expiresAt={expiresAt ?? null} />
+            <ExpiryCountdown
+              expiresAt={expiresAt ?? null}
+              status={status ?? null}
+            />
           </span>
         </div>
       </div>
