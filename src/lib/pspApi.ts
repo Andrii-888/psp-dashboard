@@ -276,6 +276,65 @@ export async function healthCheck(): Promise<{
 
 // -------- Invoices (client + server) --------
 
+function cleanStr(v: unknown): string {
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function normalizeAmlStatus(v: unknown): Invoice["amlStatus"] {
+  const s = cleanStr(v).toLowerCase();
+  if (!s) return null;
+
+  // PSP-Core может отдавать "review" — в UI трактуем как warning (нужна проверка)
+  if (s === "review") return "warning";
+
+  if (s === "clean") return "clean";
+  if (s === "warning") return "warning";
+  if (s === "risky" || s === "risk" || s === "high") return "risky";
+  if (s === "blocked" || s === "block") return "risky"; // badge не умеет "blocked", показываем как risky
+
+  return null;
+}
+
+function normalizeDecisionStatus(
+  v: unknown
+): NonNullable<Invoice["decisionStatus"]> {
+  const s = cleanStr(v).toLowerCase();
+  if (!s) return "none";
+
+  // PSP-Core отдаёт "approved" — приводим к доменной форме "approve"
+  if (s === "approved") return "approve";
+
+  if (s === "approve") return "approve";
+  if (s === "hold") return "hold";
+  if (s === "reject" || s === "rejected") return "reject";
+  if (s === "none") return "none";
+
+  return "none";
+}
+
+function normalizeInvoice(raw: unknown): Invoice {
+  const inv = raw as Invoice;
+
+  const aml = normalizeAmlStatus(
+    typeof inv.amlStatus === "string" ? inv.amlStatus : null
+  );
+
+  const decision = normalizeDecisionStatus(
+    typeof inv.decisionStatus === "string" ? inv.decisionStatus : null
+  );
+
+  return {
+    ...inv,
+    amlStatus: aml,
+    decisionStatus: decision,
+  };
+}
+
+function normalizeInvoicesList(items: unknown): Invoice[] {
+  if (!Array.isArray(items)) return [];
+  return items.map((x) => normalizeInvoice(x));
+}
+
 export async function fetchInvoices(
   params?: FetchInvoicesParams,
   opts?: { forwardHeaders?: Headers }
@@ -299,13 +358,13 @@ export async function fetchInvoices(
     const r = res as { ok?: boolean; items?: unknown; total?: number };
     return {
       ok: Boolean(r.ok ?? true),
-      items: Array.isArray(r.items) ? (r.items as Invoice[]) : [],
+      items: normalizeInvoicesList(r.items),
       total: typeof r.total === "number" ? r.total : undefined,
     };
   }
 
   if (Array.isArray(res)) {
-    return { ok: true, items: res as Invoice[], total: res.length };
+    return { ok: true, items: normalizeInvoicesList(res), total: res.length };
   }
 
   return { ok: false, items: [], total: 0 };
@@ -317,10 +376,11 @@ export async function fetchInvoiceById(
   const res = await apiGet<unknown>(`/invoices/${invoiceId}`);
 
   if (res && typeof res === "object" && "invoice" in res) {
-    return res as { ok: boolean; invoice: Invoice };
+    const out = res as { ok: boolean; invoice: Invoice };
+    return { ...out, invoice: normalizeInvoice(out.invoice) };
   }
 
-  return { ok: true, invoice: res as Invoice };
+  return { ok: true, invoice: normalizeInvoice(res) };
 }
 
 export async function fetchInvoiceWebhooks(

@@ -28,8 +28,6 @@ export function useInvoicePolling(invoiceId: string | null) {
 
     async function poll() {
       try {
-        setPollState({ state: "loading" });
-
         const res = await fetchInvoiceById(id);
 
         if (!res?.ok || !res.invoice) {
@@ -38,17 +36,32 @@ export function useInvoicePolling(invoiceId: string | null) {
 
         const invoice = res.invoice;
 
-        if (invoice.status === "confirmed" || invoice.status === "expired") {
-          setPollState({ state: "done", invoice });
-          stopped = true;
-          return;
-        }
+        // always publish latest snapshot
+        setPollState({ state: "done", invoice });
 
-        // keep polling
-        setPollState({ state: "loading" });
+        const isFinalStatus =
+          invoice.status === "expired" || invoice.status === "rejected";
+
+        // ✅ IMPORTANT:
+        // confirmed is NOT final for us until AML/decision is attached
+        const hasAml =
+          Boolean(invoice.amlCheckedAt) ||
+          invoice.amlStatus !== null ||
+          typeof invoice.riskScore === "number";
+
+        const hasDecision =
+          Boolean(invoice.decisionStatus) && invoice.decisionStatus !== "none";
+
+        const isComplete =
+          invoice.status === "confirmed" && (hasAml || hasDecision);
+
+        if (isFinalStatus || isComplete) {
+          stopped = true;
+        }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Polling error";
         setPollState({ state: "error", error: message });
+        // keep polling on transient errors? -> stop to avoid loops
         stopped = true;
       }
     }

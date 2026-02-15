@@ -3,7 +3,14 @@
 
 export type InvoiceStatus = "waiting" | "confirmed" | "expired" | "rejected";
 
-export type AmlStatus = "clean" | "warning" | "risky" | "blocked" | null;
+export type AmlStatus =
+  | "clean"
+  | "warning"
+  | "risky"
+  | "blocked"
+  | "review"
+  | null;
+
 export type AssetStatus = "clean" | "suspicious" | "blocked" | null;
 
 export type DecisionStatus = "approve" | "hold" | "reject" | null;
@@ -86,14 +93,15 @@ export interface Invoice {
   // AML
   riskScore: number | null;
   amlStatus: AmlStatus;
-
+  amlProvider?: string | null;
+  amlCheckedAt?: string | null;
   assetRiskScore: number | null;
   assetStatus: AssetStatus;
-
   merchantId: string | null;
+  amlError?: string | null;
 
   // decision (flat fields from PSP Core)
-  decisionStatus?: "none" | "approve" | "hold" | "reject" | null;
+  decisionStatus?: "none" | "approve" | "approved" | "hold" | "reject" | null;
   decisionReasonCode?: string | null;
   decisionReasonText?: string | null;
   decidedAt?: string | null;
