@@ -66,7 +66,7 @@ function normalizeDecision(invoice: Invoice): {
   decidedBy: string;
 } {
   const status =
-    (invoice.decisionStatus && invoice.decisionStatus !== "none"
+    (invoice.decisionStatus != null
       ? invoice.decisionStatus
       : invoice.decision?.status) ?? null;
 

@@ -101,7 +101,7 @@ export interface Invoice {
   amlError?: string | null;
 
   // decision (flat fields from PSP Core)
-  decisionStatus?: "none" | "approve" | "approved" | "hold" | "reject" | null;
+  decisionStatus?: "approve" | "hold" | "reject" | null;
   decisionReasonCode?: string | null;
   decisionReasonText?: string | null;
   decidedAt?: string | null;
