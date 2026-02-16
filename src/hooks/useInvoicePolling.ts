@@ -49,8 +49,7 @@ export function useInvoicePolling(invoiceId: string | null) {
           invoice.amlStatus !== null ||
           typeof invoice.riskScore === "number";
 
-        const hasDecision =
-          Boolean(invoice.decisionStatus) && invoice.decisionStatus !== "none";
+        const hasDecision = invoice.decisionStatus != null;
 
         const isComplete =
           invoice.status === "confirmed" && (hasAml || hasDecision);
