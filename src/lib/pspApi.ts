@@ -295,21 +295,21 @@ function normalizeAmlStatus(v: unknown): Invoice["amlStatus"] {
   return null;
 }
 
-function normalizeDecisionStatus(
-  v: unknown
-): NonNullable<Invoice["decisionStatus"]> {
+function normalizeDecisionStatus(v: unknown): Invoice["decisionStatus"] {
   const s = cleanStr(v).toLowerCase();
-  if (!s) return "none";
 
-  // PSP-Core отдаёт "approved" — приводим к доменной форме "approve"
+  // Пусто или "none" → нет решения
+  if (!s || s === "none") return null;
+
+  // PSP-Core иногда отдаёт "approved"
   if (s === "approved") return "approve";
 
   if (s === "approve") return "approve";
   if (s === "hold") return "hold";
   if (s === "reject" || s === "rejected") return "reject";
-  if (s === "none") return "none";
 
-  return "none";
+  // Всё неизвестное считаем отсутствием решения
+  return null;
 }
 
 function normalizeInvoice(raw: unknown): Invoice {
