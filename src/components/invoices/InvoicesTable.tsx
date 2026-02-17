@@ -198,7 +198,9 @@ export function InvoicesTable({
               <td className="px-3 py-3">
                 {inv.id ? (
                   <Link
-                    href={`/invoices/${encodeURIComponent(inv.id)}`}
+                    href={`/invoices/${encodeURIComponent(
+                      inv.id
+                    )}/payment-record`}
                     onClick={(e) => e.stopPropagation()}
                     className="inline-flex items-center rounded-full bg-slate-800/70 px-3 py-1 text-[11px] font-medium text-slate-50 ring-1 ring-slate-700/80 transition hover:bg-slate-700 hover:ring-slate-500 whitespace-nowrap"
                   >
