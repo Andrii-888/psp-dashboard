@@ -9,8 +9,7 @@ import {
 
 import { AmlBadge } from "@/components/invoices/AmlBadge";
 import { formatDateTimeCH } from "@/lib/formatters";
-import { Link } from "lucide-react";
-
+import Link from "next/link";
 function formatDate(dateIso: string) {
   return formatDateTimeCH(dateIso);
 }
