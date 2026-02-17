@@ -197,13 +197,19 @@ export function InvoicesTable({
 
               {/* Actions */}
               <td className="px-3 py-3">
-                <Link
-                  href={`/invoices/${encodeURIComponent(inv.id)}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center rounded-full bg-slate-800/70 px-3 py-1 text-[11px] font-medium text-slate-50 ring-1 ring-slate-700/80 transition hover:bg-slate-700 hover:ring-slate-500"
-                >
-                  View Payment Record
-                </Link>
+                {inv.id ? (
+                  <Link
+                    href={`/invoices/${encodeURIComponent(inv.id)}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center rounded-full bg-slate-800/70 px-3 py-1 text-[11px] font-medium text-slate-50 ring-1 ring-slate-700/80 transition hover:bg-slate-700 hover:ring-slate-500 whitespace-nowrap"
+                  >
+                    View Payment Record
+                  </Link>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-slate-900/60 px-3 py-1 text-[11px] text-slate-500 ring-1 ring-slate-800/70">
+                    —
+                  </span>
+                )}
               </td>
             </tr>
           ))}
