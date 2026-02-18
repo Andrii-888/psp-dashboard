@@ -32,6 +32,12 @@ type InvoiceRow = Invoice & {
   decisionStatus?: string | null;
   txStatus?: string | null;
   decisionDueAt?: string | null;
+  ui?: {
+    stage?: string;
+    needsDecision?: boolean;
+    readyForSettlement?: boolean;
+    badgeTone?: string;
+  } | null;
 };
 
 interface InvoicesTableProps {
@@ -42,14 +48,7 @@ interface InvoicesTableProps {
 
 function getDecisionSla(inv: InvoiceRow, nowMs: number) {
   // Show SLA only if operator decision is still required
-  const ds = (inv.decisionStatus ?? "").toLowerCase();
-  const needsDecision =
-    ds === "" ||
-    ds === "none" ||
-    ds === "pending" ||
-    ds === "manual_required" ||
-    ds === "hold";
-
+  const needsDecision = Boolean(inv.ui?.needsDecision);
   if (!needsDecision) return null;
 
   // Don't show for final invoice lifecycle statuses OR completed-ready states
@@ -86,15 +85,17 @@ function getDecisionSla(inv: InvoiceRow, nowMs: number) {
       : `${totalMin}m ${String(sec).padStart(2, "0")}s`;
 
   // If it's massively overdue, show a clear backlog-style label
-  const isLegacyOverdue = overdue && hrs >= 2;
+  const BREACH_CUTOFF_MIN = 60;
+  const overdueMin = Math.floor(abs / 60000);
+  const breached = overdue && overdueMin >= BREACH_CUTOFF_MIN;
 
   return {
     overdue,
-    text: overdue
-      ? isLegacyOverdue
-        ? `Overdue ${short}`
-        : `Overdue ${short}`
-      : `${short} left`,
+    text: !overdue
+      ? `${short} left`
+      : breached
+      ? "SLA breached"
+      : `Overdue ${short}`,
   };
 }
 
