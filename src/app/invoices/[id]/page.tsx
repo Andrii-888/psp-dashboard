@@ -11,7 +11,10 @@ import { ComplianceDecisionCard } from "@/components/invoice-details/sections/co
 import { BlockchainCard } from "@/components/invoice-details/sections/blockchain";
 import { WebhooksCard } from "@/components/invoice-details/sections/webhooks";
 import { ProviderEventsCard } from "@/components/invoice-details/sections/provider-events";
-import { OperatorActionsCard } from "@/components/invoice-details/sections/operator-actions";
+import {
+  DecisionRail,
+  OperatorActionsCard,
+} from "@/components/invoice-details/sections/operator-actions";
 
 type InvoiceRouteParams = {
   id?: string | string[];
@@ -336,6 +339,16 @@ export default function InvoiceDetailsPage() {
             />
           </>
         )}
+
+        {/* Decision Rail */}
+        <div className="hidden lg:block fixed top-1/2 -translate-y-1/2 z-40 left-[calc(50%+32rem)] ml-6">
+          <DecisionRail
+            disabled={!invoice}
+            onApprove={() => handleConfirm()}
+            onReject={() => handleReject()}
+            onHold={() => handleExpire()}
+          />
+        </div>
       </div>
     </main>
   );
