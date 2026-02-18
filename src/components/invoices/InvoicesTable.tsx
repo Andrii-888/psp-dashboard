@@ -52,10 +52,13 @@ function getDecisionSla(inv: InvoiceRow, nowMs: number) {
 
   if (!needsDecision) return null;
 
-  // Don't show for final invoice lifecycle statuses
+  // Don't show for final invoice lifecycle statuses OR completed-ready states
   const st = (inv.status ?? "").toLowerCase();
   const isFinal = st === "rejected" || st === "expired" || st === "failed";
   if (isFinal) return null;
+
+  // SSOT: must come from backend (no createdAt fallback)
+  if (!inv.decisionDueAt) return null;
 
   // Show only when there's a "case" to act on (tx detected/confirmed or AML present)
   const tx = (inv.txStatus ?? "").toLowerCase();
@@ -63,27 +66,35 @@ function getDecisionSla(inv: InvoiceRow, nowMs: number) {
   const hasAml = inv.amlStatus != null;
   if (!hasTx && !hasAml) return null;
 
-  const createdMs = Date.parse(inv.createdAt);
-  if (!Number.isFinite(createdMs)) return null;
-
-  const dueMs = inv.decisionDueAt
-    ? Date.parse(inv.decisionDueAt)
-    : createdMs + 25 * 60 * 1000;
+  const dueMs = Date.parse(inv.decisionDueAt);
   if (!Number.isFinite(dueMs)) return null;
 
   const diff = dueMs - nowMs;
-
   const overdue = diff <= 0;
   const abs = Math.abs(diff);
 
-  const mm = Math.floor(abs / 60000);
-  const ss = Math.floor((abs % 60000) / 1000);
+  const totalSec = Math.floor(abs / 1000);
+  const sec = totalSec % 60;
+  const totalMin = Math.floor(totalSec / 60);
+  const min = totalMin % 60;
+  const hrs = Math.floor(totalMin / 60);
 
-  const label = `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+  // Operator-grade labeling: show hours when needed, avoid scary huge counters
+  const short =
+    hrs > 0
+      ? `${hrs}h ${String(min).padStart(2, "0")}m`
+      : `${totalMin}m ${String(sec).padStart(2, "0")}s`;
+
+  // If it's massively overdue, show a clear backlog-style label
+  const isLegacyOverdue = overdue && hrs >= 2;
 
   return {
     overdue,
-    text: overdue ? `Past SLA ${label}` : `${label} left`,
+    text: overdue
+      ? isLegacyOverdue
+        ? `Overdue ${short}`
+        : `Overdue ${short}`
+      : `${short} left`,
   };
 }
 
