@@ -188,8 +188,8 @@ export function InvoicesTable({
             </tr>
           )}
 
-          {invoices.map((inv) => {
-            const row = inv as InvoiceRow;
+          {invoices.map((row) => {
+            const inv = row as unknown as InvoiceRow;
 
             return (
               <tr
@@ -232,7 +232,21 @@ export function InvoicesTable({
                     <StatusBadge status={inv.status} />
 
                     {(() => {
-                      const sla = getDecisionSla(row, nowMs);
+                      const decisionStatus = String(
+                        inv.decisionStatus ?? ""
+                      ).toLowerCase();
+                      const isDecided =
+                        !!inv.decidedAt ||
+                        decisionStatus === "approved" ||
+                        decisionStatus === "rejected";
+
+                      // ✅ hard UI-guard: never show SLA after decision
+                      if (isDecided) return null;
+
+                      const sla = getDecisionSla(
+                        inv as unknown as InvoiceRow,
+                        nowMs
+                      );
                       if (!sla) return null;
 
                       return (
