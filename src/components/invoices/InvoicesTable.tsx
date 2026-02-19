@@ -233,21 +233,24 @@ export function InvoicesTable({
                     <StatusBadge status={inv.status} />
 
                     {(() => {
-                      const rowInv = inv as InvoiceRow;
+                      const row = inv as unknown as InvoiceRow;
 
-                      const decisionStatus = String(
-                        rowInv.decisionStatus ?? ""
-                      ).toLowerCase();
+                      // hard guard: show SLA only when backend says decision is required
+                      if (row.ui?.needsDecision !== true) return null;
+
+                      const ds = String(row.decisionStatus ?? "")
+                        .trim()
+                        .toLowerCase();
                       const isDecided =
-                        !!rowInv.decidedAt ||
-                        decisionStatus === "approved" ||
-                        decisionStatus === "rejected";
-
+                        !!row.decidedAt ||
+                        ds === "approved" ||
+                        ds === "rejected";
                       if (isDecided) return null;
 
-                      if (rowInv.ui?.needsDecision !== true) return null;
+                      // SLA needs a due date (SSOT)
+                      if (!row.decisionDueAt) return null;
 
-                      const sla = getDecisionSla(rowInv, nowMs);
+                      const sla = getDecisionSla(row, nowMs);
                       if (!sla) return null;
 
                       return (
