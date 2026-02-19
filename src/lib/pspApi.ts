@@ -370,6 +370,19 @@ export async function fetchInvoices(
   return { ok: false, items: [], total: 0 };
 }
 
+export async function fetchOperatorInvoices(
+  params: FetchInvoicesParams = {},
+  opts?: ApiOpts
+): Promise<Invoice[]> {
+  const q = toQuery({
+    limit: params.limit ?? 50,
+    offset: params.offset ?? 0,
+    status: params.status,
+  });
+
+  return apiGet<Invoice[]>(`/operator/invoices${q}`, opts);
+}
+
 export async function fetchInvoiceById(
   invoiceId: string
 ): Promise<{ ok: boolean; invoice: Invoice }> {

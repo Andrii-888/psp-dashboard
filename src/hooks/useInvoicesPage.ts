@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchInvoices, type Invoice } from "@/lib/pspApi";
+import { fetchOperatorInvoices, type Invoice } from "@/lib/pspApi";
 import {
   filterInvoices,
   type InvoiceFilterParams,
@@ -120,7 +120,7 @@ export function useInvoicesPage(): UseInvoicesPageResult {
         setError(null);
       }
 
-      const { items } = await fetchInvoices();
+      const items = await fetchOperatorInvoices({ limit: 500 });
 
       const nextChf = items.filter((i) => {
         // CHF-first: invoices with missing/unknown fiatCurrency are dropped (no non-CHF / no null in UI)

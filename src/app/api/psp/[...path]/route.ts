@@ -293,6 +293,9 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
   // ⬇️ нормализуем: убираем возможный trailing slash
   const pathname = path.join("/").replace(/\/+$/, "");
 
+  const isOperator =
+    pathname === "operator" || pathname.startsWith("operator/");
+
   const isCsv =
     pathname.toLowerCase().endsWith(".csv") ||
     (req.headers.get("accept") ?? "").toLowerCase().includes("text/csv");
@@ -336,6 +339,8 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     // In dev, allow override from incoming headers ONLY if provided.
     const envMerchantId = envAnyOpt(["PSP_MERCHANT_ID", "DEMO_MERCHANT_ID"]);
     const envApiKey = envAnyOpt(["PSP_API_KEY", "DEMO_API_KEY"]);
+
+    const internalKey = envAnyOpt(["PSP_INTERNAL_KEY"]);
 
     const incomingMerchantId =
       pickHeader(req.headers, "x-merchant-id") ??
@@ -381,8 +386,17 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
     headers.set("user-agent", "psp-dashboard-proxy/1.0");
 
     // Auth (server-controlled)
-    if (merchantId) headers.set("x-merchant-id", merchantId);
-    if (apiKey) headers.set("x-api-key", apiKey);
+    if (isOperator) {
+      if (!internalKey) {
+        throw new Error(
+          "PSP_INTERNAL_KEY is not set (required for /operator/*)"
+        );
+      }
+      headers.set("X-PSP-Internal-Key", internalKey);
+    } else {
+      if (merchantId) headers.set("x-merchant-id", merchantId);
+      if (apiKey) headers.set("x-api-key", apiKey);
+    }
 
     const hasBody = req.method !== "GET" && req.method !== "HEAD";
     const body = hasBody ? await req.arrayBuffer() : undefined;
