@@ -32,11 +32,12 @@ type InvoiceRow = Invoice & {
   decisionStatus?: string | null;
   txStatus?: string | null;
   decisionDueAt?: string | null;
+
   ui?: {
-    stage?: string;
+    stage?: string | null;
     needsDecision?: boolean;
     readyForSettlement?: boolean;
-    badgeTone?: string;
+    badgeTone?: string | null;
   } | null;
 };
 
