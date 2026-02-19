@@ -47,35 +47,33 @@ interface InvoicesTableProps {
 }
 
 function getDecisionSla(inv: InvoiceRow, nowMs: number) {
-  // Show SLA only while decision is actually required
-  const uiNeedsDecision = inv.ui?.needsDecision === true;
+  // 1️⃣ Show ONLY when operator action is required (SSOT from backend)
+  if (!inv.ui?.needsDecision) return null;
 
+  // 2️⃣ Never show after decision is made
   const decisionStatus = String(inv.decisionStatus ?? "").toLowerCase();
-  const isDecided =
-    !!inv.decidedAt ||
+  if (
+    inv.decidedAt ||
     decisionStatus === "approved" ||
-    decisionStatus === "rejected";
+    decisionStatus === "rejected"
+  ) {
+    return null;
+  }
 
-  if (!uiNeedsDecision || isDecided) return null;
-
-  // Do not show for terminal invoice lifecycle states
-  const st = (inv.status ?? "").toLowerCase();
-  const isFinal = st === "rejected" || st === "expired" || st === "failed";
-
-  if (isFinal) return null;
-
+  // 3️⃣ Must have valid SLA deadline
   if (!inv.decisionDueAt) return null;
 
-  // Show only when there is a real case (tx detected/confirmed or AML present)
-  const tx = (inv.txStatus ?? "").toLowerCase();
+  const dueMs = Date.parse(inv.decisionDueAt);
+  if (!Number.isFinite(dueMs)) return null;
+
+  // 4️⃣ Must be a real actionable case (tx or AML exists)
+  const tx = String(inv.txStatus ?? "").toLowerCase();
   const hasTx = tx === "detected" || tx === "confirmed";
   const hasAml = inv.amlStatus != null;
 
   if (!hasTx && !hasAml) return null;
 
-  const dueMs = Date.parse(inv.decisionDueAt);
-  if (!Number.isFinite(dueMs)) return null;
-
+  // 5️⃣ Calculate time difference
   const diff = dueMs - nowMs;
   const overdue = diff <= 0;
   const abs = Math.abs(diff);
