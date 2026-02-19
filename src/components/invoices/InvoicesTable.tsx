@@ -233,21 +233,21 @@ export function InvoicesTable({
                     <StatusBadge status={inv.status} />
 
                     {(() => {
+                      const rowInv = inv as InvoiceRow;
+
                       const decisionStatus = String(
-                        inv.decisionStatus ?? ""
+                        rowInv.decisionStatus ?? ""
                       ).toLowerCase();
                       const isDecided =
-                        !!inv.decidedAt ||
+                        !!rowInv.decidedAt ||
                         decisionStatus === "approved" ||
                         decisionStatus === "rejected";
 
-                      // ✅ hard UI-guard: never show SLA after decision
                       if (isDecided) return null;
 
-                      const sla = getDecisionSla(
-                        inv as unknown as InvoiceRow,
-                        nowMs
-                      );
+                      if (rowInv.ui?.needsDecision !== true) return null;
+
+                      const sla = getDecisionSla(rowInv, nowMs);
                       if (!sla) return null;
 
                       return (
