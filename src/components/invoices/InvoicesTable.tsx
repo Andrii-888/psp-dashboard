@@ -47,22 +47,30 @@ interface InvoicesTableProps {
 }
 
 function getDecisionSla(inv: InvoiceRow, nowMs: number) {
-  // Show SLA only if operator decision is still required
-  const needsDecision = Boolean(inv.ui?.needsDecision);
-  if (!needsDecision) return null;
+  // Show SLA only while decision is actually required
+  const uiNeedsDecision = inv.ui?.needsDecision === true;
 
-  // Don't show for final invoice lifecycle statuses OR completed-ready states
+  const decisionStatus = String(inv.decisionStatus ?? "").toLowerCase();
+  const isDecided =
+    !!inv.decidedAt ||
+    decisionStatus === "approved" ||
+    decisionStatus === "rejected";
+
+  if (!uiNeedsDecision || isDecided) return null;
+
+  // Do not show for terminal invoice lifecycle states
   const st = (inv.status ?? "").toLowerCase();
   const isFinal = st === "rejected" || st === "expired" || st === "failed";
+
   if (isFinal) return null;
 
-  // SSOT: must come from backend (no createdAt fallback)
   if (!inv.decisionDueAt) return null;
 
-  // Show only when there's a "case" to act on (tx detected/confirmed or AML present)
+  // Show only when there is a real case (tx detected/confirmed or AML present)
   const tx = (inv.txStatus ?? "").toLowerCase();
   const hasTx = tx === "detected" || tx === "confirmed";
   const hasAml = inv.amlStatus != null;
+
   if (!hasTx && !hasAml) return null;
 
   const dueMs = Date.parse(inv.decisionDueAt);
@@ -78,13 +86,11 @@ function getDecisionSla(inv: InvoiceRow, nowMs: number) {
   const min = totalMin % 60;
   const hrs = Math.floor(totalMin / 60);
 
-  // Operator-grade labeling: show hours when needed, avoid scary huge counters
   const short =
     hrs > 0
       ? `${hrs}h ${String(min).padStart(2, "0")}m`
       : `${totalMin}m ${String(sec).padStart(2, "0")}s`;
 
-  // If it's massively overdue, show a clear backlog-style label
   const BREACH_CUTOFF_MIN = 60;
   const overdueMin = Math.floor(abs / 60000);
   const breached = overdue && overdueMin >= BREACH_CUTOFF_MIN;
