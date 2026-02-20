@@ -470,6 +470,17 @@ export async function rejectInvoice(
   );
 }
 
+export async function setInvoiceDecision(
+  invoiceId: string,
+  decision: NonNullable<Invoice["decisionStatus"]>,
+  reason?: string
+): Promise<unknown> {
+  return apiPost<unknown>(`/operator/invoices/${invoiceId}/decision`, {
+    decision,
+    reason: reason ?? null,
+  });
+}
+
 export async function expireInvoice(
   invoiceId: string
 ): Promise<{ ok: boolean; invoice: Invoice }> {

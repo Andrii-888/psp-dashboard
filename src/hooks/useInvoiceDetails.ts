@@ -10,6 +10,7 @@ import type {
   AttachTransactionPayload,
   ProviderEvent,
 } from "@/domain/invoices/types";
+
 import {
   fetchInvoiceById,
   fetchInvoiceWebhooks,
@@ -17,7 +18,7 @@ import {
   dispatchInvoiceWebhooks,
   runInvoiceAml,
   attachInvoiceTransaction,
-  confirmInvoice,
+  setInvoiceDecision,
   rejectInvoice,
   expireInvoice,
 } from "@/lib/pspApi";
@@ -50,6 +51,7 @@ interface UseInvoiceDetailsResult {
   handleConfirm: () => Promise<void>;
   handleReject: () => Promise<void>;
   handleExpire: () => Promise<void>;
+  handleApprove: () => Promise<void>;
 }
 
 function shouldPollInvoice(args: {
@@ -470,11 +472,32 @@ export function useInvoiceDetails(
     try {
       setActionLoading(true);
       setError(null);
-      const res = await confirmInvoice(invoiceId);
-      setInvoice(res.invoice);
+      await setInvoiceDecision(invoiceId, "approve");
+      const next = await fetchInvoiceById(invoiceId);
+      setInvoice(next.invoice);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to confirm invoice";
+      setError(message);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleApprove() {
+    if (!invoiceId) return;
+
+    try {
+      setActionLoading(true);
+      setError(null);
+
+      await setInvoiceDecision(invoiceId, "approve");
+
+      const next = await fetchInvoiceById(invoiceId);
+      setInvoice(next.invoice);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to approve invoice";
       setError(message);
     } finally {
       setActionLoading(false);
@@ -539,5 +562,6 @@ export function useInvoiceDetails(
     handleConfirm,
     handleReject,
     handleExpire,
+    handleApprove,
   };
 }

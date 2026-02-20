@@ -81,6 +81,7 @@ export default function InvoiceDetailsPage() {
     handleConfirm,
     handleReject,
     handleExpire,
+    handleApprove,
   } = useInvoiceDetails(invoiceId);
 
   const sp = useSearchParams();
@@ -344,7 +345,7 @@ export default function InvoiceDetailsPage() {
         <div className="hidden lg:block fixed top-1/2 -translate-y-1/2 z-40 left-[calc(50%+32rem)] ml-6">
           <DecisionRail
             disabled={!invoice}
-            onApprove={() => handleConfirm()}
+            onApprove={handleApprove}
             onReject={() => handleReject()}
             onHold={() => handleExpire()}
           />
