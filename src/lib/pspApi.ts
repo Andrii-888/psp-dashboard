@@ -475,9 +475,17 @@ export async function setInvoiceDecision(
   decision: NonNullable<Invoice["decisionStatus"]>,
   reason?: string
 ): Promise<unknown> {
+  const status =
+    decision === "approve"
+      ? "approved"
+      : decision === "reject"
+      ? "rejected"
+      : "hold";
+
   return apiPost<unknown>(`/operator/invoices/${invoiceId}/decision`, {
-    decision,
-    reason: reason ?? null,
+    status,
+    reasonCode: null,
+    comment: reason ?? null,
   });
 }
 
