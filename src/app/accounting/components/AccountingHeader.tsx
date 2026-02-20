@@ -62,24 +62,7 @@ export default function AccountingHeader({
         </div>
 
         {/* Back navigation — TOP STYLE */}
-        <BackButton
-          href="/invoices"
-          label="Back"
-          className={[
-            // base (always visible on dark)
-            "text-slate-300",
-            "border border-slate-600/40",
-            "bg-transparent",
-
-            // hover = darker + higher contrast (never light)
-            "hover:text-white",
-            "hover:border-slate-500/80",
-            "hover:bg-slate-900/40",
-
-            // focus (keyboard)
-            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-400/60",
-          ].join(" ")}
-        />
+        <BackButton href="/invoices" label="Back" />
       </div>
     </div>
   );

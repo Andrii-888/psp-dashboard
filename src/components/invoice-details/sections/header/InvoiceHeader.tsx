@@ -21,8 +21,8 @@ export function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
             Invoice ID
           </div>
 
-          <div className="mt-1 flex items-center gap-2">
-            <div className="truncate font-mono text-sm font-semibold text-slate-50 md:text-base">
+          <div className="mt-1 flex items-center gap-1.5">
+            <div className="truncate font-mono text-xs font-medium tracking-[0.02em] text-slate-50 md:text-sm">
               {invoice?.id ?? "Loading…"}
             </div>
 
@@ -42,7 +42,7 @@ export function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
         </div>
 
         {/* RIGHT */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col items-end gap-2">
           {invoice ? <StatusBadge status={invoice.status} /> : null}
           <BackButton href="/invoices" label="Back" />
         </div>

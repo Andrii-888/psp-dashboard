@@ -19,19 +19,21 @@ export function BackButton({
       className={[
         // Base
         "group inline-flex items-center gap-2",
-        "rounded-full border px-3 py-2",
-        "text-xs font-semibold",
-        "backdrop-blur",
+        "rounded-full border px-3 py-1.5",
+        "text-xs font-medium leading-none",
         "transition",
         "active:translate-y-[0.5px]",
+        "focus-visible:outline-none focus-visible:ring-2",
 
-        // Apple-like neutral surface (works on dark + light)
-        "border-zinc-600/40 bg-zinc-900/70 text-zinc-100",
-        "shadow-[0_1px_2px_rgba(0,0,0,0.4)]",
+        // Light theme (visible on white)
+        "border-zinc-300 bg-white text-zinc-900",
+        "hover:bg-zinc-50 hover:border-zinc-400",
+        "focus-visible:ring-zinc-400/40",
 
-        // Hover / focus
-        "hover:bg-zinc-900/85 hover:border-zinc-500/60",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500/50",
+        // Dark theme (visible on apple-card)
+        "dark:border-white/20 dark:bg-white/10 dark:text-white",
+        "dark:hover:bg-white/15 dark:hover:border-white/30",
+        "dark:focus-visible:ring-white/25",
 
         className,
       ].join(" ")}
