@@ -153,11 +153,11 @@ export function TransactionCard({ tx }: { tx: OperatorTxViewModel }) {
               text={typeof tx.blockNumber === "number" ? "Included" : "Pending"}
             />
 
-            <span className="font-mono text-[12px] text-slate-100 whitespace-nowrap">
-              {typeof tx.blockNumber === "number"
-                ? String(tx.blockNumber)
-                : "—"}
-            </span>
+            {typeof tx.blockNumber === "number" && (
+              <span className="font-mono text-[12px] text-slate-100 whitespace-nowrap">
+                #{tx.blockNumber}
+              </span>
+            )}
           </div>
         </div>
 
