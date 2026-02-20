@@ -235,34 +235,49 @@ export function InvoicesTable({
                     {(() => {
                       const row = inv as unknown as InvoiceRow;
 
-                      // hard guard: show SLA only when backend says decision is required
-                      if (row.ui?.needsDecision !== true) return null;
-
                       const ds = String(row.decisionStatus ?? "")
                         .trim()
                         .toLowerCase();
-                      const isDecided =
-                        !!row.decidedAt ||
-                        ds === "approved" ||
-                        ds === "rejected";
-                      if (isDecided) return null;
 
-                      // SLA needs a due date (SSOT)
-                      if (!row.decisionDueAt) return null;
+                      const isTerminalDecision =
+                        ds === "approved" || ds === "rejected" || ds === "hold";
 
-                      const sla = getDecisionSla(row, nowMs);
-                      if (!sla) return null;
+                      // ✅ 1) After operator decision — show it (instead of SLA time)
+                      if (isTerminalDecision) {
+                        const label =
+                          ds === "approved"
+                            ? "Approved"
+                            : ds === "rejected"
+                            ? "Rejected"
+                            : "Hold";
 
-                      return (
-                        <div
-                          className={[
-                            "text-[10px] font-medium",
-                            sla.overdue ? "text-rose-300" : "text-slate-500",
-                          ].join(" ")}
-                        >
-                          {sla.text}
-                        </div>
-                      );
+                        return (
+                          <div className="w-full text-[10px] font-medium text-emerald-200/90 text-center">
+                            Operator decision: {label}
+                          </div>
+                        );
+                      }
+
+                      // ✅ 2) If backend says decision is required — show SLA countdown
+                      if (row.ui?.needsDecision === true) {
+                        if (!row.decisionDueAt) return null;
+
+                        const sla = getDecisionSla(row, nowMs);
+                        if (!sla) return null;
+
+                        return (
+                          <div
+                            className={[
+                              "text-[10px] font-medium",
+                              sla.overdue ? "text-rose-300" : "text-slate-500",
+                            ].join(" ")}
+                          >
+                            {sla.text}
+                          </div>
+                        );
+                      }
+
+                      return null;
                     })()}
                   </div>
                 </td>

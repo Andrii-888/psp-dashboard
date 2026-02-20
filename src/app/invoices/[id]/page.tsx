@@ -345,6 +345,12 @@ export default function InvoiceDetailsPage() {
         <div className="hidden lg:block fixed top-1/2 -translate-y-1/2 z-40 left-[calc(50%+32rem)] ml-6">
           <DecisionRail
             disabled={!invoice}
+            needsDecision={invoice?.ui?.needsDecision === true}
+            decisionStatus={invoice?.decisionStatus ?? null}
+            decidedAt={invoice?.decidedAt ?? null}
+            decidedBy={invoice?.decidedBy ?? null}
+            // SLA текст пока опционально — позже красиво подключим из decisionDueAt
+            slaText={null}
             onApprove={handleApprove}
             onReject={() => handleReject()}
             onHold={() => handleExpire()}

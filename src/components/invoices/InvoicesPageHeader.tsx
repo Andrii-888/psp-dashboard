@@ -38,10 +38,11 @@ export function InvoicesPageHeader({
     <header className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
       <div>
         <h1 className="text-xl font-semibold tracking-tight text-slate-50 md:text-2xl">
-          PSP Core — Invoices
+          Payments Review — Operator Panel
         </h1>
         <p className="mt-1 text-sm text-slate-400">
-          Internal dashboard for your Swiss crypto PSP core.
+          Live payment lifecycle with AML checks, operator decision, and
+          settlement readiness.
         </p>
       </div>
 

@@ -46,6 +46,25 @@ export type InvoicePay = {
   expiresAt: string | null;
 } | null;
 
+export type InvoiceUiStage =
+  | "AwaitingPayment"
+  | "AwaitingTxConfirmations"
+  | "AwaitingAml"
+  | "AwaitingDecision"
+  | "Completed"
+  | "Expired"
+  | "Rejected"
+  | (string & {});
+
+export type UiBadgeTone = "ok" | "warn" | "error" | (string & {});
+
+export interface InvoiceUi {
+  stage?: InvoiceUiStage | null;
+  needsDecision?: boolean | null;
+  badgeTone?: UiBadgeTone | null;
+  readyForSettlement?: boolean | null;
+}
+
 export interface Invoice {
   id: string;
   createdAt: string;
@@ -106,6 +125,7 @@ export interface Invoice {
   decisionReasonText?: string | null;
   decidedAt?: string | null;
   decidedBy?: string | null;
+  ui?: InvoiceUi | null;
 
   // legacy/optional objects
   sanctions?: SanctionsResult | null;
