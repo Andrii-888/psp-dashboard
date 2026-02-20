@@ -126,15 +126,6 @@ export default function InvoiceDetailsPage() {
     };
   }, [invoice, invoiceId]);
 
-  // ⬅️ Back logic
-  const handleBack = () => {
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      router.back();
-      return;
-    }
-    router.push("/invoices");
-  };
-
   // ⬅️ Guard: no id → list
   useEffect(() => {
     if (!invoiceId) router.replace("/invoices");
@@ -158,7 +149,7 @@ export default function InvoiceDetailsPage() {
   return (
     <main className="min-h-screen bg-page-gradient px-4 py-6 text-slate-50 md:px-8 md:py-8">
       <div className="mx-auto flex max-w-5xl flex-col gap-4 md:gap-6">
-        <InvoiceHeader invoice={invoice} onBack={handleBack} />
+        <InvoiceHeader invoice={invoice} />
 
         {debug && (
           <section className="apple-card px-4 py-4 md:px-6">

@@ -2,21 +2,24 @@
 
 import * as React from "react";
 import { toast } from "sonner";
+import { Copy, Check } from "lucide-react";
 
 type Props = {
   value: string;
   label?: string;
   className?: string;
   size?: "sm" | "md";
+  showText?: boolean; // optional text mode
 };
 
 export function CopyButton({
   value,
-  label = "Copy to clipboard",
+  label = "Copy",
   className = "",
   size = "sm",
+  showText = false,
 }: Props) {
-  const [state, setState] = React.useState<"idle" | "copied" | "error">("idle");
+  const [copied, setCopied] = React.useState(false);
   const timeoutRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
@@ -27,48 +30,23 @@ export function CopyButton({
 
   async function onCopy() {
     const v = String(value ?? "").trim();
-
-    if (!v) {
-      setState("error");
-      toast.error("Nothing to copy");
-      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
-      timeoutRef.current = window.setTimeout(() => setState("idle"), 1200);
-      return;
-    }
+    if (!v) return;
 
     try {
       await navigator.clipboard.writeText(v);
-      setState("copied");
-      toast.success(`Copied: ${v.slice(0, 32)}${v.length > 32 ? "…" : ""}`);
+      setCopied(true);
+      toast.success("Copied");
+
+      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = window.setTimeout(() => {
+        setCopied(false);
+      }, 1000);
     } catch {
-      // Fallback for older browsers / permissions
-      try {
-        const el = document.createElement("textarea");
-        el.value = v;
-        el.setAttribute("readonly", "true");
-        el.style.position = "fixed";
-        el.style.top = "-1000px";
-        document.body.appendChild(el);
-        el.select();
-        document.execCommand("copy");
-        document.body.removeChild(el);
-
-        setState("copied");
-        toast.success(`Copied: ${v.slice(0, 32)}${v.length > 32 ? "…" : ""}`);
-      } catch {
-        setState("error");
-        toast.error("Copy failed");
-      }
+      toast.error("Copy failed");
     }
-
-    if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
-    timeoutRef.current = window.setTimeout(() => setState("idle"), 1200);
   }
 
-  const pad = size === "sm" ? "h-8 px-2.5 text-xs" : "h-9 px-3 text-sm";
-
-  const text =
-    state === "copied" ? "Copied" : state === "error" ? "Error" : "Copy";
+  const sizeStyles = size === "sm" ? "h-7 w-7" : "h-8 w-8";
 
   return (
     <button
@@ -76,16 +54,32 @@ export function CopyButton({
       onClick={onCopy}
       aria-label={label}
       className={[
-        "inline-flex items-center justify-center rounded-lg",
-        "border border-zinc-200 bg-white text-zinc-900 shadow-sm",
-        "hover:bg-zinc-50 active:bg-zinc-100",
-        "focus:outline-none focus:ring-2 focus:ring-zinc-200",
-        "transition",
-        pad,
+        "inline-flex items-center justify-center",
+        "rounded-md transition",
+        "active:scale-95",
+        "focus:outline-none focus:ring-1 focus:ring-zinc-300 dark:focus:ring-slate-600/60",
+
+        // Light
+        "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100",
+
+        // Dark
+        "dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-800/50",
+
+        sizeStyles,
         className,
       ].join(" ")}
     >
-      {text}
+      {copied ? (
+        <Check className="h-4 w-4 text-emerald-500" />
+      ) : (
+        <Copy className="h-4 w-4" />
+      )}
+
+      {showText && (
+        <span className="ml-2 text-xs font-medium">
+          {copied ? "Copied" : "Copy"}
+        </span>
+      )}
     </button>
   );
 }
