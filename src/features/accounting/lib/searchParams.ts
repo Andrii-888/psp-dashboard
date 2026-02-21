@@ -1,5 +1,3 @@
-// src/app/accounting/lib/searchParams.ts
-
 export type SearchParamsValue = string | string[] | undefined;
 export type SearchParams = Record<string, SearchParamsValue>;
 

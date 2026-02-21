@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 
-import { backfillConfirmedAction } from "./actions/backfillConfirmed";
+import { backfillConfirmedAction } from "@/features/accounting/actions/backfillConfirmed";
 import AccountingStatusBanner from "./components/AccountingStatusBanner";
 
 import AccountingFilters from "./components/AccountingFilters";
@@ -17,21 +17,26 @@ import FeesBreakdown from "./components/FeesBreakdown";
 import ReconciliationPanel from "./components/ReconciliationPanel";
 import TotalsReconciliationPanel from "./components/TotalsReconciliationPanel";
 
-import type { AccountingEntryRaw } from "./lib/types";
+import type { AccountingEntryRaw } from "@/features/accounting/lib/types";
 
 import {
   fetchEntries,
   fetchInvoiceHistoryAsEntries,
   fetchSummary,
-} from "./lib/api";
+} from "@/features/accounting/lib/api";
 
-import { pick, type SearchParams } from "./lib/searchParams";
+import {
+  pick,
+  type SearchParams,
+} from "@/features/accounting/lib/searchParams";
+
 import {
   getErrorMessage,
   mergePipelineWithLedger,
   toFetchHeaders,
-} from "./lib/serverUtils";
-import { toAccountingUiModel } from "./lib/uiModel";
+} from "@/features/accounting/lib/serverUtils";
+
+import { toAccountingUiModel } from "@/features/accounting/lib/uiModel";
 
 // ✅ Normalize legacy currency labels so UI + backend summary use the same taxonomy.
 // Today: entries may contain "USDTTRC20" (legacy) but backend summary counts it as "USDT".
@@ -232,7 +237,11 @@ export default async function AccountingPage({
       />
 
       <ReconciliationPanel
-        data={ui.reconciliation}
+        data={
+          ui.reconciliation
+            ? { ...ui.reconciliation, issues: [...ui.reconciliation.issues] }
+            : null
+        }
         merchantId={merchantId}
         limit={limit}
         from={from}

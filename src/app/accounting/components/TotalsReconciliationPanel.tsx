@@ -1,6 +1,6 @@
 // src/app/accounting/components/TotalsReconciliationPanel.tsx
 
-import type { AccountingEntryRaw } from "../lib/types";
+import type { AccountingEntryRaw } from "@/features/accounting/lib/types";
 
 type SummaryData = {
   merchantId: string;

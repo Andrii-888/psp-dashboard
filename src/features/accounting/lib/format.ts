@@ -1,4 +1,3 @@
-// src/app/accounting/lib/format.ts
 // Accounting formatting helpers
 // v1 — stablecoins only (USDT / USDC)
 // Used across Accounting page, KPIs and table

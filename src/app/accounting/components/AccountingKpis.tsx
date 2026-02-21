@@ -1,6 +1,6 @@
 // src/app/accounting/components/AccountingKpis.tsx
-import { fmtMoney, toNumber } from "../lib/format";
-import type { AccountingEntryRaw } from "../lib/types";
+import { fmtMoney, toNumber } from "@/features/accounting/lib/format";
+import type { AccountingEntryRaw } from "@/features/accounting/lib/types";
 
 type SummaryLike = {
   confirmedCount: number;

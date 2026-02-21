@@ -1,7 +1,7 @@
 // src/app/accounting/components/AccountingRow.tsx
 
-import type { AccountingEntryRaw } from "../lib/types";
-import { fmtDate, fmtMoney, toNumber } from "../lib/format";
+import type { AccountingEntryRaw } from "@/features/accounting/lib/types";
+import { fmtDate, fmtMoney, toNumber } from "@/features/accounting/lib/format";
 
 type Tone = {
   invoiceText: string;

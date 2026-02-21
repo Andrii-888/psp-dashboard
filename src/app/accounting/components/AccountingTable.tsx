@@ -1,6 +1,6 @@
 // src/app/accounting/components/AccountingTable.tsx
 
-import type { AccountingEntryRaw } from "../lib/types";
+import type { AccountingEntryRaw } from "@/features/accounting/lib/types";
 import AccountingRow from "./AccountingRow";
 
 export default function AccountingTable({

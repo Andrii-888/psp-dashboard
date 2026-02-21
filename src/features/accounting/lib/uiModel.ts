@@ -1,9 +1,4 @@
-// src/app/accounting/lib/uiModel.ts
-
-import type { ComponentProps } from "react";
-import ReconciliationPanel from "../components/ReconciliationPanel";
-import type { AccountingEntryRaw } from "./types";
-import type { Asset, Network } from "./types";
+import type { AccountingEntryRaw, Asset, Network } from "./types";
 
 const CHF = "CHF";
 
@@ -69,17 +64,28 @@ export type ByAssetModel = {
   }>;
 };
 
-export type ReconciliationModel = ComponentProps<
-  typeof ReconciliationPanel
->["data"];
+export type ReconciliationSeverity = "low" | "medium" | "high" | "critical";
 
-type ReconciliationIssue = NonNullable<ReconciliationModel>["issues"][number];
+export type ReconciliationIssue = {
+  type: string;
+  severity: ReconciliationSeverity;
+  message?: string;
+  meta?: unknown;
+};
+
+export type ReconciliationModel = {
+  merchantId: string;
+  checkedAt: string;
+  issues: ReconciliationIssue[];
+} | null;
 
 export type AccountingUiModel = {
   kpisSummary: AccountingKpisSummary;
   fees: FeesModel;
   byDay: ByDayModel;
   byAsset: ByAssetModel;
+
+  reconciliation: ReconciliationModel;
 
   ui: {
     status: "ok" | "warn" | "error";
@@ -97,7 +103,6 @@ export type AccountingUiModel = {
     };
   };
 
-  reconciliation: ReconciliationModel;
   totalsSummary: TotalsSummary;
 };
 
@@ -116,7 +121,7 @@ type UiAction = {
 
 type UiIssue = {
   type: string;
-  severity?: string;
+  severity: ReconciliationSeverity;
 };
 
 function selectBannerAction(args: {

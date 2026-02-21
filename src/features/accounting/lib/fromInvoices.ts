@@ -1,4 +1,3 @@
-// src/app/accounting/lib/fromInvoices.ts
 import type { Invoice } from "@/lib/pspApi";
 import type { AccountingEntryRaw, Asset, Network } from "./types";
 

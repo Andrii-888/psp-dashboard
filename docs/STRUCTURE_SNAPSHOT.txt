@@ -1,0 +1,195 @@
+src
+├── app
+│   ├── accounting
+│   │   ├── actions
+│   │   │   ├── backfillConfirmed.ts
+│   │   │   ├── ExportCsvButton.tsx
+│   │   │   └── ExportCsvModal.tsx
+│   │   ├── components
+│   │   │   ├── AccountingFilters.tsx
+│   │   │   ├── AccountingHeader.tsx
+│   │   │   ├── AccountingKpis.tsx
+│   │   │   ├── AccountingRow.tsx
+│   │   │   ├── AccountingStatusBanner.tsx
+│   │   │   ├── AccountingTable.tsx
+│   │   │   ├── AccountingTableClient.tsx
+│   │   │   ├── ByAssetTable.tsx
+│   │   │   ├── ByDayTable.tsx
+│   │   │   ├── EmptyState.tsx
+│   │   │   ├── ErrorState.tsx
+│   │   │   ├── FeesBreakdown.tsx
+│   │   │   ├── filters
+│   │   │   │   ├── DateRangePicker.tsx
+│   │   │   │   ├── dateUtils.ts
+│   │   │   │   ├── hooks.ts
+│   │   │   │   ├── icons.tsx
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── LimitDropdown.tsx
+│   │   │   │   └── MerchantSelect.tsx
+│   │   │   ├── JsonPretty.tsx
+│   │   │   ├── ReconciliationPanel.tsx
+│   │   │   └── TotalsReconciliationPanel.tsx
+│   │   ├── invoice
+│   │   │   ├── components
+│   │   │   │   ├── Accounting.tsx
+│   │   │   │   ├── BlockchainReference.tsx
+│   │   │   │   ├── Compliance.tsx
+│   │   │   │   ├── FXReceipt.tsx
+│   │   │   │   ├── Identification.tsx
+│   │   │   │   ├── InvoiceAccountingHeader.tsx
+│   │   │   │   ├── InvoiceAmlDecision.tsx
+│   │   │   │   ├── InvoiceOverview.tsx
+│   │   │   │   ├── InvoicePaymentInstructions.tsx
+│   │   │   │   ├── InvoiceTransaction.tsx
+│   │   │   │   └── Money.tsx
+│   │   │   ├── lib
+│   │   │   │   └── getInvoice.ts
+│   │   │   ├── page.tsx
+│   │   │   ├── types
+│   │   │   │   └── invoice.ts
+│   │   │   └── ui
+│   │   │       └── Row.tsx
+│   │   ├── lib
+│   │   │   ├── api.ts
+│   │   │   ├── explorer.ts
+│   │   │   ├── format.ts
+│   │   │   ├── fromInvoices.ts
+│   │   │   ├── searchParams.ts
+│   │   │   ├── serverUtils.ts
+│   │   │   ├── types.ts
+│   │   │   └── uiModel.ts
+│   │   └── page.tsx
+│   ├── api
+│   │   ├── auth
+│   │   │   └── route.ts
+│   │   ├── psp
+│   │   │   └── [...path]
+│   │   │       └── route.ts
+│   │   └── webhooks
+│   │       └── psp
+│   │           ├── inbox
+│   │           │   ├── [id]
+│   │           │   │   └── route.ts
+│   │           │   └── route.ts
+│   │           └── route.ts
+│   ├── favicon.ico
+│   ├── globals.css
+│   ├── invoices
+│   │   ├── [id]
+│   │   │   ├── page.tsx
+│   │   │   └── payment-record
+│   │   │       └── page.tsx
+│   │   ├── actions
+│   │   │   └── useInvoicesActions.ts
+│   │   ├── InvoiceStatusChips.tsx
+│   │   └── page.tsx
+│   ├── layout.tsx
+│   ├── page.tsx
+│   └── pay
+│       └── [id]
+│           └── page.tsx
+├── components
+│   ├── FiltersBar.tsx
+│   ├── home
+│   │   └── HomeHero.tsx
+│   ├── invoice-details
+│   │   └── sections
+│   │       ├── audit-trail
+│   │       │   ├── AuditTrailCard.tsx
+│   │       │   └── index.ts
+│   │       ├── blockchain
+│   │       │   ├── BlockchainCard.tsx
+│   │       │   ├── components
+│   │       │   │   ├── BlockchainHeader.tsx
+│   │       │   │   ├── OnChainStatusRail.tsx
+│   │       │   │   └── TransactionCard.tsx
+│   │       │   ├── index.ts
+│   │       │   ├── lib
+│   │       │   │   ├── blockchainSelectors.ts
+│   │       │   │   ├── blockchainTypes.ts
+│   │       │   │   └── copy.ts
+│   │       │   └── ui
+│   │       │       ├── ClipboardButton.tsx
+│   │       │       └── Field.tsx
+│   │       ├── compliance
+│   │       │   ├── ComplianceDecisionCard.tsx
+│   │       │   ├── components
+│   │       │   │   ├── ComplianceBanner.tsx
+│   │       │   │   └── ComplianceMetaGrid.tsx
+│   │       │   ├── index.ts
+│   │       │   └── lib
+│   │       │       └── compliancePolicy.ts
+│   │       ├── header
+│   │       │   ├── index.ts
+│   │       │   └── InvoiceHeader.tsx
+│   │       ├── operator-actions
+│   │       │   ├── DecisionRail.tsx
+│   │       │   └── index.ts
+│   │       ├── overview
+│   │       │   ├── amlUiState.ts
+│   │       │   ├── components
+│   │       │   │   ├── AmlActionButton.tsx
+│   │       │   │   ├── AmlSidebar.tsx
+│   │       │   │   ├── CryptoCleanliness.tsx
+│   │       │   │   ├── DemoTxAttach.tsx
+│   │       │   │   ├── ExpiryCountdown.tsx
+│   │       │   │   ├── InvoiceSummaryStats.tsx
+│   │       │   │   ├── PaymentInstructionsPanel.tsx
+│   │       │   │   └── ScreeningStatus.tsx
+│   │       │   ├── index.ts
+│   │       │   └── OverviewCard.tsx
+│   │       ├── provider-events
+│   │       │   ├── index.ts
+│   │       │   └── ProviderEventsCard.tsx
+│   │       ├── technical-events
+│   │       │   └── TechnicalEventsCard.tsx
+│   │       └── webhooks
+│   │           ├── index.ts
+│   │           ├── InvoiceWebhooksCard.tsx
+│   │           ├── WebhookInboxCard.tsx
+│   │           └── WebhooksCard.tsx
+│   ├── invoices
+│   │   ├── AmlBadge.tsx
+│   │   ├── filters
+│   │   │   ├── AmlFilterPills.tsx
+│   │   │   ├── AmountFilter.tsx
+│   │   │   ├── DatePresetPills.tsx
+│   │   │   ├── datePresets.ts
+│   │   │   ├── SearchFilter.tsx
+│   │   │   └── StatusFilterPills.tsx
+│   │   ├── InvoicesPageHeader.tsx
+│   │   ├── InvoicesTable.tsx
+│   │   ├── PaginationBar.tsx
+│   │   ├── RefreshButton.tsx
+│   │   └── StatusBadge.tsx
+│   └── ui
+│       ├── BackButton.tsx
+│       ├── CopyButton.tsx
+│       ├── CopyReceiptButton.tsx
+│       ├── Toast.tsx
+│       └── ToastStack.tsx
+├── domain
+│   └── invoices
+│       └── types.ts
+├── hooks
+│   ├── useApiHealth.ts
+│   ├── useClientPagination.ts
+│   ├── useInvoiceDetails.ts
+│   ├── useInvoicePageModel.ts
+│   ├── useInvoicePolling.ts
+│   ├── useInvoicesPage.ts
+│   ├── useLiveFxQuote.ts
+│   ├── useLiveInvoices.ts
+│   ├── usePagination.ts
+│   └── useToasts.ts
+├── lib
+│   ├── env.server.ts
+│   ├── formatters.ts
+│   ├── invoices
+│   │   ├── deriveInvoiceUiState.ts
+│   │   └── filterInvoices.ts
+│   ├── pspApi.ts
+│   └── webhookInboxStore.ts
+└── proxy.ts
+
+53 directories, 140 files

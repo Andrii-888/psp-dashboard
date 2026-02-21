@@ -1,4 +1,3 @@
-// src/app/accounting/lib/explorer.ts
 
 import type { Asset, Network } from "./types";
 

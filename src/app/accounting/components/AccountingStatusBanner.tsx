@@ -1,6 +1,6 @@
 "use client";
 
-import type { AccountingUiModel } from "../lib/uiModel";
+import type { AccountingUiModel } from "@/features/accounting/lib/uiModel";
 
 type Props = {
   merchantId: string;

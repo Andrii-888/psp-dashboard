@@ -1,4 +1,3 @@
-// src/app/accounting/lib/serverUtils.ts
 import { headers } from "next/headers";
 import type { AccountingEntryRaw } from "./types";
 

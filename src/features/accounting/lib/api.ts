@@ -1,4 +1,3 @@
-// src/app/accounting/lib/api.ts
 
 /**
  * Accounting data access for the Accounting page.

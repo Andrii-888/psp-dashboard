@@ -2,7 +2,7 @@
 
 import type { Invoice } from "@/domain/invoices/types";
 import { Row } from "../ui/Row";
-import { fmtMoney, toNumber } from "../../lib/format";
+import { fmtMoney, toNumber } from "@/features/accounting/lib/format";
 
 function fmtDateTime(iso?: string | null) {
   if (!iso) return "—";

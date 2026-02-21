@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { Invoice } from "@/lib/pspApi";
 import { getStatusTextClass } from "@/components/invoices/StatusBadge";
 import { AmlBadge } from "@/components/invoices/AmlBadge";
-import { InvoiceStatusChips } from "@/app/invoices/InvoiceStatusChips";
+import { InvoiceStatusChips } from "./InvoiceStatusChips";
 import { formatDateTimeCH } from "@/lib/formatters";
 
 function formatDate(dateIso: string) {

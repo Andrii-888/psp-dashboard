@@ -4,7 +4,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import AccountingTable from "./AccountingTable";
-import type { AccountingEntryRaw } from "../lib/types";
+import type { AccountingEntryRaw } from "@/features/accounting/lib/types";
 
 export default function AccountingTableClient({
   entries,

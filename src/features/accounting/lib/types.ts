@@ -1,4 +1,3 @@
-// src/app/accounting/lib/types.ts
 
 /**
  * PSP-grade accounting types (CHF-first, but compatible with invoice pipeline fallback).
