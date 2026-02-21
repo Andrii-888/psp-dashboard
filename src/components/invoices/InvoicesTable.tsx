@@ -4,11 +4,9 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Invoice } from "@/lib/pspApi";
-import {
-  StatusBadge,
-  getStatusTextClass,
-} from "@/components/invoices/StatusBadge";
+import { getStatusTextClass } from "@/components/invoices/StatusBadge";
 import { AmlBadge } from "@/components/invoices/AmlBadge";
+import { InvoiceStatusChips } from "@/app/invoices/InvoiceStatusChips";
 import { formatDateTimeCH } from "@/lib/formatters";
 
 function formatDate(dateIso: string) {
@@ -230,7 +228,7 @@ export function InvoicesTable({
                 {/* Status */}
                 <td className="px-3 py-3 align-top">
                   <div className="flex flex-col items-center justify-start gap-1 pt-1">
-                    <StatusBadge status={inv.status} />
+                    <InvoiceStatusChips invoice={inv} showAxes={false} />
 
                     {(() => {
                       const row = inv as unknown as InvoiceRow;

@@ -125,6 +125,7 @@ export interface Invoice {
   decisionReasonText?: string | null;
   decidedAt?: string | null;
   decidedBy?: string | null;
+  decisionDueAt?: string | null;
   ui?: InvoiceUi | null;
 
   // legacy/optional objects

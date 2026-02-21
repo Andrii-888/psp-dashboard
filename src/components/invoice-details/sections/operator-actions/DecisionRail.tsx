@@ -3,16 +3,14 @@
 
 import * as React from "react";
 import { formatDateTimeCH } from "@/lib/formatters";
+import type { Invoice } from "@/lib/pspApi";
+import type { InvoiceUiState } from "@/lib/invoices/deriveInvoiceUiState";
 
 type DecisionRailProps = {
   disabled?: boolean;
 
-  // backend SSOT hints
-  needsDecision?: boolean;
-  decisionStatus?: string | null;
-  decidedAt?: string | null;
-  decidedBy?: string | null;
-  slaText?: string | null;
+  invoice: Invoice;
+  uiState: InvoiceUiState;
 
   onApprove?: () => void;
   onReject?: (reasonText?: string) => void;
@@ -30,16 +28,13 @@ function formatShortDate(iso: string): string {
   }
 }
 
-type PendingAction = "reject" | "hold" | null;
+type PendingAction = "approve" | "reject" | "hold" | null;
 
 export function DecisionRail({
   disabled = false,
 
-  needsDecision = false,
-  decisionStatus,
-  decidedAt,
-  decidedBy,
-  slaText,
+  invoice,
+  uiState,
 
   onApprove,
   onReject,
@@ -47,6 +42,14 @@ export function DecisionRail({
 }: DecisionRailProps) {
   const [pending, setPending] = React.useState<PendingAction>(null);
   const [reason, setReason] = React.useState<string>("");
+
+  const needsDecision = uiState.needsDecision;
+
+  const decisionStatus = invoice.decisionStatus ?? null;
+  const decidedAt = invoice.decidedAt ?? null;
+  const decidedBy = invoice.decidedBy ?? null;
+
+  const slaText = uiState.decision.details ?? null;
 
   const ds =
     typeof decisionStatus === "string"
@@ -58,21 +61,22 @@ export function DecisionRail({
   const canAct = !disabled && needsDecision && !isDecided;
 
   const baseBtn = [
-    "h-10 w-full",
+    "h-11 w-full",
     "rounded-xl",
     "px-3",
-    "text-sm font-semibold",
+    "text-[13px] font-semibold",
     "transition",
     "active:translate-y-[0.5px]",
     "disabled:cursor-not-allowed disabled:opacity-50",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/40",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20",
   ].join(" ");
 
   const appleSurface = [
     "ring-1",
-    "bg-slate-900/40",
-    "hover:bg-slate-900/60",
-    "shadow-[0_10px_30px_rgba(0,0,0,0.35)]",
+    "ring-slate-700/70",
+    "bg-slate-900/45",
+    "hover:bg-slate-900/65",
+    "shadow-[0_12px_34px_rgba(0,0,0,0.40)]",
   ].join(" ");
 
   const metaText = isDecided
@@ -88,6 +92,36 @@ export function DecisionRail({
     !isDecided && needsDecision && typeof slaText === "string" && slaText.trim()
       ? slaText.trim()
       : null;
+
+  const slaTone: "ok" | "warn" | "error" | null = React.useMemo(() => {
+    if (!safeSla) return null;
+
+    const t = safeSla.toLowerCase();
+    if (t.includes("overdue")) return "error";
+
+    // detect "due in Xm"
+    const m = t.match(/due in\s+(\d+)\s*m/);
+    if (m && m[1]) {
+      const mins = Number(m[1]);
+      if (Number.isFinite(mins) && mins <= 5) return "warn";
+    }
+
+    return "ok";
+  }, [safeSla]);
+
+  const panelAccent =
+    canAct && slaTone === "error"
+      ? "ring-rose-500/30 shadow-[0_18px_60px_rgba(244,63,94,0.22)]"
+      : canAct && slaTone === "warn"
+      ? "ring-amber-500/25 shadow-[0_18px_60px_rgba(245,158,11,0.18)]"
+      : "ring-slate-800/70 shadow-[0_10px_30px_rgba(0,0,0,0.35)]";
+
+  const slaTextClass =
+    slaTone === "error"
+      ? "text-rose-200"
+      : slaTone === "warn"
+      ? "text-amber-200"
+      : "text-slate-400";
 
   function resetConfirm() {
     setPending(null);
@@ -106,22 +140,36 @@ export function DecisionRail({
     const clean = reason.trim();
     const finalReason = clean.length ? clean : undefined;
 
+    if (pending === "approve") onApprove?.();
     if (pending === "reject") onReject?.(finalReason);
     if (pending === "hold") onHold?.(finalReason);
 
     resetConfirm();
   }
 
-  const confirmTitle = pending === "reject" ? "Confirm reject" : "Confirm hold";
+  const confirmTitle =
+    pending === "approve"
+      ? "Confirm approve"
+      : pending === "reject"
+      ? "Confirm reject"
+      : "Confirm hold";
+
   const confirmHint =
-    pending === "reject"
+    pending === "approve"
+      ? "This will approve the invoice for settlement."
+      : pending === "reject"
       ? "This will mark the invoice as rejected by operator."
       : "This will put the invoice on hold for manual review.";
 
   return (
     <aside className="hidden lg:block w-44 shrink-0 sticky top-6 self-start">
       <div className="sticky top-6">
-        <div className="apple-card overflow-hidden max-h-[calc(100vh-3rem)]">
+        <div
+          className={[
+            "apple-card overflow-hidden max-h-[calc(100vh-3rem)] ring-1",
+            panelAccent,
+          ].join(" ")}
+        >
           <div className="border-b border-slate-800/70 px-4 py-3">
             <div className="text-sm text-center font-semibold text-slate-100">
               Operator Panel
@@ -140,7 +188,9 @@ export function DecisionRail({
             ) : null}
 
             {safeSla ? (
-              <div className="mt-1 text-[11px] text-slate-400">{safeSla}</div>
+              <div className={["mt-1 text-[11px]", slaTextClass].join(" ")}>
+                {safeSla}
+              </div>
             ) : null}
           </div>
 
@@ -148,13 +198,17 @@ export function DecisionRail({
             <button
               type="button"
               disabled={!canAct || !onApprove || pending !== null}
-              onClick={onApprove}
+              onClick={() => startConfirm("approve")}
               className={[
                 baseBtn,
                 appleSurface,
                 "text-emerald-100",
-                "ring-emerald-500/20",
-                "hover:shadow-[0_12px_30px_rgba(16,185,129,0.18)]",
+                "ring-emerald-400/35",
+                "bg-emerald-500/8",
+                "hover:bg-emerald-500/14",
+                "hover:ring-emerald-400/45",
+                "hover:shadow-[0_18px_50px_rgba(16,185,129,0.28)]",
+                "focus-visible:ring-emerald-400/45",
               ].join(" ")}
             >
               Approve
@@ -168,8 +222,12 @@ export function DecisionRail({
                 baseBtn,
                 appleSurface,
                 "text-rose-100",
-                "ring-rose-500/20",
-                "hover:shadow-[0_12px_30px_rgba(244,63,94,0.18)]",
+                "ring-rose-400/35",
+                "bg-rose-500/8",
+                "hover:bg-rose-500/14",
+                "hover:ring-rose-400/45",
+                "hover:shadow-[0_18px_50px_rgba(244,63,94,0.28)]",
+                "focus-visible:ring-rose-400/45",
               ].join(" ")}
             >
               Reject
@@ -183,8 +241,12 @@ export function DecisionRail({
                 baseBtn,
                 appleSurface,
                 "text-amber-100",
-                "ring-amber-500/20",
-                "hover:shadow-[0_12px_30px_rgba(245,158,11,0.18)]",
+                "ring-amber-400/35",
+                "bg-amber-500/8",
+                "hover:bg-amber-500/14",
+                "hover:ring-amber-400/45",
+                "hover:shadow-[0_18px_50px_rgba(245,158,11,0.28)]",
+                "focus-visible:ring-amber-400/45",
               ].join(" ")}
             >
               Hold
@@ -200,22 +262,24 @@ export function DecisionRail({
                   {confirmHint}
                 </div>
 
-                <label className="mt-2 block">
-                  <div className="text-[11px] text-slate-500">
-                    Reason (optional)
-                  </div>
-                  <input
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    placeholder="Short reason for audit trail…"
-                    className={[
-                      "mt-1 w-full rounded-lg px-2.5 py-2 text-[12px]",
-                      "border border-slate-800/70 bg-slate-950/60 text-slate-100",
-                      "placeholder:text-slate-600",
-                      "focus:outline-none focus:ring-2 focus:ring-slate-600/40",
-                    ].join(" ")}
-                  />
-                </label>
+                {pending !== "approve" ? (
+                  <label className="mt-2 block">
+                    <div className="text-[11px] text-slate-500">
+                      Reason (optional)
+                    </div>
+                    <input
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      placeholder="Short reason for audit trail…"
+                      className={[
+                        "mt-1 w-full rounded-lg px-2.5 py-2 text-[12px]",
+                        "border border-slate-800/70 bg-slate-950/60 text-slate-100",
+                        "placeholder:text-slate-600",
+                        "focus:outline-none focus:ring-2 focus:ring-slate-600/40",
+                      ].join(" ")}
+                    />
+                  </label>
+                ) : null}
 
                 <div className="mt-3 flex items-center gap-2">
                   <button

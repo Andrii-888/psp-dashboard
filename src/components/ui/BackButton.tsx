@@ -39,7 +39,7 @@ export function BackButton({
       ].join(" ")}
     >
       <ChevronLeft className="h-4 w-4 text-current opacity-80 group-hover:opacity-100" />
-      <span className="leading-none">{label}</span>
+      {/* <span className="leading-none">{label}</span> */}
     </Link>
   );
 }

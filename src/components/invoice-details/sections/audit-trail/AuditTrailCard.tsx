@@ -2,6 +2,7 @@
 
 import type { Invoice } from "@/lib/pspApi";
 import { formatDateTimeCH } from "@/lib/formatters";
+import { CopyButton } from "@/components/ui/CopyButton";
 
 function formatDateTime(iso?: string | null) {
   if (!iso) return "—";
@@ -13,6 +14,14 @@ interface AuditTrailCardProps {
 }
 
 export function AuditTrailCard({ invoice }: AuditTrailCardProps) {
+  const finalAt =
+    invoice.decidedAt ??
+    invoice.confirmedAt ??
+    (invoice.status !== "waiting" ? invoice.detectedAt : null);
+
+  const showFinalLine =
+    invoice.status !== "waiting" && invoice.status !== "confirmed";
+
   return (
     <section className="apple-card apple-card-content p-4 md:p-6">
       <h2 className="section-title">Audit trail</h2>
@@ -30,30 +39,73 @@ export function AuditTrailCard({ invoice }: AuditTrailCardProps) {
         </div>
 
         {/* Tx attached */}
-        {invoice.txHash && (
+        {invoice.txHash ? (
           <div className="flex items-center justify-between rounded-xl bg-slate-900/60 px-3 py-2 ring-1 ring-slate-800/80">
-            <span className="text-slate-300">
-              Transaction detected (tx attached)
+            <div className="flex items-center gap-2">
+              <span className="text-slate-300">
+                Transaction detected (tx attached)
+              </span>
+              <CopyButton value={invoice.txHash} size="sm" />
+            </div>
+            <span className="text-slate-500">
+              {formatDateTime(invoice.detectedAt ?? null)}
             </span>
-            <span className="text-slate-500">—</span>
           </div>
-        )}
+        ) : null}
 
         {/* AML run */}
-        {invoice.amlStatus && (
+        {invoice.amlStatus ? (
           <div className="flex items-center justify-between rounded-xl bg-slate-900/60 px-3 py-2 ring-1 ring-slate-800/80">
-            <span className="text-slate-300">AML screening completed</span>
-            <span className="text-slate-500">—</span>
+            <span className="text-slate-300">
+              AML screening completed ({invoice.amlProvider ?? "provider"} ·{" "}
+              {invoice.amlStatus})
+            </span>
+            <span className="text-slate-500">
+              {formatDateTime(invoice.amlCheckedAt ?? null)}
+            </span>
           </div>
-        )}
+        ) : null}
 
-        {/* Final decision */}
-        {invoice.status !== "waiting" && (
+        {/* Invoice confirmed (single source) */}
+        {invoice.status === "confirmed" ? (
           <div className="flex items-center justify-between rounded-xl bg-slate-900/60 px-3 py-2 ring-1 ring-slate-800/80">
-            <span className="text-slate-300">Invoice {invoice.status}</span>
-            <span className="text-slate-500">—</span>
+            <span className="text-emerald-300">Invoice confirmed</span>
+            <span className="text-slate-500">
+              {formatDateTime(invoice.confirmedAt ?? finalAt)}
+            </span>
           </div>
-        )}
+        ) : null}
+
+        {/* Operator decision */}
+        {invoice.decidedAt ? (
+          <div className="flex items-center justify-between rounded-xl bg-slate-900/60 px-3 py-2 ring-1 ring-slate-800/80">
+            <span className="text-slate-300">
+              Decision {invoice.decisionStatus ?? "—"}
+              {invoice.decidedBy ? ` (by ${invoice.decidedBy})` : ""}
+            </span>
+            <span className="text-slate-500">
+              {formatDateTime(invoice.decidedAt)}
+            </span>
+          </div>
+        ) : null}
+
+        {/* Final status line for non-confirmed terminal states */}
+        {showFinalLine ? (
+          <div className="flex items-center justify-between rounded-xl bg-slate-900/60 px-3 py-2 ring-1 ring-slate-800/80">
+            <span
+              className={
+                invoice.status === "rejected"
+                  ? "text-red-300"
+                  : invoice.status === "expired"
+                  ? "text-amber-300"
+                  : "text-slate-300"
+              }
+            >
+              Invoice {invoice.status}
+            </span>
+            <span className="text-slate-500">{formatDateTime(finalAt)}</span>
+          </div>
+        ) : null}
       </div>
     </section>
   );

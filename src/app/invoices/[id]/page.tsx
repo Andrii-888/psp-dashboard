@@ -3,18 +3,17 @@
 
 import { useEffect, useMemo } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
+import { deriveInvoiceUiState } from "@/lib/invoices/deriveInvoiceUiState";
 import { useInvoiceDetails } from "@/hooks/useInvoiceDetails";
 import { AuditTrailCard } from "@/components/invoice-details/sections/audit-trail";
 import { InvoiceHeader } from "@/components/invoice-details/sections/header";
 import { OverviewCard } from "@/components/invoice-details/sections/overview";
 import { ComplianceDecisionCard } from "@/components/invoice-details/sections/compliance";
+import { TechnicalEventsCard } from "@/components/invoice-details/sections/technical-events/TechnicalEventsCard";
 import { BlockchainCard } from "@/components/invoice-details/sections/blockchain";
-import { WebhooksCard } from "@/components/invoice-details/sections/webhooks";
+import { InvoiceWebhooksCard } from "@/components/invoice-details/sections/webhooks/InvoiceWebhooksCard";
 import { ProviderEventsCard } from "@/components/invoice-details/sections/provider-events";
-import {
-  DecisionRail,
-  OperatorActionsCard,
-} from "@/components/invoice-details/sections/operator-actions";
+import { DecisionRail } from "@/components/invoice-details/sections/operator-actions";
 
 type InvoiceRouteParams = {
   id?: string | string[];
@@ -69,19 +68,11 @@ export default function InvoiceDetailsPage() {
     providerEventsLoading,
     loading,
     webhooksLoading,
-    dispatching,
     amlLoading,
     savingTx,
     error,
-    webhookInfo,
-    reloadWebhooks,
-    handleDispatchWebhooks,
     handleRunAml,
     handleAttachTx,
-    handleConfirm,
-    handleReject,
-    handleExpire,
-    handleApprove,
   } = useInvoiceDetails(invoiceId);
 
   const sp = useSearchParams();
@@ -125,7 +116,6 @@ export default function InvoiceDetailsPage() {
       decidedBy: pickString(invoice, "decidedBy"),
     };
   }, [invoice, invoiceId]);
-
   // ⬅️ Guard: no id → list
   useEffect(() => {
     if (!invoiceId) router.replace("/invoices");
@@ -146,11 +136,14 @@ export default function InvoiceDetailsPage() {
     );
   }
 
+  if (!invoice) return null;
+
+  const uiState = deriveInvoiceUiState(invoice);
+
   return (
     <main className="min-h-screen bg-page-gradient px-4 py-6 text-slate-50 md:px-8 md:py-8">
       <div className="mx-auto flex max-w-5xl flex-col gap-4 md:gap-6">
-        <InvoiceHeader invoice={invoice} />
-
+        <InvoiceHeader invoice={invoice} uiState={uiState} />
         {debug && (
           <section className="apple-card px-4 py-4 md:px-6">
             <div className="flex items-center justify-between gap-3">
@@ -307,27 +300,21 @@ export default function InvoiceDetailsPage() {
               }}
             />
 
-            <OperatorActionsCard
-              invoice={invoice}
-              onConfirm={handleConfirm}
-              onReject={handleReject}
-              onExpire={handleExpire}
-            />
-
             <AuditTrailCard invoice={invoice} />
 
-            <ProviderEventsCard
-              events={providerEvents}
-              loading={providerEventsLoading}
-            />
-
-            <WebhooksCard
-              webhooks={webhooks}
-              webhookInfo={webhookInfo}
-              webhooksLoading={webhooksLoading}
-              dispatching={dispatching}
-              onReload={reloadWebhooks}
-              onDispatch={handleDispatchWebhooks}
+            <TechnicalEventsCard
+              providerEvents={
+                <ProviderEventsCard
+                  events={providerEvents}
+                  loading={providerEventsLoading}
+                />
+              }
+              webhookEvents={
+                <InvoiceWebhooksCard
+                  events={webhooks}
+                  loading={webhooksLoading}
+                />
+              }
             />
           </>
         )}
@@ -336,15 +323,8 @@ export default function InvoiceDetailsPage() {
         <div className="hidden lg:block fixed top-1/2 -translate-y-1/2 z-40 left-[calc(50%+32rem)] ml-6">
           <DecisionRail
             disabled={!invoice}
-            needsDecision={invoice?.ui?.needsDecision === true}
-            decisionStatus={invoice?.decisionStatus ?? null}
-            decidedAt={invoice?.decidedAt ?? null}
-            decidedBy={invoice?.decidedBy ?? null}
-            // SLA текст пока опционально — позже красиво подключим из decisionDueAt
-            slaText={null}
-            onApprove={handleApprove}
-            onReject={() => handleReject()}
-            onHold={() => handleExpire()}
+            invoice={invoice}
+            uiState={uiState}
           />
         </div>
       </div>

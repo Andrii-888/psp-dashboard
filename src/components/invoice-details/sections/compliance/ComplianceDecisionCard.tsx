@@ -3,6 +3,15 @@
 import { useMemo, useState } from "react";
 import type { Invoice, DecisionStatus, SanctionsStatus } from "@/lib/pspApi";
 
+import { ComplianceMetaGrid } from "./components/ComplianceMetaGrid";
+import { ComplianceBanner } from "./components/ComplianceBanner";
+
+type Suggested = {
+  status: Exclude<DecisionStatus, null>;
+  reasonCode: string;
+  summary: string;
+};
+
 type Props = {
   invoice: Invoice;
   onDecide: (payload: {
@@ -12,24 +21,13 @@ type Props = {
   }) => Promise<void> | void;
 };
 
-function formatFiatChf(amount: number) {
-  const n = Number(amount);
-  if (!Number.isFinite(n)) return "—";
-  return `${n.toFixed(2)} CHF`;
-}
-
 function getAmountTier(fiatAmount: number): "small" | "medium" | "large" {
-  // ⚠️ Это “policy tiers”, не “legal thresholds”
   if (fiatAmount < 500) return "small";
   if (fiatAmount < 2000) return "medium";
   return "large";
 }
 
-function suggestedDecision(invoice: Invoice): {
-  status: Exclude<DecisionStatus, null>;
-  reasonCode: string;
-  summary: string;
-} {
+function getSuggestedDecision(invoice: Invoice): Suggested {
   const aml = invoice.amlStatus ?? null;
   const sanctions: SanctionsStatus = invoice.sanctions?.status ?? null;
   const tier = getAmountTier(invoice.fiatAmount);
@@ -67,7 +65,6 @@ function suggestedDecision(invoice: Invoice): {
     };
   }
 
-  // aml clean / null:
   if (tier === "large") {
     return {
       status: "hold",
@@ -83,46 +80,73 @@ function suggestedDecision(invoice: Invoice): {
   };
 }
 
-function pillClass(kind: "approve" | "hold" | "reject") {
-  switch (kind) {
-    case "approve":
-      return "border-emerald-500/50 bg-emerald-500/10 text-emerald-100";
-    case "hold":
-      return "border-amber-500/50 bg-amber-500/10 text-amber-100";
-    case "reject":
-      return "border-rose-500/60 bg-rose-500/10 text-rose-100";
-  }
-}
-
-function buttonClass(kind: "approve" | "hold" | "reject") {
-  switch (kind) {
-    case "approve":
-      return "border-emerald-500/60 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20";
-    case "hold":
-      return "border-amber-500/60 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20";
-    case "reject":
-      return "border-rose-500/70 bg-rose-500/12 text-rose-100 hover:bg-rose-500/20";
-  }
-}
-
-function isClosed(status: Invoice["status"]) {
+function isInvoiceClosed(status: Invoice["status"]) {
   return (
     status === "confirmed" || status === "expired" || status === "rejected"
   );
 }
 
+function buttonTone(
+  action: "approve" | "hold" | "reject",
+  suggested: "approve" | "hold" | "reject"
+) {
+  return action === suggested ? "primary" : "secondary";
+}
+
+function stripeActionClass(
+  action: "approve" | "hold" | "reject",
+  tone: "primary" | "secondary"
+) {
+  const base = [
+    "inline-flex items-center justify-center rounded-lg border px-3 py-2",
+    "text-[12px] font-medium",
+    "transition",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-600/50",
+    "disabled:cursor-not-allowed disabled:opacity-60",
+  ].join(" ");
+
+  const secondary =
+    "border-slate-800 bg-transparent text-slate-200 hover:bg-slate-900/30";
+
+  if (tone === "secondary") {
+    return [base, secondary].join(" ");
+  }
+
+  // Primary (Stripe-dark subtle emphasis)
+  if (action === "approve") {
+    return [
+      base,
+      "border-emerald-500/35 bg-slate-900/10 text-slate-50 hover:bg-slate-900/30",
+    ].join(" ");
+  }
+
+  if (action === "hold") {
+    return [
+      base,
+      "border-amber-500/35 bg-slate-900/10 text-slate-50 hover:bg-slate-900/30",
+    ].join(" ");
+  }
+
+  return [
+    base,
+    "border-rose-500/35 bg-slate-900/10 text-slate-50 hover:bg-slate-900/30",
+  ].join(" ");
+}
+
 export function ComplianceDecisionCard({ invoice, onDecide }: Props) {
-  const suggested = useMemo(() => suggestedDecision(invoice), [invoice]);
+  const suggested = useMemo(() => getSuggestedDecision(invoice), [invoice]);
 
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState<DecisionStatus>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const locked = isClosed(invoice.status);
-
+  const locked = isInvoiceClosed(invoice.status);
   const isAutoConfirmed = invoice.status === "confirmed";
 
-  const sanctions = invoice.sanctions ?? null;
+  const needsCommentNow =
+    !locked && (suggested.status === "hold" || suggested.status === "reject");
+
+  const commentTrim = comment.trim();
 
   async function submit(
     status: Exclude<DecisionStatus, null>,
@@ -130,10 +154,10 @@ export function ComplianceDecisionCard({ invoice, onDecide }: Props) {
   ) {
     if (locked) return;
 
-    const needsComment = status === "hold" || status === "reject";
+    const requiresComment = status === "hold" || status === "reject";
     const c = comment.trim();
 
-    if (needsComment && c.length < 3) {
+    if (requiresComment && c.length < 3) {
       setError("Comment is required for HOLD / REJECT (min 3 chars).");
       return;
     }
@@ -142,7 +166,7 @@ export function ComplianceDecisionCard({ invoice, onDecide }: Props) {
       setError(null);
       setSubmitting(status);
       await onDecide({ status, reasonCode, comment: c || undefined });
-      setComment(""); // clear after success
+      setComment("");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to submit decision");
     } finally {
@@ -152,162 +176,109 @@ export function ComplianceDecisionCard({ invoice, onDecide }: Props) {
 
   return (
     <section className="apple-card apple-card-content p-4 md:p-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-1">
-          <h2 className="section-title">Compliance decision</h2>
-          <p className="text-[11px] text-slate-500">
-            Funds remain isolated until a compliance decision is made. Final
-            responsibility remains with the PSP.
-          </p>
-        </div>
+      <ComplianceBanner
+        invoice={invoice}
+        suggested={suggested}
+        locked={locked}
+      />
 
-        <div className="flex flex-col items-start gap-1 text-[11px] text-slate-400 md:items-end">
-          <span
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 ring-1 ${pillClass(
-              suggested.status
-            )}`}
-          >
-            <span className="uppercase tracking-[0.18em]">
-              Suggested:{" "}
-              <span className="text-slate-50">
-                {suggested.status.toUpperCase()}
-              </span>
-            </span>
-            <span className="text-slate-400">·</span>
-            <span className="font-mono text-slate-300">
-              {suggested.reasonCode}
-            </span>
-          </span>
-          <span className="max-w-2xl text-xs text-slate-500 md:text-right">
-            {suggested.summary}
-          </span>
+      {/* Demo note (Stripe-dark, subtle) */}
+      {isAutoConfirmed ? (
+        <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/20 px-4 py-2 text-[12px] text-slate-400">
+          <span className="font-medium text-slate-300">Demo:</span> This invoice
+          was auto-confirmed before compliance review. Panel is shown for
+          audit/policy.
         </div>
-      </div>
+      ) : null}
 
-      {isAutoConfirmed && (
-        <div className="mt-4 rounded-2xl bg-slate-900/60 p-3 ring-1 ring-slate-800/80">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-            Demo note
-          </p>
-          <p className="mt-1 text-[11px] text-[rgb(0,136,255)]">
-            This invoice was auto-confirmed before manual compliance review. The
-            decision panel is shown for audit and policy demonstration purposes.
-          </p>
-        </div>
-      )}
+      <ComplianceMetaGrid invoice={invoice} />
 
-      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-        <div className="rounded-2xl bg-slate-900/60 p-3 ring-1 ring-slate-800/80">
-          <p className="text-[11px] uppercase text-slate-500">Amount tier</p>
-          <p className="mt-1 text-sm font-semibold text-slate-50">
-            {getAmountTier(invoice.fiatAmount).toUpperCase()}{" "}
-            <span className="text-[11px] font-normal text-slate-400">
-              ·· {formatFiatChf(invoice.fiatAmount)}
-            </span>
-          </p>
-        </div>
-
-        <div className="rounded-2xl bg-slate-900/60 p-3 ring-1 ring-slate-800/80">
-          <p className="text-[11px] uppercase text-slate-500">Sanctions</p>
-          <p className="mt-1 text-sm font-semibold text-slate-50">
-            {(sanctions?.status ?? "—").toString().toUpperCase()}
-          </p>
-          <p className="mt-1 text-[11px] text-slate-500">
-            {sanctions?.provider
-              ? `Source: ${sanctions.provider}`
-              : "Source: —"}
-            {sanctions?.reasonCode ? ` · ${sanctions.reasonCode}` : ""}
-          </p>
-        </div>
-
-        <div className="rounded-2xl bg-slate-900/60 p-3 ring-1 ring-slate-800/80">
-          <p className="text-[11px] uppercase text-slate-500">Policy note</p>
-          <p className="mt-1 text-[11px] text-slate-500">
-            Policy tiers are internal workflow levels (not legal thresholds).
-          </p>
-        </div>
-      </div>
-
+      {/* Operator comment */}
       <div className="mt-4">
-        <label className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-          Operator comment {locked ? "" : "(required for HOLD/REJECT)"}
-        </label>
+        <div className="flex items-end justify-between gap-3">
+          <label className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+            Operator comment{" "}
+            {!locked ? (
+              <span className="text-slate-600">
+                {needsCommentNow
+                  ? "(recommended now)"
+                  : "(required for HOLD/REJECT)"}
+              </span>
+            ) : null}
+          </label>
+
+          {!locked ? (
+            <div className="text-[11px] text-slate-600">
+              {commentTrim.length}/500
+            </div>
+          ) : null}
+        </div>
+
         <textarea
           value={comment}
-          onChange={(e) => setComment(e.target.value)}
+          onChange={(e) => setComment(e.target.value.slice(0, 500))}
           disabled={locked}
           rows={2}
           placeholder={
-            locked
-              ? "Invoice is closed."
-              : "Add justification / notes for audit trail…"
+            locked ? "Invoice is closed." : "Add notes for audit trail…"
           }
-          className="mt-2 w-full rounded-2xl bg-slate-900/60 p-3 text-[12px] text-slate-100
-                     ring-1 ring-slate-800/80 placeholder:text-slate-600
-                     focus:outline-none focus:ring-2 focus:ring-slate-700/80
-                     disabled:cursor-not-allowed disabled:opacity-60"
+          className={[
+            "mt-2 w-full rounded-xl border border-slate-800 bg-slate-900/30 p-3",
+            "text-[12px] text-slate-100 placeholder:text-slate-600",
+            "focus:outline-none focus:border-slate-700 focus:ring-2 focus:ring-slate-700/30",
+            "disabled:cursor-not-allowed disabled:opacity-60",
+          ].join(" ")}
         />
-        {error && <p className="mt-2 text-[11px] text-rose-200">{error}</p>}
+
+        {error ? (
+          <p className="mt-2 text-[11px] text-rose-200">{error}</p>
+        ) : null}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          disabled={locked || submitting !== null}
-          onClick={() =>
-            submit(
-              "approve",
-              suggested.status === "approve"
-                ? suggested.reasonCode
-                : "MANUAL_APPROVE"
-            )
-          }
-          className={`inline-flex min-w-110px items-center justify-center rounded-full border px-4 py-1.5
-                      text-[11px] font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60
-                      ${buttonClass("approve")}`}
-        >
-          {submitting === "approve" ? "Approving…" : "Approve"}
-        </button>
+      {/* Actions */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        {(["approve", "hold", "reject"] as const).map((action) => {
+          const tone = buttonTone(action, suggested.status);
+          const label =
+            action === "approve"
+              ? "Approve"
+              : action === "hold"
+              ? "Hold"
+              : "Reject";
+          const busy =
+            submitting === action
+              ? action === "approve"
+                ? "Approving…"
+                : action === "hold"
+                ? "Holding…"
+                : "Rejecting…"
+              : null;
 
-        <button
-          type="button"
-          disabled={locked || submitting !== null}
-          onClick={() =>
-            submit(
-              "hold",
-              suggested.status === "hold" ? suggested.reasonCode : "MANUAL_HOLD"
-            )
-          }
-          className={`inline-flex min-w-110px items-center justify-center rounded-full border px-4 py-1.5
-                      text-[11px] font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60
-                      ${buttonClass("hold")}`}
-        >
-          {submitting === "hold" ? "Holding…" : "Hold"}
-        </button>
+          return (
+            <button
+              key={action}
+              type="button"
+              disabled={locked || submitting !== null}
+              onClick={() =>
+                submit(
+                  action,
+                  suggested.status === action
+                    ? suggested.reasonCode
+                    : `MANUAL_${action.toUpperCase()}`
+                )
+              }
+              className={stripeActionClass(action, tone)}
+            >
+              {busy ?? label}
+            </button>
+          );
+        })}
 
-        <button
-          type="button"
-          disabled={locked || submitting !== null}
-          onClick={() =>
-            submit(
-              "reject",
-              suggested.status === "reject"
-                ? suggested.reasonCode
-                : "MANUAL_REJECT"
-            )
-          }
-          className={`inline-flex min-w-110px items-center justify-center rounded-full border px-4 py-1.5
-                      text-[11px] font-medium shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60
-                      ${buttonClass("reject")}`}
-        >
-          {submitting === "reject" ? "Rejecting…" : "Reject"}
-        </button>
-
-        {locked && (
-          <span className="text-[11px] text-slate-500">
-            Invoice is closed. Compliance decisions are locked.
-          </span>
-        )}
+        <div className="ml-auto text-[11px] text-slate-600">
+          {locked
+            ? "Decisions are locked (invoice closed)."
+            : "Decision is written to audit trail (reason + comment)."}
+        </div>
       </div>
     </section>
   );

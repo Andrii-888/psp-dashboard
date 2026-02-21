@@ -1,16 +1,29 @@
 "use client";
 
 import type { Invoice } from "@/lib/pspApi";
-import { StatusBadge } from "@/components/invoices/StatusBadge";
+import { formatDateTimeCH } from "@/lib/formatters";
 import { BackButton } from "@/components/ui/BackButton";
 import { CopyButton } from "@/components/ui/CopyButton";
+import type { InvoiceUiState } from "@/lib/invoices/deriveInvoiceUiState";
 
 interface InvoiceHeaderProps {
   invoice: Invoice | null;
+  uiState: InvoiceUiState | null;
 }
 
-export function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
-  const invoiceId = invoice?.id ?? "";
+function formatDetails(details?: string | null): string | null {
+  if (!details) return null;
+
+  const ms = new Date(details).getTime();
+  if (!Number.isFinite(ms)) return details;
+
+  return formatDateTimeCH(details);
+}
+
+export function InvoiceHeader({ invoice, uiState }: InvoiceHeaderProps) {
+  if (!invoice || !uiState) return null;
+
+  const invoiceId = invoice.id;
 
   return (
     <header className="apple-card p-4 md:p-6">
@@ -23,10 +36,10 @@ export function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
 
           <div className="mt-1 flex items-center gap-1.5">
             <div className="truncate font-mono text-xs font-medium tracking-[0.02em] text-slate-50 md:text-sm">
-              {invoice?.id ?? "Loading…"}
+              {invoiceId}
             </div>
 
-            <CopyButton value={invoiceId} />
+            <CopyButton value={invoiceId} size="sm" />
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] text-slate-400">
@@ -35,7 +48,7 @@ export function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
                 Merchant
               </span>
               <span className="max-w-[52ch] truncate font-mono text-slate-200">
-                {invoice?.merchantId ?? "—"}
+                {invoice.merchantId ?? "—"}
               </span>
             </div>
           </div>
@@ -43,7 +56,57 @@ export function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
 
         {/* RIGHT */}
         <div className="flex flex-col items-end gap-2">
-          {invoice ? <StatusBadge status={invoice.status} /> : null}
+          <div className="flex flex-wrap justify-end gap-2">
+            <span
+              className={[
+                "rounded-full px-2.5 py-1 text-[11px] font-medium ring-1",
+                uiState.invoice.tone === "ok"
+                  ? "bg-emerald-500/10 text-emerald-200 ring-emerald-500/20"
+                  : uiState.invoice.tone === "warn"
+                  ? "bg-amber-500/10 text-amber-200 ring-amber-500/20"
+                  : "bg-red-500/10 text-red-200 ring-red-500/20",
+              ].join(" ")}
+            >
+              {uiState.invoice.label}
+            </span>
+
+            <span
+              className={[
+                "rounded-full px-2.5 py-1 text-[11px] font-medium ring-1",
+                uiState.tx.tone === "ok"
+                  ? "bg-emerald-500/10 text-emerald-200 ring-emerald-500/20"
+                  : uiState.tx.tone === "warn"
+                  ? "bg-amber-500/10 text-amber-200 ring-amber-500/20"
+                  : "bg-red-500/10 text-red-200 ring-red-500/20",
+              ].join(" ")}
+            >
+              {uiState.tx.label}
+              {uiState.tx.details ? (
+                <span className="ml-2 font-normal text-slate-300">
+                  {formatDetails(uiState.tx.details)}
+                </span>
+              ) : null}
+            </span>
+
+            <span
+              className={[
+                "rounded-full px-2.5 py-1 text-[11px] font-medium ring-1",
+                uiState.decision.tone === "ok"
+                  ? "bg-emerald-500/10 text-emerald-200 ring-emerald-500/20"
+                  : uiState.decision.tone === "warn"
+                  ? "bg-amber-500/10 text-amber-200 ring-amber-500/20"
+                  : "bg-red-500/10 text-red-200 ring-red-500/20",
+              ].join(" ")}
+            >
+              {uiState.decision.label}
+              {uiState.decision.details ? (
+                <span className="ml-2 font-normal text-slate-300">
+                  {formatDetails(uiState.decision.details)}
+                </span>
+              ) : null}
+            </span>
+          </div>
+
           <BackButton href="/invoices" label="Back" />
         </div>
       </div>
