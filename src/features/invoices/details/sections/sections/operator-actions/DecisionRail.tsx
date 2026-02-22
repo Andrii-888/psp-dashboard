@@ -7,6 +7,7 @@ import type { InvoiceUiState } from "@/features/invoices/model/deriveInvoiceUiSt
 
 type DecisionRailProps = {
   disabled?: boolean;
+  loading?: boolean;
 
   invoice: Invoice;
   uiState: InvoiceUiState;
@@ -31,6 +32,7 @@ type PendingAction = "approve" | "reject" | "hold" | null;
 
 export function DecisionRail({
   disabled = false,
+  loading = false,
 
   invoice,
   uiState,
@@ -42,9 +44,13 @@ export function DecisionRail({
   const [pending, setPending] = React.useState<PendingAction>(null);
   const [reason, setReason] = React.useState<string>("");
 
+  const [optimisticDecision, setOptimisticDecision] = React.useState<
+    "approve" | "reject" | "hold" | null
+  >(null);
+
   const needsDecision = uiState.needsDecision;
 
-  const decisionStatus = invoice.decisionStatus ?? null;
+  const decisionStatus = optimisticDecision ?? invoice.decisionStatus ?? null;
   const decidedAt = invoice.decidedAt ?? null;
   const decidedBy = invoice.decidedBy ?? null;
 
@@ -55,9 +61,9 @@ export function DecisionRail({
       ? decisionStatus.trim().toLowerCase()
       : "";
   const isDecided =
-    !!decidedAt || ds === "approved" || ds === "rejected" || ds === "hold";
+    !!decidedAt || ds === "approve" || ds === "reject" || ds === "hold";
 
-  const canAct = !disabled && needsDecision && !isDecided;
+  const canAct = !disabled && !loading && needsDecision && !isDecided;
 
   const baseBtn = [
     "h-11 w-full",
@@ -125,6 +131,7 @@ export function DecisionRail({
   function resetConfirm() {
     setPending(null);
     setReason("");
+    setOptimisticDecision(null);
   }
 
   function startConfirm(action: PendingAction) {
@@ -134,10 +141,12 @@ export function DecisionRail({
   }
 
   function confirm() {
-    if (!canAct || !pending) return;
+    if (!canAct || !pending || loading) return;
 
     const clean = reason.trim();
     const finalReason = clean.length ? clean : undefined;
+
+    setOptimisticDecision(pending);
 
     if (pending === "approve") onApprove?.();
     if (pending === "reject") onReject?.(finalReason);
@@ -253,19 +262,27 @@ export function DecisionRail({
 
             {/* Confirm block (only for Reject/Hold) */}
             {pending ? (
-              <div className="mt-2 rounded-xl border border-slate-800/70 bg-slate-950/50 p-3">
+              <div
+                className={[
+                  "mt-2 rounded-xl border border-slate-800/70 bg-slate-950/50 p-3 text-center",
+                  "origin-top transition-all duration-200 ease-out",
+                  "animate-in fade-in zoom-in-95",
+                ].join(" ")}
+              >
                 <div className="text-xs font-semibold text-slate-100">
                   {confirmTitle}
                 </div>
+
                 <div className="mt-0.5 text-[11px] text-slate-400">
                   {confirmHint}
                 </div>
 
                 {pending !== "approve" ? (
-                  <label className="mt-2 block">
+                  <label className="mt-2 block text-center">
                     <div className="text-[11px] text-slate-500">
                       Reason (optional)
                     </div>
+
                     <input
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
@@ -280,12 +297,13 @@ export function DecisionRail({
                   </label>
                 ) : null}
 
-                <div className="mt-3 flex items-center gap-2">
+                <div className="mt-3 grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={resetConfirm}
                     className={[
-                      "h-9 flex-1 rounded-xl px-3 text-xs font-semibold",
+                      "h-9 w-full rounded-xl px-2 text-[11px] font-semibold",
+                      "flex items-center justify-center",
                       "border border-slate-800/70 bg-slate-950/40 text-slate-200",
                       "hover:bg-slate-950/60",
                       "transition active:translate-y-[0.5px]",
@@ -298,14 +316,16 @@ export function DecisionRail({
                     type="button"
                     onClick={confirm}
                     className={[
-                      "h-9 flex-1 rounded-xl px-3 text-xs font-semibold",
+                      "h-9 w-full rounded-xl px-2 text-[11px] font-semibold",
+                      loading ? "opacity-60 cursor-not-allowed" : "",
+                      "flex items-center justify-center",
                       pending === "reject"
                         ? "border border-rose-500/25 bg-rose-500/10 text-rose-100 hover:bg-rose-500/15"
                         : "border border-amber-500/25 bg-amber-500/10 text-amber-100 hover:bg-amber-500/15",
                       "transition active:translate-y-[0.5px]",
                     ].join(" ")}
                   >
-                    Confirm
+                    {loading ? "Processing..." : "Confirm"}
                   </button>
                 </div>
               </div>

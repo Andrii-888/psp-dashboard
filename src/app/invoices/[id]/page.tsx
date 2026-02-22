@@ -8,7 +8,6 @@ import { useInvoiceDetails } from "@/features/invoices/hooks/useInvoiceDetails";
 import { AuditTrailCard } from "@/features/invoices/details/sections/sections/audit-trail";
 import { InvoiceHeader } from "@/features/invoices/details/sections/sections/header";
 import { OverviewCard } from "@/features/invoices/details/sections/sections/overview";
-import { ComplianceDecisionCard } from "@/features/invoices/details/sections/sections/compliance";
 import { TechnicalEventsCard } from "@/features/invoices/details/sections/sections/technical-events/TechnicalEventsCard";
 import { BlockchainCard } from "@/features/invoices/details/sections/sections/blockchain";
 import { InvoiceWebhooksCard } from "@/features/invoices/details/sections/sections/webhooks/InvoiceWebhooksCard";
@@ -70,11 +69,14 @@ export default function InvoiceDetailsPage() {
     webhooksLoading,
     amlLoading,
     savingTx,
+    actionLoading,
     error,
     handleRunAml,
     handleAttachTx,
+    handleApprove,
+    handleReject,
+    handleHold,
   } = useInvoiceDetails(invoiceId);
-
   const sp = useSearchParams();
   const debug = useMemo(() => sp.get("debug") === "1", [sp]);
 
@@ -139,6 +141,20 @@ export default function InvoiceDetailsPage() {
   if (!invoice) return null;
 
   const uiState = deriveInvoiceUiState(invoice);
+  const lifecycleAllowsDecision = invoice.status === "waiting";
+  const allowApproveReject =
+    process.env.NEXT_PUBLIC_OPERATOR_FULL_ACCESS === "1";
+
+  const canAct =
+    lifecycleAllowsDecision &&
+    !actionLoading &&
+    invoice.decisionStatus !== "approve" &&
+    invoice.decisionStatus !== "reject";
+
+  function runIfCanAct(fn: () => void) {
+    if (!canAct) return;
+    fn();
+  }
 
   return (
     <main className="min-h-screen bg-page-gradient px-4 py-6 text-slate-50 md:px-8 md:py-8">
@@ -288,17 +304,7 @@ export default function InvoiceDetailsPage() {
               onAttachTx={handleAttachTx}
             />
 
-            <ComplianceDecisionCard
-              invoice={invoice}
-              onDecide={async (payload) => {
-                if (process.env.NODE_ENV !== "production") {
-                  console.log("COMPLIANCE_DECISION", {
-                    invoiceId: invoice.id,
-                    ...payload,
-                  });
-                }
-              }}
-            />
+            {/* Operator actions are handled by DecisionRail (single source of truth) */}
 
             <AuditTrailCard invoice={invoice} />
 
@@ -322,9 +328,24 @@ export default function InvoiceDetailsPage() {
         {/* Decision Rail */}
         <div className="hidden lg:block fixed top-1/2 -translate-y-1/2 z-40 left-[calc(50%+32rem)] ml-6">
           <DecisionRail
-            disabled={!invoice}
+            disabled={!invoice || !canAct}
             invoice={invoice}
             uiState={uiState}
+            loading={actionLoading}
+            onApprove={
+              allowApproveReject
+                ? () => runIfCanAct(() => void handleApprove())
+                : undefined
+            }
+            onReject={
+              allowApproveReject
+                ? (reasonText) =>
+                    runIfCanAct(() => void handleReject(reasonText))
+                : undefined
+            }
+            onHold={(reasonText) =>
+              runIfCanAct(() => void handleHold(reasonText))
+            }
           />
         </div>
       </div>

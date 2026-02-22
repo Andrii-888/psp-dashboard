@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import toast from "react-hot-toast";
 
 import type {
   Invoice,
@@ -19,11 +20,11 @@ import {
   runInvoiceAml,
   attachInvoiceTransaction,
   setInvoiceDecision,
-  rejectInvoice,
   expireInvoice,
+  confirmInvoice,
 } from "@/shared/api/pspApi";
 
-const POLL_INTERVAL_MS = 3000; // ✅ 3 seconds (top UX for payments)
+const POLL_INTERVAL_MS = 3000;
 
 interface UseInvoiceDetailsResult {
   invoice: Invoice | null;
@@ -49,7 +50,8 @@ interface UseInvoiceDetailsResult {
   handleRunAml: () => Promise<void>;
   handleAttachTx: (payload: AttachTransactionPayload) => Promise<void>;
   handleConfirm: () => Promise<void>;
-  handleReject: () => Promise<void>;
+  handleReject: (reasonText?: string) => Promise<void>;
+  handleHold: (reasonText?: string) => Promise<void>;
   handleExpire: () => Promise<void>;
   handleApprove: () => Promise<void>;
 }
@@ -198,6 +200,7 @@ export function useInvoiceDetails(
         const message =
           err instanceof Error ? err.message : "Failed to load invoice";
         setError(message);
+        toast.error(message);
       } finally {
         if (cancelled) return;
         setProviderEventsLoading(false);
@@ -339,6 +342,7 @@ export function useInvoiceDetails(
         const message =
           err instanceof Error ? err.message : "Failed to run AML check";
         setError(message);
+        toast.error(message);
       } finally {
         if (cancelled) return;
         setAmlLoading(false);
@@ -375,6 +379,7 @@ export function useInvoiceDetails(
       const message =
         err instanceof Error ? err.message : "Failed to load webhooks";
       setError(message);
+      toast.error(message);
     } finally {
       if (mountedRef.current) {
         setWebhooksLoading(false);
@@ -402,6 +407,7 @@ export function useInvoiceDetails(
       const message =
         err instanceof Error ? err.message : "Failed to dispatch webhooks";
       setError(message);
+      toast.error(message);
     } finally {
       if (!mountedRef.current) return;
       setDispatching(false);
@@ -437,6 +443,7 @@ export function useInvoiceDetails(
       const message =
         err instanceof Error ? err.message : "Failed to run AML check";
       setError(message);
+      toast.error(message);
     } finally {
       setAmlLoading(false);
     }
@@ -459,6 +466,7 @@ export function useInvoiceDetails(
       const message =
         err instanceof Error ? err.message : "Failed to attach transaction";
       setError(message);
+      toast.error(message);
     } finally {
       setSavingTx(false);
     }
@@ -472,18 +480,18 @@ export function useInvoiceDetails(
     try {
       setActionLoading(true);
       setError(null);
-      await setInvoiceDecision(invoiceId, "approve");
-      const next = await fetchInvoiceById(invoiceId);
-      setInvoice(next.invoice);
+
+      const res = await confirmInvoice(invoiceId);
+      setInvoice(res.invoice);
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "Failed to confirm invoice";
+        err instanceof Error ? err.message : "Failed to confirm transaction";
       setError(message);
+      toast.error(message);
     } finally {
       setActionLoading(false);
     }
   }
-
   async function handleApprove() {
     if (!invoiceId) return;
 
@@ -495,28 +503,68 @@ export function useInvoiceDetails(
 
       const next = await fetchInvoiceById(invoiceId);
       setInvoice(next.invoice);
+      toast.success("Invoice approved");
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to approve invoice";
       setError(message);
+      toast.error(message);
     } finally {
       setActionLoading(false);
     }
   }
 
-  async function handleReject() {
+  async function handleReject(reasonText?: string) {
     if (!invoiceId) return;
     if (isMutating) return;
+
+    const trimmed = typeof reasonText === "string" ? reasonText.trim() : "";
 
     try {
       setActionLoading(true);
       setError(null);
-      const res = await rejectInvoice(invoiceId);
-      setInvoice(res.invoice);
+
+      await setInvoiceDecision(
+        invoiceId,
+        "reject",
+        trimmed.length ? trimmed : undefined
+      );
+
+      const next = await fetchInvoiceById(invoiceId);
+      setInvoice(next.invoice);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to reject invoice";
       setError(message);
+      toast.error(message);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleHold(reasonText?: string) {
+    if (!invoiceId) return;
+    if (isMutating) return;
+
+    const trimmed = typeof reasonText === "string" ? reasonText.trim() : "";
+
+    try {
+      setActionLoading(true);
+      setError(null);
+
+      await setInvoiceDecision(
+        invoiceId,
+        "hold",
+        trimmed.length ? trimmed : undefined
+      );
+
+      const next = await fetchInvoiceById(invoiceId);
+      setInvoice(next.invoice);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to hold invoice";
+      setError(message);
+      toast.error(message);
     } finally {
       setActionLoading(false);
     }
@@ -531,10 +579,13 @@ export function useInvoiceDetails(
       setError(null);
       const res = await expireInvoice(invoiceId);
       setInvoice(res.invoice);
+      toast.success("Invoice rejected");
+      toast.success("Invoice placed on hold");
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to expire invoice";
       setError(message);
+      toast.error(message);
     } finally {
       setActionLoading(false);
     }
@@ -561,6 +612,7 @@ export function useInvoiceDetails(
     handleAttachTx,
     handleConfirm,
     handleReject,
+    handleHold,
     handleExpire,
     handleApprove,
   };
