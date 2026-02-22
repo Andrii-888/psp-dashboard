@@ -34,117 +34,111 @@ export function InvoicesPageHeader({
 }: Props) {
   const router = useRouter();
 
-  return (
-    <header className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-slate-50 md:text-2xl">
-          Payments Review — Operator Panel
-        </h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Live payment lifecycle with AML checks, operator decision, and
-          settlement readiness.
-        </p>
-      </div>
+  const updatedTitle = `Updated: ${
+    lastUpdatedAt ? formatDateTimeCH(lastUpdatedAt.toISOString()) : "—"
+  }`;
 
-      <div className="flex flex-col items-end gap-2">
+  return (
+    <header className="flex items-center justify-between gap-3">
+      <h1 className="min-w-0 truncate text-[15px] font-medium tracking-tight text-slate-100">
+        Payments Review
+      </h1>
+
+      <div className="flex items-center gap-2">
         {/* API status */}
         <div
           className={[
-            "inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs backdrop-blur-md",
+            "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] backdrop-blur-md",
             apiOk === true
-              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200 shadow-[0_12px_35px_rgba(16,185,129,0.45)]"
+              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
               : apiOk === false
-              ? "border-rose-500/40 bg-rose-500/10 text-rose-200 shadow-[0_12px_35px_rgba(244,63,94,0.35)]"
-              : "border-slate-700/60 bg-slate-900/40 text-slate-300 shadow-[0_12px_35px_rgba(148,163,184,0.18)]",
+              ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
+              : "border-slate-700/60 bg-slate-900/40 text-slate-300",
           ].join(" ")}
-        >
-          <span
-            className={[
-              "inline-block h-2 w-2 rounded-full",
-              apiOk === true
-                ? "bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.45)]"
-                : apiOk === false
-                ? "bg-rose-400 shadow-[0_0_0_4px_rgba(244,63,94,0.35)]"
-                : "bg-slate-400 shadow-[0_0_0_4px_rgba(148,163,184,0.25)]",
-            ].join(" ")}
-          />
-          <span className="font-medium">
-            {apiOk === true
+          title={
+            apiOk === true
               ? "Connected to PSP-core API"
               : apiOk === false
               ? "PSP-core API not reachable"
-              : "Checking PSP-core API…"}
-          </span>
-        </div>
-
-        {/* Controls */}
-        <div className="flex items-center gap-2">
-          {/* Live badge */}
-          <span className="inline-flex items-center gap-2 rounded-full bg-slate-900/50 px-3 py-1.5 text-[11px] text-slate-300 ring-1 ring-slate-700/60">
-            <span
-              className={[
-                "h-1.5 w-1.5 rounded-full",
-                liveOn
-                  ? "bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.20)]"
-                  : "bg-slate-400 shadow-[0_0_0_4px_rgba(148,163,184,0.18)]",
-              ].join(" ")}
-            />
-            {liveOn ? "Live · 3s" : "Live off"}
-          </span>
-
-          {/* Accounting */}
-          <button
-            type="button"
-            onClick={() => router.push("/accounting")}
-            className="inline-flex items-center justify-center rounded-full bg-slate-800/60 px-4 py-1.5 text-xs font-medium text-slate-100 ring-1 ring-slate-700/70 transition hover:bg-slate-800/85"
-          >
-            Accounting
-          </button>
-
-          {/* Sound toggle */}
-          <button
-            onClick={toggleSound}
+              : "Checking PSP-core API…"
+          }
+        >
+          <span
             className={[
-              "inline-flex items-center justify-center rounded-full px-4 py-1.5 text-xs font-medium ring-1 transition",
-              soundOn
-                ? "bg-emerald-500/15 text-emerald-200 ring-emerald-500/30 hover:bg-emerald-500/20"
-                : "bg-slate-800/60 text-slate-200 ring-slate-700/70 hover:bg-slate-800/85",
+              "inline-block h-1.5 w-1.5 rounded-full",
+              apiOk === true
+                ? "bg-emerald-400"
+                : apiOk === false
+                ? "bg-rose-400"
+                : "bg-slate-400",
             ].join(" ")}
-          >
-            {soundOn ? "🔔 Sound: On" : "🔕 Sound: Off"}
-          </button>
-
-          {/* Refresh */}
-          <button
-            onClick={onRefresh}
-            disabled={loading || refreshing}
-            className="inline-flex items-center justify-center rounded-full bg-slate-800/60 px-4 py-1.5 text-xs font-medium text-slate-100 ring-1 ring-slate-700/70 transition hover:bg-slate-800/85 disabled:opacity-60"
-          >
-            {refreshing ? "Refreshing…" : "Refresh"}
-          </button>
+          />
+          <span className="text-[11px] font-medium text-slate-300">
+            {apiOk === true
+              ? "Online"
+              : apiOk === false
+              ? "Unavailable"
+              : "Checking…"}
+          </span>
         </div>
 
-        {/* FX (single source of truth) */}
-        <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/50 px-3 py-1.5 text-[11px] text-slate-300 ring-1 ring-slate-700/60">
-          <span className="text-slate-400">FX</span>
-          <span className="font-medium text-slate-200">CHF-only</span>
-          <span className="text-slate-500">SSOT</span>
-        </div>
+        {/* Live badge */}
+        <span
+          className="inline-flex items-center gap-2 rounded-full bg-slate-900/40 px-2.5 py-1 text-[11px] text-slate-300 ring-1 ring-slate-700/60"
+          title={updatedTitle}
+        >
+          <span
+            className={[
+              "h-1.5 w-1.5 rounded-full",
+              liveOn
+                ? "bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.18)]"
+                : "bg-slate-400 shadow-[0_0_0_4px_rgba(148,163,184,0.14)]",
+            ].join(" ")}
+          />
+          {liveOn ? "Live" : "Live off"}
+        </span>
 
-        {/* Meta */}
-        {lastUpdatedAt ? (
-          <p className="text-[11px] text-slate-400">
-            Updated:{" "}
-            {lastUpdatedAt
-              ? formatDateTimeCH(lastUpdatedAt.toISOString())
-              : "—"}
-          </p>
-        ) : null}
+        {/* Accounting */}
+        <button
+          type="button"
+          onClick={() => router.push("/accounting")}
+          className="inline-flex items-center justify-center rounded-full bg-slate-800/60 px-3 py-1 text-[11px] font-medium text-slate-100 ring-1 ring-slate-700/70 transition hover:bg-slate-800/85"
+        >
+          Accounting
+        </button>
 
+        {/* Sound toggle */}
+        <button
+          type="button"
+          onClick={toggleSound}
+          className={[
+            "inline-flex items-center justify-center rounded-full px-3 py-1 text-[11px] font-medium ring-1 transition",
+            soundOn
+              ? "bg-emerald-500/15 text-emerald-200 ring-emerald-500/30 hover:bg-emerald-500/20"
+              : "bg-slate-800/60 text-slate-200 ring-slate-700/70 hover:bg-slate-800/85",
+          ].join(" ")}
+        >
+          {soundOn ? "Sound: On" : "Sound: Off"}
+        </button>
+
+        {/* Refresh */}
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={loading || refreshing}
+          className="inline-flex items-center justify-center rounded-full bg-slate-800/60 px-3 py-1 text-[11px] font-medium text-slate-100 ring-1 ring-slate-700/70 transition hover:bg-slate-800/85 disabled:opacity-60"
+        >
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
+
+        {/* API error (compact, no layout shift) */}
         {apiOk === false && apiError ? (
-          <p className="max-w-sm truncate text-[11px] text-rose-200/80">
+          <span
+            className="max-w-xs truncate text-[11px] text-rose-400/60 opacity-80"
+            title={apiError}
+          >
             {apiError}
-          </p>
+          </span>
         ) : null}
       </div>
     </header>
