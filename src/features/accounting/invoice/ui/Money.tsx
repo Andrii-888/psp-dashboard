@@ -2,7 +2,7 @@
 
 import type { Invoice } from "../types/invoice";
 import React from "react";
-import { formatNumberCH } from "@/lib/formatters";
+import { formatNumberCH } from "@/shared/lib/formatters";
 
 function upper(v?: string | null): string {
   return (

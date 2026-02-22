@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { Invoice } from "@/domain/invoices/types";
-import { fetchInvoiceById } from "@/lib/pspApi";
+import { fetchInvoiceById } from "@/shared/api/pspApi";
 
 type PollState =
   | { state: "idle" }

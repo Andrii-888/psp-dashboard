@@ -1,13 +1,13 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import type { DatePreset } from "@/components/invoices/filters/datePresets";
+import type { DatePreset } from "./filters/datePresets";
 
-import { StatusFilterPills } from "@/components/invoices/filters/StatusFilterPills";
-import { AmlFilterPills } from "@/components/invoices/filters/AmlFilterPills";
-import { DatePresetPills } from "@/components/invoices/filters/DatePresetPills";
-import { AmountFilter } from "@/components/invoices/filters/AmountFilter";
-import { SearchFilter } from "@/components/invoices/filters/SearchFilter";
+import { StatusFilterPills } from "@/features/invoices/ui/filters/StatusFilterPills";
+import { AmlFilterPills } from "@/features/invoices/ui/filters/AmlFilterPills";
+import { DatePresetPills } from "@/features/invoices/ui/filters/DatePresetPills";
+import { AmountFilter } from "@/features/invoices/ui/filters/AmountFilter";
+import { SearchFilter } from "@/features/invoices/ui/filters/SearchFilter";
 
 interface FiltersBarProps {
   status: string;

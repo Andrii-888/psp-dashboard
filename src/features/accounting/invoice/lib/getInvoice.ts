@@ -1,7 +1,7 @@
 // src/app/accounting/invoice/lib/getInvoice.ts
 
 import type { Invoice } from "@/domain/invoices/types";
-import { fetchInvoiceById } from "@/lib/pspApi";
+import { fetchInvoiceById } from "@/shared/api/pspApi";
 
 export async function getInvoice(invoiceId: string): Promise<Invoice> {
   const res = await fetchInvoiceById(invoiceId);

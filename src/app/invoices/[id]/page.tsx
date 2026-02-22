@@ -3,8 +3,8 @@
 
 import { useEffect, useMemo } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { deriveInvoiceUiState } from "@/lib/invoices/deriveInvoiceUiState";
-import { useInvoiceDetails } from "@/hooks/useInvoiceDetails";
+import { deriveInvoiceUiState } from "@/features/invoices/model/deriveInvoiceUiState";
+import { useInvoiceDetails } from "@/features/invoices/hooks/useInvoiceDetails";
 import { AuditTrailCard } from "@/features/invoices/details/sections/sections/audit-trail";
 import { InvoiceHeader } from "@/features/invoices/details/sections/sections/header";
 import { OverviewCard } from "@/features/invoices/details/sections/sections/overview";

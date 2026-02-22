@@ -1,7 +1,7 @@
 "use client";
 
 import type { Invoice } from "../types/invoice";
-import { CopyReceiptButton } from "@/components/ui/CopyReceiptButton";
+import { CopyReceiptButton } from "@/shared/ui/components/CopyReceiptButton";
 
 function fmtUtc(ts?: string | null): string {
   const v = String(ts ?? "").trim();

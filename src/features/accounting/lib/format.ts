@@ -3,7 +3,7 @@
 // Used across Accounting page, KPIs and table
 // --------------------------------------------
 
-import { formatDateTimeCH } from "@/lib/formatters";
+import { formatDateTimeCH } from "@/shared/lib/formatters";
 
 /**
  * Safely convert backend values (string | number | null)

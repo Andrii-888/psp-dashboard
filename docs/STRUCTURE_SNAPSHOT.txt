@@ -1,195 +1,127 @@
-src
-├── app
-│   ├── accounting
-│   │   ├── actions
-│   │   │   ├── backfillConfirmed.ts
-│   │   │   ├── ExportCsvButton.tsx
-│   │   │   └── ExportCsvModal.tsx
-│   │   ├── components
-│   │   │   ├── AccountingFilters.tsx
-│   │   │   ├── AccountingHeader.tsx
-│   │   │   ├── AccountingKpis.tsx
-│   │   │   ├── AccountingRow.tsx
-│   │   │   ├── AccountingStatusBanner.tsx
-│   │   │   ├── AccountingTable.tsx
-│   │   │   ├── AccountingTableClient.tsx
-│   │   │   ├── ByAssetTable.tsx
-│   │   │   ├── ByDayTable.tsx
-│   │   │   ├── EmptyState.tsx
-│   │   │   ├── ErrorState.tsx
-│   │   │   ├── FeesBreakdown.tsx
-│   │   │   ├── filters
-│   │   │   │   ├── DateRangePicker.tsx
-│   │   │   │   ├── dateUtils.ts
-│   │   │   │   ├── hooks.ts
-│   │   │   │   ├── icons.tsx
-│   │   │   │   ├── index.ts
-│   │   │   │   ├── LimitDropdown.tsx
-│   │   │   │   └── MerchantSelect.tsx
-│   │   │   ├── JsonPretty.tsx
-│   │   │   ├── ReconciliationPanel.tsx
-│   │   │   └── TotalsReconciliationPanel.tsx
-│   │   ├── invoice
-│   │   │   ├── components
-│   │   │   │   ├── Accounting.tsx
-│   │   │   │   ├── BlockchainReference.tsx
-│   │   │   │   ├── Compliance.tsx
-│   │   │   │   ├── FXReceipt.tsx
-│   │   │   │   ├── Identification.tsx
-│   │   │   │   ├── InvoiceAccountingHeader.tsx
-│   │   │   │   ├── InvoiceAmlDecision.tsx
-│   │   │   │   ├── InvoiceOverview.tsx
-│   │   │   │   ├── InvoicePaymentInstructions.tsx
-│   │   │   │   ├── InvoiceTransaction.tsx
-│   │   │   │   └── Money.tsx
-│   │   │   ├── lib
-│   │   │   │   └── getInvoice.ts
-│   │   │   ├── page.tsx
-│   │   │   ├── types
-│   │   │   │   └── invoice.ts
-│   │   │   └── ui
-│   │   │       └── Row.tsx
-│   │   ├── lib
-│   │   │   ├── api.ts
-│   │   │   ├── explorer.ts
-│   │   │   ├── format.ts
-│   │   │   ├── fromInvoices.ts
-│   │   │   ├── searchParams.ts
-│   │   │   ├── serverUtils.ts
-│   │   │   ├── types.ts
-│   │   │   └── uiModel.ts
-│   │   └── page.tsx
-│   ├── api
-│   │   ├── auth
-│   │   │   └── route.ts
-│   │   ├── psp
-│   │   │   └── [...path]
-│   │   │       └── route.ts
-│   │   └── webhooks
-│   │       └── psp
-│   │           ├── inbox
-│   │           │   ├── [id]
-│   │           │   │   └── route.ts
-│   │           │   └── route.ts
-│   │           └── route.ts
-│   ├── favicon.ico
-│   ├── globals.css
-│   ├── invoices
-│   │   ├── [id]
-│   │   │   ├── page.tsx
-│   │   │   └── payment-record
-│   │   │       └── page.tsx
-│   │   ├── actions
-│   │   │   └── useInvoicesActions.ts
-│   │   ├── InvoiceStatusChips.tsx
-│   │   └── page.tsx
-│   ├── layout.tsx
-│   ├── page.tsx
-│   └── pay
-│       └── [id]
-│           └── page.tsx
-├── components
-│   ├── FiltersBar.tsx
-│   ├── home
-│   │   └── HomeHero.tsx
-│   ├── invoice-details
-│   │   └── sections
-│   │       ├── audit-trail
-│   │       │   ├── AuditTrailCard.tsx
-│   │       │   └── index.ts
-│   │       ├── blockchain
-│   │       │   ├── BlockchainCard.tsx
-│   │       │   ├── components
-│   │       │   │   ├── BlockchainHeader.tsx
-│   │       │   │   ├── OnChainStatusRail.tsx
-│   │       │   │   └── TransactionCard.tsx
-│   │       │   ├── index.ts
-│   │       │   ├── lib
-│   │       │   │   ├── blockchainSelectors.ts
-│   │       │   │   ├── blockchainTypes.ts
-│   │       │   │   └── copy.ts
-│   │       │   └── ui
-│   │       │       ├── ClipboardButton.tsx
-│   │       │       └── Field.tsx
-│   │       ├── compliance
-│   │       │   ├── ComplianceDecisionCard.tsx
-│   │       │   ├── components
-│   │       │   │   ├── ComplianceBanner.tsx
-│   │       │   │   └── ComplianceMetaGrid.tsx
-│   │       │   ├── index.ts
-│   │       │   └── lib
-│   │       │       └── compliancePolicy.ts
-│   │       ├── header
-│   │       │   ├── index.ts
-│   │       │   └── InvoiceHeader.tsx
-│   │       ├── operator-actions
-│   │       │   ├── DecisionRail.tsx
-│   │       │   └── index.ts
-│   │       ├── overview
-│   │       │   ├── amlUiState.ts
-│   │       │   ├── components
-│   │       │   │   ├── AmlActionButton.tsx
-│   │       │   │   ├── AmlSidebar.tsx
-│   │       │   │   ├── CryptoCleanliness.tsx
-│   │       │   │   ├── DemoTxAttach.tsx
-│   │       │   │   ├── ExpiryCountdown.tsx
-│   │       │   │   ├── InvoiceSummaryStats.tsx
-│   │       │   │   ├── PaymentInstructionsPanel.tsx
-│   │       │   │   └── ScreeningStatus.tsx
-│   │       │   ├── index.ts
-│   │       │   └── OverviewCard.tsx
-│   │       ├── provider-events
-│   │       │   ├── index.ts
-│   │       │   └── ProviderEventsCard.tsx
-│   │       ├── technical-events
-│   │       │   └── TechnicalEventsCard.tsx
-│   │       └── webhooks
-│   │           ├── index.ts
-│   │           ├── InvoiceWebhooksCard.tsx
-│   │           ├── WebhookInboxCard.tsx
-│   │           └── WebhooksCard.tsx
-│   ├── invoices
-│   │   ├── AmlBadge.tsx
-│   │   ├── filters
-│   │   │   ├── AmlFilterPills.tsx
-│   │   │   ├── AmountFilter.tsx
-│   │   │   ├── DatePresetPills.tsx
-│   │   │   ├── datePresets.ts
-│   │   │   ├── SearchFilter.tsx
-│   │   │   └── StatusFilterPills.tsx
-│   │   ├── InvoicesPageHeader.tsx
-│   │   ├── InvoicesTable.tsx
-│   │   ├── PaginationBar.tsx
-│   │   ├── RefreshButton.tsx
-│   │   └── StatusBadge.tsx
-│   └── ui
-│       ├── BackButton.tsx
-│       ├── CopyButton.tsx
-│       ├── CopyReceiptButton.tsx
-│       ├── Toast.tsx
-│       └── ToastStack.tsx
-├── domain
-│   └── invoices
-│       └── types.ts
-├── hooks
-│   ├── useApiHealth.ts
-│   ├── useClientPagination.ts
-│   ├── useInvoiceDetails.ts
-│   ├── useInvoicePageModel.ts
-│   ├── useInvoicePolling.ts
-│   ├── useInvoicesPage.ts
-│   ├── useLiveFxQuote.ts
-│   ├── useLiveInvoices.ts
-│   ├── usePagination.ts
-│   └── useToasts.ts
-├── lib
-│   ├── env.server.ts
-│   ├── formatters.ts
-│   ├── invoices
-│   │   ├── deriveInvoiceUiState.ts
-│   │   └── filterInvoices.ts
-│   ├── pspApi.ts
-│   └── webhookInboxStore.ts
-└── proxy.ts
+## Generated: 2026-02-22T13:12:46+01:00
 
-53 directories, 140 files
+# Directories (maxdepth=4)
+
+DIR src
+DIR src/app
+DIR src/app/accounting
+DIR src/app/accounting/invoice
+DIR src/app/api
+DIR src/app/api/auth
+DIR src/app/api/psp
+DIR src/app/api/psp/[...path]
+DIR src/app/api/webhooks
+DIR src/app/api/webhooks/psp
+DIR src/app/invoices
+DIR src/app/invoices/[id]
+DIR src/app/invoices/[id]/payment-record
+DIR src/app/pay
+DIR src/app/pay/[id]
+DIR src/domain
+DIR src/domain/invoices
+DIR src/features
+DIR src/features/accounting
+DIR src/features/accounting/actions
+DIR src/features/accounting/invoice
+DIR src/features/accounting/invoice/lib
+DIR src/features/accounting/invoice/types
+DIR src/features/accounting/invoice/ui
+DIR src/features/accounting/invoice/ui-shared
+DIR src/features/accounting/lib
+DIR src/features/accounting/ui
+DIR src/features/accounting/ui/filters
+DIR src/features/invoices
+DIR src/features/invoices/actions
+DIR src/features/invoices/details
+DIR src/features/invoices/details/sections
+DIR src/features/invoices/hooks
+DIR src/features/invoices/lib
+DIR src/features/invoices/model
+DIR src/features/invoices/ui
+DIR src/features/invoices/ui/filters
+DIR src/shared
+DIR src/shared/api
+DIR src/shared/hooks
+DIR src/shared/lib
+DIR src/shared/ui
+DIR src/shared/ui/components
+DIR src/shared/ui/home
+DIR src/shared/ui/invoices
+DIR src/shared/ui/table
+
+# Files (maxdepth=4)
+
+FILE src/app/accounting/invoice/page.tsx
+FILE src/app/accounting/page.tsx
+FILE src/app/api/auth/route.ts
+FILE src/app/favicon.ico
+FILE src/app/globals.css
+FILE src/app/invoices/[id]/page.tsx
+FILE src/app/invoices/page.tsx
+FILE src/app/layout.tsx
+FILE src/app/page.tsx
+FILE src/app/pay/[id]/page.tsx
+
+FILE src/domain/invoices/types.ts
+
+FILE src/features/accounting/actions/backfillConfirmed.ts
+FILE src/features/accounting/actions/ExportCsvButton.tsx
+FILE src/features/accounting/actions/ExportCsvModal.tsx
+FILE src/features/accounting/lib/api.ts
+FILE src/features/accounting/lib/explorer.ts
+FILE src/features/accounting/lib/format.ts
+FILE src/features/accounting/lib/fromInvoices.ts
+FILE src/features/accounting/lib/searchParams.ts
+FILE src/features/accounting/lib/serverUtils.ts
+FILE src/features/accounting/lib/types.ts
+FILE src/features/accounting/lib/uiModel.ts
+FILE src/features/accounting/ui/AccountingFilters.tsx
+FILE src/features/accounting/ui/AccountingHeader.tsx
+FILE src/features/accounting/ui/AccountingKpis.tsx
+FILE src/features/accounting/ui/AccountingRow.tsx
+FILE src/features/accounting/ui/AccountingStatusBanner.tsx
+FILE src/features/accounting/ui/AccountingTable.tsx
+FILE src/features/accounting/ui/AccountingTableClient.tsx
+FILE src/features/accounting/ui/ByAssetTable.tsx
+FILE src/features/accounting/ui/ByDayTable.tsx
+FILE src/features/accounting/ui/EmptyState.tsx
+FILE src/features/accounting/ui/ErrorState.tsx
+FILE src/features/accounting/ui/FeesBreakdown.tsx
+FILE src/features/accounting/ui/JsonPretty.tsx
+FILE src/features/accounting/ui/ReconciliationPanel.tsx
+FILE src/features/accounting/ui/TotalsReconciliationPanel.tsx
+
+FILE src/features/invoices/actions/useInvoicesActions.ts
+FILE src/features/invoices/hooks/useInvoiceDetails.ts
+FILE src/features/invoices/hooks/useInvoicePageModel.ts
+FILE src/features/invoices/hooks/useInvoicePolling.ts
+FILE src/features/invoices/hooks/useInvoicesPage.ts
+FILE src/features/invoices/hooks/useLiveInvoices.ts
+FILE src/features/invoices/lib/filterInvoices.ts
+FILE src/features/invoices/model/deriveInvoiceUiState.ts
+FILE src/features/invoices/ui/FiltersBar.tsx
+FILE src/features/invoices/ui/InvoicesPageHeader.tsx
+FILE src/features/invoices/ui/InvoicesTable.tsx
+FILE src/features/invoices/ui/InvoiceStatusChips.tsx
+
+FILE src/proxy.ts
+
+FILE src/shared/api/pspApi.ts
+FILE src/shared/hooks/useApiHealth.ts
+FILE src/shared/hooks/useClientPagination.ts
+FILE src/shared/hooks/useLiveFxQuote.ts
+FILE src/shared/hooks/usePagination.ts
+FILE src/shared/hooks/useToasts.ts
+FILE src/shared/lib/env.server.ts
+FILE src/shared/lib/formatters.ts
+FILE src/shared/lib/webhookInboxStore.ts
+FILE src/shared/ui/components/BackButton.tsx
+FILE src/shared/ui/components/CopyButton.tsx
+FILE src/shared/ui/components/CopyReceiptButton.tsx
+FILE src/shared/ui/components/Toast.tsx
+FILE src/shared/ui/components/ToastStack.tsx
+FILE src/shared/ui/home/HomeHero.tsx
+FILE src/shared/ui/invoices/AmlBadge.tsx
+FILE src/shared/ui/invoices/StatusBadge.tsx
+FILE src/shared/ui/table/PaginationBar.tsx
+FILE src/shared/ui/table/RefreshButton.tsx

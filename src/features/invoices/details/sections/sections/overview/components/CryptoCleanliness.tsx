@@ -1,6 +1,6 @@
 "use client";
 
-import type { Invoice } from "@/lib/pspApi";
+import type { Invoice } from "@/shared/api/pspApi";
 
 function clamp(n: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, n));

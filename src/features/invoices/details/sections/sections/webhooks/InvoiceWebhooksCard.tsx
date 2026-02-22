@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { CopyButton } from "@/components/ui/CopyButton";
+import { CopyButton } from "@/shared/ui/components/CopyButton";
 
 interface Props {
   events: unknown[];

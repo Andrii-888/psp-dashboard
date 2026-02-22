@@ -1,4 +1,4 @@
-import { BackButton } from "@/components/ui/BackButton";
+import { BackButton } from "@/shared/ui/components/BackButton";
 import ExportCsvButton from "@/features/accounting/actions/ExportCsvButton";
 
 export default function AccountingHeader({

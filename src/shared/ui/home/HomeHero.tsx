@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { useApiHealth } from "@/hooks/useApiHealth";
+import { useApiHealth } from "@/shared/hooks/useApiHealth";
 
 function StatusPill({
   apiOk,

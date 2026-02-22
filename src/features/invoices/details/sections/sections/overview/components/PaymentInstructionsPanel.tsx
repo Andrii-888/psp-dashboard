@@ -1,7 +1,7 @@
 "use client";
 
-import type { Invoice } from "@/lib/pspApi";
-import { formatDateTimeCH } from "@/lib/formatters";
+import type { Invoice } from "@/shared/api/pspApi";
+import { formatDateTimeCH } from "@/shared/lib/formatters";
 import { ExpiryCountdown } from "@/features/invoices/details/sections/sections/overview/components/ExpiryCountdown";
 
 type Props = {

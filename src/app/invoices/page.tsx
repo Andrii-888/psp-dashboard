@@ -1,18 +1,18 @@
 "use client";
 
-import { FiltersBar } from "@/components/FiltersBar";
-import { InvoicesTable } from "@/components/invoices/InvoicesTable";
-import { InvoicesPageHeader } from "@/components/invoices/InvoicesPageHeader";
-import { PaginationBar } from "@/components/invoices/PaginationBar";
+import { FiltersBar } from "@/features/invoices/ui/FiltersBar";
+import { InvoicesTable } from "@/features/invoices/ui/InvoicesTable";
+import { InvoicesPageHeader } from "@/features/invoices/ui/InvoicesPageHeader";
+import { PaginationBar } from "@/shared/ui/table/PaginationBar";
 
-import { useInvoicesPage } from "@/hooks/useInvoicesPage";
-import { useLiveInvoices } from "@/hooks/useLiveInvoices";
+import { useInvoicesPage } from "@/features/invoices/hooks/useInvoicesPage";
+import { useLiveInvoices } from "@/features/invoices/hooks/useLiveInvoices";
 
-import { useApiHealth } from "@/hooks/useApiHealth";
+import { useApiHealth } from "@/shared/hooks/useApiHealth";
 
-import { ToastStack } from "@/components/ui/ToastStack";
-import { useToasts } from "@/hooks/useToasts";
-import { usePagination } from "@/hooks/usePagination";
+import { ToastStack } from "@/shared/ui/components/ToastStack";
+import { useToasts } from "@/shared/hooks/useToasts";
+import { usePagination } from "@/shared/hooks/usePagination";
 
 import { useInvoicesActions } from "@/features/invoices/actions/useInvoicesActions";
 

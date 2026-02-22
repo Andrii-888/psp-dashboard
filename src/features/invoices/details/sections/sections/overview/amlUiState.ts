@@ -1,5 +1,4 @@
-// src/components/invoice-details/overview/amlUiState.ts
-import type { Invoice } from "@/lib/pspApi";
+import type { Invoice } from "@/shared/api/pspApi";
 
 export type AmlUiStage =
   | "no_tx"

@@ -1,7 +1,7 @@
 "use client";
 
-import type { WebhookEvent, WebhookDispatchResult } from "@/lib/pspApi";
-import { formatDateTimeCH } from "@/lib/formatters";
+import type { WebhookEvent, WebhookDispatchResult } from "@/shared/api/pspApi";
+import { formatDateTimeCH } from "@/shared/lib/formatters";
 
 interface Props {
   webhooks: WebhookEvent[];

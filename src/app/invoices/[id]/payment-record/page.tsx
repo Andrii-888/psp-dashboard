@@ -3,10 +3,10 @@
 import { useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { notFound } from "next/navigation";
-import { useInvoiceDetails } from "@/hooks/useInvoiceDetails";
-import { StatusBadge } from "@/components/invoices/StatusBadge";
-import { AmlBadge } from "@/components/invoices/AmlBadge";
-import { formatDateTimeCH } from "@/lib/formatters";
+import { useInvoiceDetails } from "@/features/invoices/hooks/useInvoiceDetails";
+import { StatusBadge } from "@/shared/ui/invoices/StatusBadge";
+import { AmlBadge } from "@/shared/ui/invoices/AmlBadge";
+import { formatDateTimeCH } from "@/shared/lib/formatters";
 
 type RouteParams = { id?: string | string[] };
 

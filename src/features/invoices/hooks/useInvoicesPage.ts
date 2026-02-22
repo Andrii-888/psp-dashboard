@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchOperatorInvoices, type Invoice } from "@/lib/pspApi";
+import { fetchOperatorInvoices, type Invoice } from "@/shared/api/pspApi";
 import {
   filterInvoices,
   type InvoiceFilterParams,
-} from "@/lib/invoices/filterInvoices";
+} from "@/features/invoices/lib/filterInvoices";
 
 export type DatePreset = "all" | "today" | "7d" | "30d";
 

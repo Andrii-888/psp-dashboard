@@ -1,7 +1,7 @@
 // src/app/api/webhooks/psp/inbox/[id]/route.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { inboxGetAsync } from "@/lib/webhookInboxStore";
+import { inboxGetAsync } from "@/shared/lib/webhookInboxStore";
 
 type RouteCtx = {
   params: Promise<{ id: string }>;

@@ -6,7 +6,7 @@ import {
   inboxAddAsync,
   inboxListAsync,
   inboxMetaAsync,
-} from "@/lib/webhookInboxStore";
+} from "@/shared/lib/webhookInboxStore";
 
 export const runtime = "nodejs";
 

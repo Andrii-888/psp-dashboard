@@ -1,6 +1,6 @@
 "use client";
 
-import type { Invoice } from "@/lib/pspApi";
+import type { Invoice } from "@/shared/api/pspApi";
 
 function getScreeningMeta(invoice: Invoice): {
   label: "NOT STARTED" | "PENDING" | "COMPLETED";

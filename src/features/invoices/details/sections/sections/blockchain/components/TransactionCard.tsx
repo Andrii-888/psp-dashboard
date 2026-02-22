@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { OperatorTxViewModel } from "../lib/blockchainTypes";
-import { CopyButton } from "@/components/ui/CopyButton";
+import { CopyButton } from "@/shared/ui/components/CopyButton";
 
 function formatAmount(amount: string | null, asset: string | null): string {
   if (!amount && !asset) return "—";

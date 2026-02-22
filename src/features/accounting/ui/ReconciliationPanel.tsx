@@ -2,7 +2,7 @@
 
 import { Fragment } from "react/jsx-runtime";
 import JsonPretty from "./JsonPretty";
-import { formatNumberCH } from "@/lib/formatters";
+import { formatNumberCH } from "@/shared/lib/formatters";
 
 type ReconciliationIssue = {
   type: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import type { AttachTransactionPayload, Invoice } from "@/lib/pspApi";
+import type { AttachTransactionPayload, Invoice } from "@/shared/api/pspApi";
 import { PaymentInstructionsPanel } from "./components/PaymentInstructionsPanel";
 import { InvoiceSummaryStats } from "./components/InvoiceSummaryStats";
 import { AmlSidebar } from "./components/AmlSidebar";

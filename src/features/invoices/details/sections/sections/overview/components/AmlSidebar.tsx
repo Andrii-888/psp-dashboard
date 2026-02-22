@@ -1,14 +1,13 @@
-// src/components/invoice-details/overview/AmlSidebar.tsx
 "use client";
 
-import type { AttachTransactionPayload, Invoice } from "@/lib/pspApi";
-import { AmlBadge } from "@/components/invoices/AmlBadge";
+import type { AttachTransactionPayload, Invoice } from "@/shared/api/pspApi";
+import { AmlBadge } from "@/shared/ui/invoices/AmlBadge";
 import { ScreeningStatus } from "./ScreeningStatus";
 import { AmlActionButton } from "./AmlActionButton";
 import { DemoTxAttach } from "./DemoTxAttach";
 import { CryptoCleanliness } from "./CryptoCleanliness";
 import { getAmlUiState } from "../amlUiState";
-import { formatDateTimeCH } from "@/lib/formatters";
+import { formatDateTimeCH } from "@/shared/lib/formatters";
 
 type Props = {
   invoice: Invoice;

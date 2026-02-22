@@ -1,6 +1,6 @@
 "use client";
 
-import type { Invoice } from "@/lib/pspApi";
+import type { Invoice } from "@/shared/api/pspApi";
 
 // 🎨 Цвет кнопки в зависимости от AML
 function getAmlButtonClasses(status: Invoice["amlStatus"]) {

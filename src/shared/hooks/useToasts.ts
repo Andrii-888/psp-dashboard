@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { ToastItem } from "@/components/ui/ToastStack";
+import type { ToastItem } from "@/shared/ui/components/ToastStack";
 
 function makeToastId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {

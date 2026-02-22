@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { Invoice } from "@/domain/invoices/types";
-import { CopyButton } from "@/components/ui/CopyButton";
+import { CopyButton } from "./CopyButton";
 
 function upper(v?: string | null): string {
   return (

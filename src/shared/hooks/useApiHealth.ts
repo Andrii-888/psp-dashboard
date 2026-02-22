@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { healthCheck } from "@/lib/pspApi";
+import { healthCheck } from "@/shared/api/pspApi";
 
 export function useApiHealth() {
   const [apiOk, setApiOk] = useState<boolean | null>(null);

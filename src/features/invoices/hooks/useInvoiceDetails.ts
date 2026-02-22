@@ -21,7 +21,7 @@ import {
   setInvoiceDecision,
   rejectInvoice,
   expireInvoice,
-} from "@/lib/pspApi";
+} from "@/shared/api/pspApi";
 
 const POLL_INTERVAL_MS = 3000; // ✅ 3 seconds (top UX for payments)
 

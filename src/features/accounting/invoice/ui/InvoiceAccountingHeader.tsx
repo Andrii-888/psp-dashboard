@@ -1,8 +1,8 @@
 "use client";
 
 import type { Invoice } from "../types/invoice";
-import { BackButton } from "@/components/ui/BackButton";
-import { StatusBadge } from "@/components/invoices/StatusBadge";
+import { BackButton } from "@/shared/ui/components/BackButton";
+import { StatusBadge } from "@/shared/ui/invoices/StatusBadge";
 
 type Props = {
   invoice: Invoice | null;

@@ -4,8 +4,8 @@
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { useInvoiceDetails } from "@/hooks/useInvoiceDetails";
-import { deriveInvoiceUiState } from "@/lib/invoices/deriveInvoiceUiState";
+import { useInvoiceDetails } from "@/features/invoices/hooks/useInvoiceDetails";
+import { deriveInvoiceUiState } from "@/features/invoices/model/deriveInvoiceUiState";
 
 type DebugInvoiceSnapshot = {
   id: string | null;

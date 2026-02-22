@@ -5,7 +5,7 @@ import { BlockchainHeader } from "./components/BlockchainHeader";
 import { TransactionCard } from "./components/TransactionCard";
 import { OnChainStatusRail } from "./components/OnChainStatusRail";
 
-import type { Invoice, AttachTransactionPayload } from "@/lib/pspApi";
+import type { Invoice, AttachTransactionPayload } from "@/shared/api/pspApi";
 import {
   getBlockchainBusinessStatus,
   getOperatorTxModel,

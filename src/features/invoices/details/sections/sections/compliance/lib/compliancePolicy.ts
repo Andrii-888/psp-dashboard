@@ -1,4 +1,4 @@
-import type { Invoice, DecisionStatus, SanctionsStatus } from "@/lib/pspApi";
+import type { Invoice, DecisionStatus, SanctionsStatus } from "@/shared/api/pspApi";
 
 export type AmountTier = "small" | "medium" | "large";
 

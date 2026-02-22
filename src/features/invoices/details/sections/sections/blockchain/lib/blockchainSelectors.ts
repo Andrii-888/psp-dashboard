@@ -1,4 +1,4 @@
-import type { Invoice } from "@/lib/pspApi";
+import type { Invoice } from "@/shared/api/pspApi";
 import type {
   OnChainTransactionSSOT,
   OperatorTxViewModel,

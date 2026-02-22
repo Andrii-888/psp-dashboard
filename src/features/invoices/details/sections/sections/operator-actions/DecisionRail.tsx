@@ -1,10 +1,9 @@
-// src/components/invoice-details/sections/operator-actions/DecisionRail.tsx
 "use client";
 
 import * as React from "react";
-import { formatDateTimeCH } from "@/lib/formatters";
-import type { Invoice } from "@/lib/pspApi";
-import type { InvoiceUiState } from "@/lib/invoices/deriveInvoiceUiState";
+import { formatDateTimeCH } from "@/shared/lib/formatters";
+import type { Invoice } from "@/shared/api/pspApi";
+import type { InvoiceUiState } from "@/features/invoices/model/deriveInvoiceUiState";
 
 type DecisionRailProps = {
   disabled?: boolean;

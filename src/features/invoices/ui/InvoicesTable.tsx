@@ -3,11 +3,11 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { Invoice } from "@/lib/pspApi";
-import { getStatusTextClass } from "@/components/invoices/StatusBadge";
-import { AmlBadge } from "@/components/invoices/AmlBadge";
+import type { Invoice } from "@/shared/api/pspApi";
+import { getStatusTextClass } from "@/shared/ui/invoices/StatusBadge";
+import { AmlBadge } from "@/shared/ui/invoices/AmlBadge";
 import { InvoiceStatusChips } from "./InvoiceStatusChips";
-import { formatDateTimeCH } from "@/lib/formatters";
+import { formatDateTimeCH } from "@/shared/lib/formatters";
 
 function formatDate(dateIso: string) {
   return formatDateTimeCH(dateIso);

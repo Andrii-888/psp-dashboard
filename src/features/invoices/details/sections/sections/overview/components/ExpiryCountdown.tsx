@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { safeDate } from "@/lib/formatters";
+import { safeDate } from "@/shared/lib/formatters";
 
 type Props = {
   expiresAt: string | null;

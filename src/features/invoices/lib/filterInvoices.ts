@@ -1,5 +1,5 @@
 // src/lib/invoices/filterInvoices.ts
-import type { Invoice } from "@/lib/pspApi";
+import type { Invoice } from "@/domain/invoices/types";
 
 export interface InvoiceFilterParams {
   statusFilter: string;

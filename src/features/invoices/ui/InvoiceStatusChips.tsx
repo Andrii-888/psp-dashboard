@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import type { Invoice } from "@/lib/pspApi";
-import { deriveInvoiceUiState } from "@/lib/invoices/deriveInvoiceUiState";
+import type { Invoice } from "@/shared/api/pspApi";
+import { deriveInvoiceUiState } from "@/features/invoices/model/deriveInvoiceUiState";
 
 type Props = {
   invoice: Invoice;

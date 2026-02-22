@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDateTimeCH } from "@/lib/formatters";
+import { formatDateTimeCH } from "@/shared/lib/formatters";
 import { ExpiryCountdown } from "@/features/invoices/details/sections/sections/overview/components/ExpiryCountdown";
 
 type Props = {

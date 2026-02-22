@@ -1,4 +1,3 @@
-
 /**
  * Accounting data access for the Accounting page.
  *
@@ -17,7 +16,7 @@ import {
   runBackfillConfirmed as pspRunBackfillConfirmed,
   fetchAccountingSummary,
   type BackfillConfirmedResponse,
-} from "@/lib/pspApi";
+} from "@/shared/api/pspApi";
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;

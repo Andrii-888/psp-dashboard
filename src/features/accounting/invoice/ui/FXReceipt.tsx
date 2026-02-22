@@ -1,7 +1,7 @@
 "use client";
 
 import type { Invoice } from "../types/invoice";
-import { formatNumberCH, formatDateTimeCH } from "@/lib/formatters";
+import { formatNumberCH, formatDateTimeCH } from "@/shared/lib/formatters";
 
 function upper(v?: string | null): string {
   return (

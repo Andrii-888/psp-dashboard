@@ -1,8 +1,8 @@
 "use client";
 
-import type { ProviderEvent } from "@/lib/pspApi";
-import { formatDateTimeCH } from "@/lib/formatters";
-import { CopyButton } from "@/components/ui/CopyButton";
+import type { ProviderEvent } from "@/shared/api/pspApi";
+import { formatDateTimeCH } from "@/shared/lib/formatters";
+import { CopyButton } from "@/shared/ui/components/CopyButton";
 
 interface Props {
   events: ProviderEvent[];

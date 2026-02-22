@@ -1,8 +1,8 @@
 "use client";
 
-import type { Invoice } from "@/lib/pspApi";
-import { formatDateTimeCH } from "@/lib/formatters";
-import { CopyButton } from "@/components/ui/CopyButton";
+import type { Invoice } from "@/shared/api/pspApi";
+import { formatDateTimeCH } from "@/shared/lib/formatters";
+import { CopyButton } from "@/shared/ui/components/CopyButton";
 
 function formatDateTime(iso?: string | null) {
   if (!iso) return "—";

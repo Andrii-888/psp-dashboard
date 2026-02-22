@@ -2,7 +2,7 @@
 
 import React from "react";
 import type { Invoice } from "../types/invoice";
-import { formatDateTimeCH, formatNumberCH } from "@/lib/formatters";
+import { formatDateTimeCH, formatNumberCH } from "@/shared/lib/formatters";
 
 function upper(v?: string | null): string {
   return (

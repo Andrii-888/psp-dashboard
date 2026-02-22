@@ -1,4 +1,4 @@
-import type { Invoice } from "@/lib/pspApi";
+import type { Invoice } from "@/shared/api/pspApi";
 import type { AccountingEntryRaw, Asset, Network } from "./types";
 
 function toAsset(inv: Invoice): Asset {

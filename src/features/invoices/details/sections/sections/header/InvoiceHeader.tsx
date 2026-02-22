@@ -1,10 +1,10 @@
 "use client";
 
-import type { Invoice } from "@/lib/pspApi";
-import { formatDateTimeCH } from "@/lib/formatters";
-import { BackButton } from "@/components/ui/BackButton";
-import { CopyButton } from "@/components/ui/CopyButton";
-import type { InvoiceUiState } from "@/lib/invoices/deriveInvoiceUiState";
+import type { Invoice } from "@/shared/api/pspApi";
+import { formatDateTimeCH } from "@/shared/lib/formatters";
+import { BackButton } from "@/shared/ui/components/BackButton";
+import { CopyButton } from "@/shared/ui/components/CopyButton";
+import type { InvoiceUiState } from "@/features/invoices/model/deriveInvoiceUiState";
 
 interface InvoiceHeaderProps {
   invoice: Invoice | null;

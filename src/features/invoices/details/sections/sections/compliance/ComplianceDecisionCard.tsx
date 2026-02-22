@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Invoice, DecisionStatus, SanctionsStatus } from "@/lib/pspApi";
+import type { Invoice, DecisionStatus, SanctionsStatus } from "@/shared/api/pspApi";
 
 import { ComplianceMetaGrid } from "./components/ComplianceMetaGrid";
 import { ComplianceBanner } from "./components/ComplianceBanner";

@@ -1,5 +1,3 @@
-// src/components/invoice-details/sections/blockchain/lib/blockchainTypes.ts
-
 /**
  * Bank-grade SSOT model for on-chain transaction facts.
  *

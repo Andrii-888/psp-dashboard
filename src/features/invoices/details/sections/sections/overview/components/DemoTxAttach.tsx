@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import type { Invoice, AttachTransactionPayload } from "@/lib/pspApi";
+import type { Invoice, AttachTransactionPayload } from "@/shared/api/pspApi";
 
 interface DemoTxAttachProps {
   invoice: Invoice;

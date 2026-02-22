@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { formatDateTimeCH } from "@/lib/formatters";
+import { formatDateTimeCH } from "@/shared/lib/formatters";
 
 type Props = {
   apiOk: boolean | null;
