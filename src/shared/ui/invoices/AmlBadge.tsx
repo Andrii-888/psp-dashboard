@@ -9,9 +9,12 @@ interface AmlBadgeProps {
   riskScore: number | null;
   assetStatus?: string | null;
   assetRiskScore?: number | null;
+
+  // ✅ NEW
+  variant?: "table" | "details";
 }
 
-// Цвета для статуса AML
+// Цвета для статуса AML (rich / details)
 function getAmlClasses(status: string | null) {
   switch (status) {
     case "clean":
@@ -25,7 +28,7 @@ function getAmlClasses(status: string | null) {
   }
 }
 
-// Цвета для статуса «чистоты актива»
+// Цвета для статуса «чистоты актива» (rich / details)
 function getAssetClasses(status: string | null | undefined) {
   switch (status) {
     case "clean":
@@ -44,6 +47,7 @@ export function AmlBadge({
   riskScore,
   assetStatus = null,
   assetRiskScore = null,
+  variant = "details",
 }: AmlBadgeProps) {
   const hasAnyData =
     amlStatus !== null ||
@@ -60,9 +64,6 @@ export function AmlBadge({
       </div>
     );
   }
-
-  const amlClass = getAmlClasses(amlStatus);
-  const assetClass = getAssetClasses(assetStatus);
 
   const label =
     amlStatus === "clean"
@@ -90,27 +91,94 @@ export function AmlBadge({
       ? "Stablecoin: blocked"
       : "Stablecoin: not checked";
 
-  return (
-    <div className="inline-flex flex-col gap-2 text-[11px]">
-      {/* Основной AML-бейдж */}
-      <div
-        className={`min-w-[190px] max-w-xs rounded-2xl px-3 py-2 ${amlClass}`}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
+  const isFlagged = amlStatus === "risky" || amlStatus === "warning";
+
+  // ✅ TABLE variant (compact, no heavy shadow, fixed width)
+  if (variant === "table") {
+    const amlTableClass =
+      amlStatus === "clean"
+        ? "bg-emerald-500/10 text-emerald-200 ring-1 ring-emerald-400/25"
+        : amlStatus === "warning"
+        ? "bg-amber-500/10 text-amber-200 ring-1 ring-amber-400/25"
+        : amlStatus === "risky"
+        ? "bg-rose-500/10 text-rose-200 ring-1 ring-rose-400/25"
+        : "bg-slate-800/60 text-slate-200 ring-1 ring-slate-700/70";
+
+    const assetTableClass =
+      assetStatus === "clean"
+        ? "bg-emerald-500/8 text-emerald-200 ring-1 ring-emerald-400/20"
+        : assetStatus === "suspicious"
+        ? "bg-amber-500/8 text-amber-200 ring-1 ring-amber-400/20"
+        : assetStatus === "blocked"
+        ? "bg-rose-500/8 text-rose-200 ring-1 ring-rose-400/20"
+        : "bg-slate-800/60 text-slate-300 ring-1 ring-slate-700/70";
+
+    return (
+      <div className="flex flex-col items-center gap-1.5 text-[11px]">
+        <div
+          className={[
+            "w-44 rounded-2xl px-3 py-2 text-center",
+            amlTableClass,
+          ].join(" ")}
+        >
+          <div className="flex items-center justify-center gap-1.5">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
             <span className="text-[11px] font-semibold tracking-[0.16em] uppercase">
               {label}
             </span>
           </div>
-          {riskLabel && (
-            <span className="text-[10px] opacity-80">{riskLabel}</span>
-          )}
+
+          {riskLabel ? (
+            <div className="mt-0.5 text-[10px] opacity-80">{riskLabel}</div>
+          ) : null}
+
+          <div className="mt-1 text-[10px] opacity-85">
+            Provider: demo
+            {isFlagged ? (
+              <span className="ml-2 font-semibold tracking-[0.16em] uppercase text-[10px]">
+                • FLAGGED
+              </span>
+            ) : null}
+          </div>
         </div>
 
-        <div className="mt-1 text-[10px] opacity-85">
+        <div
+          className={[
+            "w-44 rounded-2xl px-3 py-1.5 text-center text-[10px]",
+            assetTableClass,
+          ].join(" ")}
+        >
+          <div className="truncate">{assetText}</div>
+          {assetLabel ? <div className="opacity-80">{assetLabel}</div> : null}
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ DETAILS variant (rich, centered, your current style)
+  const amlClass = getAmlClasses(amlStatus);
+  const assetClass = getAssetClasses(assetStatus);
+
+  return (
+    <div className="inline-flex flex-col items-center gap-2 text-[11px]">
+      {/* Основной AML-бейдж */}
+      <div className={`w-44 rounded-2xl px-3 py-2 ${amlClass}`}>
+        <div className="flex flex-col items-center gap-1 text-center">
+          <div className="flex items-center justify-center gap-1.5">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
+            <span className="text-[11px] font-semibold tracking-[0.16em] uppercase">
+              {label}
+            </span>
+          </div>
+
+          {riskLabel ? (
+            <span className="text-[10px] opacity-80">{riskLabel}</span>
+          ) : null}
+        </div>
+
+        <div className="mt-1 text-[10px] opacity-85 text-center">
           Provider: demo
-          {amlStatus === "risky" || amlStatus === "warning" ? (
+          {isFlagged ? (
             <span className="ml-2 font-semibold tracking-[0.16em] uppercase text-[10px]">
               • FLAGGED
             </span>
@@ -120,12 +188,10 @@ export function AmlBadge({
 
       {/* Доп. блок про чистоту актива */}
       <div
-        className={`inline-flex max-w-xs items-center justify-between gap-2 rounded-2xl px-3 py-1.5 text-[10px] ${assetClass}`}
+        className={`w-44 flex flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[10px] text-center ${assetClass}`}
       >
         <span className="truncate">{assetText}</span>
-        {assetLabel && (
-          <span className="whitespace-nowrap opacity-80">{assetLabel}</span>
-        )}
+        {assetLabel ? <span className="opacity-80">{assetLabel}</span> : null}
       </div>
     </div>
   );

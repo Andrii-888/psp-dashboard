@@ -114,6 +114,42 @@ function SkeletonRow() {
   );
 }
 
+type DecisionUi = {
+  label: "Approved" | "Rejected" | "Hold";
+  badgeClass: string;
+};
+
+function getDecisionUi(decisionStatus: unknown): DecisionUi | null {
+  const ds =
+    typeof decisionStatus === "string"
+      ? decisionStatus.trim().toLowerCase()
+      : "";
+  if (!ds) return null;
+
+  if (ds === "approved" || ds === "approve") {
+    return {
+      label: "Approved",
+      badgeClass: "bg-emerald-500/10 text-emerald-200 ring-emerald-400/25",
+    };
+  }
+
+  if (ds === "rejected" || ds === "reject") {
+    return {
+      label: "Rejected",
+      badgeClass: "bg-rose-500/10 text-rose-200 ring-rose-400/25",
+    };
+  }
+
+  if (ds === "hold") {
+    return {
+      label: "Hold",
+      badgeClass: "bg-amber-500/10 text-amber-200 ring-amber-400/25",
+    };
+  }
+
+  return null;
+}
+
 export function InvoicesTable({
   invoices,
   loading,
@@ -158,7 +194,7 @@ export function InvoicesTable({
             <th className="px-3 py-2 text-left">Created</th>
             <th className="px-3 py-2 text-right">Amount</th>
             <th className="px-3 py-2 text-center">Status</th>
-            <th className="px-3 py-2 text-left">AML</th>
+            <th className="px-3 py-2 text-center">AML</th>
             <th className="px-3 py-2 text-left">FX</th>
             <th className="px-3 py-2 text-left">Network</th>
             <th className="px-3 py-2 text-left">Actions</th>
@@ -233,25 +269,27 @@ export function InvoicesTable({
                     {(() => {
                       const row = inv as unknown as InvoiceRow;
 
-                      const ds = String(row.decisionStatus ?? "")
-                        .trim()
-                        .toLowerCase();
-
-                      const isTerminalDecision =
-                        ds === "approved" || ds === "rejected" || ds === "hold";
+                      const decisionUi = getDecisionUi(row.decisionStatus);
 
                       // ✅ 1) After operator decision — show it (instead of SLA time)
-                      if (isTerminalDecision) {
-                        const label =
-                          ds === "approved"
-                            ? "Approved"
-                            : ds === "rejected"
-                            ? "Rejected"
-                            : "Hold";
-
+                      if (decisionUi) {
                         return (
-                          <div className="w-full text-[10px] font-medium text-emerald-200/90 text-center">
-                            Operator decision: {label}
+                          <div className="mt-1 flex flex-col items-center gap-1">
+                            <div className="text-[11px] text-slate-500">
+                              Decision due
+                            </div>
+
+                            <span
+                              className={[
+                                "inline-flex items-center justify-center",
+                                "h-6 min-w-24 px-3",
+                                "rounded-full text-[11px] font-semibold",
+                                "ring-1",
+                                decisionUi.badgeClass,
+                              ].join(" ")}
+                            >
+                              {decisionUi.label}
+                            </span>
                           </div>
                         );
                       }
@@ -264,13 +302,24 @@ export function InvoicesTable({
                         if (!sla) return null;
 
                         return (
-                          <div
-                            className={[
-                              "text-[10px] font-medium",
-                              sla.overdue ? "text-rose-300" : "text-slate-500",
-                            ].join(" ")}
-                          >
-                            {sla.text}
+                          <div className="mt-1 flex flex-col items-center gap-1">
+                            <div className="text-[11px] text-slate-500">
+                              Operator decision
+                            </div>
+
+                            <span
+                              className={[
+                                "inline-flex items-center justify-center",
+                                "h-6 min-w-24 px-3",
+                                "rounded-full text-[11px] font-semibold",
+                                "ring-1",
+                                sla.overdue
+                                  ? "bg-rose-500/10 text-rose-200 ring-rose-400/25"
+                                  : "bg-slate-500/10 text-slate-200 ring-slate-400/25",
+                              ].join(" ")}
+                            >
+                              {sla.text}
+                            </span>
                           </div>
                         );
                       }
