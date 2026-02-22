@@ -2,11 +2,9 @@
 
 import type { ChangeEvent } from "react";
 import type { DatePreset } from "./filters/datePresets";
-
 import { StatusFilterPills } from "@/features/invoices/ui/filters/StatusFilterPills";
 import { AmlFilterPills } from "@/features/invoices/ui/filters/AmlFilterPills";
 import { DatePresetPills } from "@/features/invoices/ui/filters/DatePresetPills";
-import { AmountFilter } from "@/features/invoices/ui/filters/AmountFilter";
 import { SearchFilter } from "@/features/invoices/ui/filters/SearchFilter";
 
 interface FiltersBarProps {
@@ -43,74 +41,49 @@ export function FiltersBar({
   onAmlStatusChange,
   search,
   onSearchChange,
-  minAmount,
-  maxAmount,
-  onMinAmountChange,
-  onMaxAmountChange,
   datePreset,
   onDatePresetChange,
-  txHash,
-  onTxHashChange,
-  walletAddress,
-  onWalletAddressChange,
-  merchantId,
-  onMerchantIdChange,
 }: FiltersBarProps) {
-  const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) =>
     onSearchChange(e.target.value);
-  };
-
-  const handleMinAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
-    onMinAmountChange(e.target.value);
-  };
-
-  const handleMaxAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
-    onMaxAmountChange(e.target.value);
-  };
-
-  const handleTxHashChange = (e: ChangeEvent<HTMLInputElement>) => {
-    onTxHashChange(e.target.value);
-  };
-
-  const handleWalletChange = (e: ChangeEvent<HTMLInputElement>) => {
-    onWalletAddressChange(e.target.value);
-  };
-
-  const handleMerchantChange = (e: ChangeEvent<HTMLInputElement>) => {
-    onMerchantIdChange(e.target.value);
-  };
 
   return (
-    <div className="flex flex-col gap-3 px-3 py-3 md:flex-row md:items-center md:justify-between md:px-4 md:py-3">
-      {/* LEFT: status + AML + date preset */}
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
-        <StatusFilterPills status={status} onChange={onStatusChange} />
-        <AmlFilterPills amlStatus={amlStatus} onChange={onAmlStatusChange} />
-        <DatePresetPills
-          datePreset={datePreset}
-          onChange={onDatePresetChange}
-        />
-      </div>
+    <div className="px-4 py-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        {/* LEFT: pills row */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
+            <div className="text-xs font-medium tracking-widest text-slate-500 lg:hidden">
+              STATUS
+            </div>
+            <StatusFilterPills status={status} onChange={onStatusChange} />
+          </div>
 
-      {/* RIGHT: amount + search */}
-      <div className="flex flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center md:justify-end">
-        <AmountFilter
-          minAmount={minAmount}
-          maxAmount={maxAmount}
-          onMinAmountChange={handleMinAmountChange}
-          onMaxAmountChange={handleMaxAmountChange}
-        />
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
+            <div className="text-xs font-medium tracking-widest text-slate-500 lg:hidden">
+              AML
+            </div>
+            <AmlFilterPills
+              amlStatus={amlStatus}
+              onChange={onAmlStatusChange}
+            />
+          </div>
 
-        <SearchFilter
-          search={search}
-          txHash={txHash}
-          walletAddress={walletAddress}
-          merchantId={merchantId}
-          onSearchChange={handleSearchChange}
-          onTxHashChange={handleTxHashChange}
-          onWalletAddressChange={handleWalletChange}
-          onMerchantIdChange={handleMerchantChange}
-        />
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
+            <div className="text-xs font-medium tracking-widest text-slate-500 lg:hidden">
+              TIME
+            </div>
+            <DatePresetPills
+              datePreset={datePreset}
+              onChange={onDatePresetChange}
+            />
+          </div>
+        </div>
+
+        {/* RIGHT: search */}
+        <div className="w-full lg:max-w-sm shrink-0">
+          <SearchFilter search={search} onSearchChange={handleSearchChange} />
+        </div>
       </div>
     </div>
   );

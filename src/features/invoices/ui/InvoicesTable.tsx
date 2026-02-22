@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { Invoice } from "@/shared/api/pspApi";
 import { getStatusTextClass } from "@/shared/ui/invoices/StatusBadge";
 import { AmlBadge } from "@/shared/ui/invoices/AmlBadge";
+import { CopyButton } from "@/shared/ui/components/CopyButton";
 import { InvoiceStatusChips } from "./InvoiceStatusChips";
 import { formatDateTimeCH } from "@/shared/lib/formatters";
 
@@ -242,7 +243,27 @@ export function InvoicesTable({
                     getStatusTextClass(inv.status),
                   ].join(" ")}
                 >
-                  {inv.id}
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="shrink-0"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onKeyDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Copy invoice id"
+                      title="Copy invoice id"
+                    >
+                      <CopyButton value={String(inv.id)} />
+                    </div>
+
+                    <span className="truncate">{inv.id}</span>
+                  </div>
                 </td>
 
                 {/* Created / Expires */}
