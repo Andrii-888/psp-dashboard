@@ -14,7 +14,7 @@ import { ToastStack } from "@/components/ui/ToastStack";
 import { useToasts } from "@/hooks/useToasts";
 import { usePagination } from "@/hooks/usePagination";
 
-import { useInvoicesActions } from "@/app/invoices/actions/useInvoicesActions";
+import { useInvoicesActions } from "@/features/invoices/actions/useInvoicesActions";
 
 /* =========================
    Page

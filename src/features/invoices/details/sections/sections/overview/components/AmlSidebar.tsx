@@ -3,11 +3,11 @@
 
 import type { AttachTransactionPayload, Invoice } from "@/lib/pspApi";
 import { AmlBadge } from "@/components/invoices/AmlBadge";
-import { ScreeningStatus } from "@/components/invoice-details/sections/overview/components/ScreeningStatus";
-import { AmlActionButton } from "@/components/invoice-details/sections/overview/components/AmlActionButton";
-import { DemoTxAttach } from "@/components/invoice-details/sections/overview/components/DemoTxAttach";
-import { CryptoCleanliness } from "@/components/invoice-details/sections/overview/components/CryptoCleanliness";
-import { getAmlUiState } from "@/components/invoice-details/sections/overview/amlUiState";
+import { ScreeningStatus } from "./ScreeningStatus";
+import { AmlActionButton } from "./AmlActionButton";
+import { DemoTxAttach } from "./DemoTxAttach";
+import { CryptoCleanliness } from "./CryptoCleanliness";
+import { getAmlUiState } from "../amlUiState";
 import { formatDateTimeCH } from "@/lib/formatters";
 
 type Props = {

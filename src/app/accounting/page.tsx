@@ -3,20 +3,19 @@
 import { headers } from "next/headers";
 
 import { backfillConfirmedAction } from "@/features/accounting/actions/backfillConfirmed";
-import AccountingStatusBanner from "./components/AccountingStatusBanner";
+import AccountingStatusBanner from "@/features/accounting/ui/AccountingStatusBanner";
 
-import AccountingFilters from "./components/AccountingFilters";
-import AccountingHeader from "./components/AccountingHeader";
-import AccountingKpis from "./components/AccountingKpis";
-import AccountingTableClient from "./components/AccountingTableClient";
-import ByAssetTable from "./components/ByAssetTable";
-import ByDayTable from "./components/ByDayTable";
-import EmptyState from "./components/EmptyState";
-import ErrorState from "./components/ErrorState";
-import FeesBreakdown from "./components/FeesBreakdown";
-import ReconciliationPanel from "./components/ReconciliationPanel";
-import TotalsReconciliationPanel from "./components/TotalsReconciliationPanel";
-
+import AccountingFilters from "@/features/accounting/ui/AccountingFilters";
+import AccountingHeader from "@/features/accounting/ui/AccountingHeader";
+import AccountingKpis from "@/features/accounting/ui/AccountingKpis";
+import AccountingTableClient from "@/features/accounting/ui/AccountingTableClient";
+import ByAssetTable from "@/features/accounting/ui/ByAssetTable";
+import ByDayTable from "@/features/accounting/ui/ByDayTable";
+import EmptyState from "@/features/accounting/ui/EmptyState";
+import ErrorState from "@/features/accounting/ui/ErrorState";
+import FeesBreakdown from "@/features/accounting/ui/FeesBreakdown";
+import ReconciliationPanel from "@/features/accounting/ui/ReconciliationPanel";
+import TotalsReconciliationPanel from "@/features/accounting/ui/TotalsReconciliationPanel";
 import type { AccountingEntryRaw } from "@/features/accounting/lib/types";
 
 import {

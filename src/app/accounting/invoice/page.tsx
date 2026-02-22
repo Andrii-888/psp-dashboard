@@ -2,16 +2,16 @@
 
 import { notFound } from "next/navigation";
 
-import InvoiceAccountingHeader from "./components/InvoiceAccountingHeader";
-import Identification from "./components/Identification";
-import Money from "./components/Money";
-import FXReceipt from "./components/FXReceipt";
-import BlockchainReference from "./components/BlockchainReference";
-import Compliance from "./components/Compliance";
-import Accounting from "./components/Accounting";
+import InvoiceAccountingHeader from "@/features/accounting/invoice/ui/InvoiceAccountingHeader";
+import Identification from "@/features/accounting/invoice/ui/Identification";
+import Money from "@/features/accounting/invoice/ui/Money";
+import FXReceipt from "@/features/accounting/invoice/ui/FXReceipt";
+import BlockchainReference from "@/features/accounting/invoice/ui/BlockchainReference";
+import Compliance from "@/features/accounting/invoice/ui/Compliance";
+import Accounting from "@/features/accounting/invoice/ui/Accounting";
 
-import ErrorState from "../components/ErrorState";
-import { getInvoice } from "./lib/getInvoice";
+import ErrorState from "@/features/accounting/ui/ErrorState";
+import { getInvoice } from "@/features/accounting/invoice/lib/getInvoice";
 
 type Invoice = Awaited<ReturnType<typeof getInvoice>>;
 

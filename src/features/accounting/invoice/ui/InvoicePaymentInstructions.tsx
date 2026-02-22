@@ -1,7 +1,7 @@
 // src/app/accounting/invoice/components/InvoicePaymentInstructions.tsx
 
 import type { Invoice } from "@/domain/invoices/types";
-import { Row } from "../ui/Row";
+import { Row } from "../ui-shared/Row";
 
 function fmtDateTime(iso?: string | null) {
   if (!iso) return "—";

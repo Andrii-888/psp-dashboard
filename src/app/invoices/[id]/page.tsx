@@ -5,15 +5,15 @@ import { useEffect, useMemo } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { deriveInvoiceUiState } from "@/lib/invoices/deriveInvoiceUiState";
 import { useInvoiceDetails } from "@/hooks/useInvoiceDetails";
-import { AuditTrailCard } from "@/components/invoice-details/sections/audit-trail";
-import { InvoiceHeader } from "@/components/invoice-details/sections/header";
-import { OverviewCard } from "@/components/invoice-details/sections/overview";
-import { ComplianceDecisionCard } from "@/components/invoice-details/sections/compliance";
-import { TechnicalEventsCard } from "@/components/invoice-details/sections/technical-events/TechnicalEventsCard";
-import { BlockchainCard } from "@/components/invoice-details/sections/blockchain";
-import { InvoiceWebhooksCard } from "@/components/invoice-details/sections/webhooks/InvoiceWebhooksCard";
-import { ProviderEventsCard } from "@/components/invoice-details/sections/provider-events";
-import { DecisionRail } from "@/components/invoice-details/sections/operator-actions";
+import { AuditTrailCard } from "@/features/invoices/details/sections/sections/audit-trail";
+import { InvoiceHeader } from "@/features/invoices/details/sections/sections/header";
+import { OverviewCard } from "@/features/invoices/details/sections/sections/overview";
+import { ComplianceDecisionCard } from "@/features/invoices/details/sections/sections/compliance";
+import { TechnicalEventsCard } from "@/features/invoices/details/sections/sections/technical-events/TechnicalEventsCard";
+import { BlockchainCard } from "@/features/invoices/details/sections/sections/blockchain";
+import { InvoiceWebhooksCard } from "@/features/invoices/details/sections/sections/webhooks/InvoiceWebhooksCard";
+import { ProviderEventsCard } from "@/features/invoices/details/sections/sections/provider-events";
+import { DecisionRail } from "@/features/invoices/details/sections/sections/operator-actions";
 
 type InvoiceRouteParams = {
   id?: string | string[];
