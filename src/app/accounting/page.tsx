@@ -17,6 +17,8 @@ import FeesBreakdown from "@/features/accounting/ui/FeesBreakdown";
 import ReconciliationPanel from "@/features/accounting/ui/ReconciliationPanel";
 import TotalsReconciliationPanel from "@/features/accounting/ui/TotalsReconciliationPanel";
 import type { AccountingEntryRaw } from "@/features/accounting/lib/types";
+import SystemStatusCard from "@/features/accounting/ui/SystemStatusCard";
+import AccountingPolicyCard from "@/features/accounting/ui/AccountingPolicyCard";
 
 import {
   fetchEntries,
@@ -67,9 +69,16 @@ export default async function AccountingPage({
   const h = toFetchHeaders(hReadonly);
 
   const merchantId = pick(sp, "merchantId", "demo-merchant");
+  const DEFAULT_TABLE_LIMIT = 20;
+  const MAX_TABLE_LIMIT = 500;
+
   const limit = Math.max(
     1,
-    Math.min(200, Number(pick(sp, "limit", "20")) || 20)
+    Math.min(
+      MAX_TABLE_LIMIT,
+      Number(pick(sp, "limit", String(DEFAULT_TABLE_LIMIT))) ||
+        DEFAULT_TABLE_LIMIT
+    )
   );
   const from = pick(sp, "from", "");
   const to = pick(sp, "to", "");
@@ -78,6 +87,22 @@ export default async function AccountingPage({
   const backfillError = pick(sp, "backfillError", "");
 
   const totalsLimit = 200;
+
+  // ✅ Operator-grade rule: Accounting shows POSTED ledger only.
+  // Pipeline fallback is allowed only in explicit debug mode (never for boss/regulators).
+  const mode = pick(sp, "mode", "");
+  const allowPipeline = mode === "pipeline";
+
+  const POSTED_EVENT_TYPES = new Set([
+    "invoice.confirmed",
+    "fee_charged",
+    "invoice.confirmed_reversed",
+  ]);
+
+  const keepPostedOnly = (rows: AccountingEntryRaw[]): AccountingEntryRaw[] =>
+    (rows ?? []).filter((r) =>
+      POSTED_EVENT_TYPES.has(String(r.eventType ?? "").trim())
+    );
 
   // Table data
   let items: AccountingEntryRaw[] = [];
@@ -128,6 +153,24 @@ export default async function AccountingPage({
       return fiat === CHF && feeFiat === CHF;
     });
 
+  const hasNonChfFiat = (rows: AccountingEntryRaw[]): boolean =>
+    (rows ?? []).some((r) => {
+      if (!hasFiatFields(r)) return false;
+
+      const fiat = String(r.fiatCurrency ?? "")
+        .trim()
+        .toUpperCase();
+      const feeFiat = String(r.feeFiatCurrency ?? "")
+        .trim()
+        .toUpperCase();
+
+      // If a fiat field exists and is not empty, it must be CHF. Otherwise it is non-CHF.
+      const fiatNonChf = fiat !== "" && fiat !== CHF;
+      const feeFiatNonChf = feeFiat !== "" && feeFiat !== CHF;
+
+      return fiatNonChf || feeFiatNonChf;
+    });
+
   const results = await Promise.allSettled([
     // ledger (accounting_entries)
     fetchEntries({ merchantId, limit, headers: h, from, to }), // table
@@ -175,20 +218,42 @@ export default async function AccountingPage({
     pipelineTotalsItems = pipelineTotalsRes.value.items;
   }
 
-  // ✅ Pipeline is fallback only (ledger is SSOT)
-  if (items.length === 0) {
+  // ✅ Posted-only filter (ledger + pipeline)
+  items = keepPostedOnly(items);
+  totalsItems = keepPostedOnly(totalsItems);
+  pipelineItems = keepPostedOnly(pipelineItems);
+  pipelineTotalsItems = keepPostedOnly(pipelineTotalsItems);
+
+  // ✅ Pipeline is fallback only (ledger is SSOT) — allowed only in debug mode
+  if (allowPipeline && items.length === 0) {
     items = mergePipelineWithLedger(pipelineItems, items);
   }
+
+  const hasHiddenNonChfFiat =
+    hasNonChfFiat(items) || hasNonChfFiat(totalsItems);
 
   // ✅ Normalize + Apply CHF-only view to both ledger + pipeline fallbacks
   items = normalizeLegacyCurrencies(onlyChfFiatKeepCrypto(items));
   totalsItems = normalizeLegacyCurrencies(onlyChfFiatKeepCrypto(totalsItems));
 
-  if (totalsItems.length === 0) {
+  if (allowPipeline && totalsItems.length === 0) {
     totalsItems = onlyChfFiatKeepCrypto(
       mergePipelineWithLedger(pipelineTotalsItems, totalsItems)
     );
   }
+
+  // ✅ Ensure newest entries are visible first (operator UX)
+  const sortByCreatedAtDesc = (
+    rows: AccountingEntryRaw[]
+  ): AccountingEntryRaw[] =>
+    [...(rows ?? [])].sort((a, b) => {
+      const at = Date.parse(String(a.createdAt ?? ""));
+      const bt = Date.parse(String(b.createdAt ?? ""));
+      return (Number.isFinite(bt) ? bt : 0) - (Number.isFinite(at) ? at : 0);
+    });
+
+  items = sortByCreatedAtDesc(items);
+  totalsItems = sortByCreatedAtDesc(totalsItems);
 
   // ✅ Single, clean UI contract (no casts in JSX)
   const ui = toAccountingUiModel({
@@ -200,20 +265,13 @@ export default async function AccountingPage({
     to,
   });
 
-  const hasNonChf = [...items, ...totalsItems].some(
-    (r) =>
-      String(r.currency ?? "")
-        .trim()
-        .toUpperCase() !== "CHF"
-  );
-
   return (
     <div className="min-h-screen bg-slate-950 p-6 text-slate-50">
       <AccountingHeader
         merchantId={merchantId}
         limit={limit}
         rows={items.length}
-        hasNonChf={hasNonChf}
+        hasNonChf={hasHiddenNonChfFiat}
       />
 
       <AccountingFilters
@@ -223,7 +281,21 @@ export default async function AccountingPage({
         to={to}
       />
 
-      <AccountingKpis entries={items} summary={ui.kpisSummary} />
+      <SystemStatusCard
+        status={ui.ui.status}
+        headline={ui.ui.headline}
+        subline={ui.ui.subline}
+        checkedAt={ui.ui.checkedAt}
+        primaryAction={ui.guidedActions[0]}
+      />
+
+      <AccountingPolicyCard
+        totalsLimit={totalsLimit}
+        tableLimit={limit}
+        allowPipeline={allowPipeline}
+      />
+
+      <AccountingKpis entries={totalsItems} summary={ui.kpisSummary} />
 
       <AccountingStatusBanner
         merchantId={merchantId}

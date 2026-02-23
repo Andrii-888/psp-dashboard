@@ -12,7 +12,7 @@ function toNetwork(inv: Invoice): Network {
   const s = String(inv.network ?? inv.pay?.network ?? "").toUpperCase();
   if (s === "TRON" || s.includes("TRON") || s.includes("TRC")) return "TRON";
   // map ETH -> ETHEREUM (v1)
-  if (s === "ETH" || s === "ETHEREUM" || s.includes("ETH")) return "ETHEREUM";
+  if (s === "ETH" || s === "ETHEREUM" || s.includes("ETH")) return "ETH";
   // fallback (v1 only supports TRON/ETHEREUM)
   return "TRON";
 }

@@ -61,6 +61,13 @@ function downloadTextFile(filename: string, content: string, mime: string) {
   URL.revokeObjectURL(url);
 }
 
+async function sha256Hex(text: string): Promise<string> {
+  const bytes = new TextEncoder().encode(text);
+  const hashBuf = await crypto.subtle.digest("SHA-256", bytes);
+  const hashArr = Array.from(new Uint8Array(hashBuf));
+  return hashArr.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export default function ExportCsvButton({
   endpointPath = "/api/psp/accounting/entries",
   className = "",
@@ -105,6 +112,8 @@ export default function ExportCsvButton({
     return `${parts.join("__")}.csv`;
   }, [params]);
 
+  const exportLimit = 200;
+
   async function doExport() {
     setErrorText("");
     setLoading(true);
@@ -113,8 +122,7 @@ export default function ExportCsvButton({
       const q = new URLSearchParams();
       q.set("merchantId", params.merchantId || "demo-merchant");
 
-      // ✅ передаём то же самое, что у страницы
-      q.set("limit", String(params.limit));
+      q.set("limit", String(exportLimit));
 
       if (params.from) q.set("from", params.from);
       if (params.to) q.set("to", params.to);
@@ -146,16 +154,66 @@ export default function ExportCsvButton({
       // Если вдруг backend отдаст CSV напрямую — поддержим
       if (contentType.includes("text/csv")) {
         const csvText = await res.text();
+
+        const exportedAt = new Date().toISOString();
+        const hash = await sha256Hex(csvText);
+
+        const meta = {
+          exportedAt,
+          sha256: hash,
+          merchantId: params.merchantId || "demo-merchant",
+          from: params.from || null,
+          to: params.to || null,
+          exportLimit,
+          endpointPath,
+          policies: {
+            feeSumCrypto: "invoice.confirmed.feeAmount (final confirmed)",
+            feeFiatSum: "fee_charged.feeAmount (CHF)",
+            finality: "invoice.confirmed minus invoice.confirmed_reversed",
+          },
+        };
+
         downloadTextFile(filename, csvText, "text/csv;charset=utf-8");
+        downloadTextFile(
+          filename.replace(/\.csv$/i, "") + ".sha256.txt",
+          `${hash}  ${filename}\n\n${JSON.stringify(meta, null, 2)}\n`,
+          "text/plain;charset=utf-8"
+        );
+
         setOpen(false);
         return;
       }
 
       const payload = (await res.json()) as unknown;
       const rows = pickRows(payload);
+
       const csv = rowsToCsv(rows);
 
+      const exportedAt = new Date().toISOString();
+      const hash = await sha256Hex(csv);
+
+      const meta = {
+        exportedAt,
+        sha256: hash,
+        merchantId: params.merchantId || "demo-merchant",
+        from: params.from || null,
+        to: params.to || null,
+        exportLimit,
+        endpointPath,
+        policies: {
+          feeSumCrypto: "invoice.confirmed.feeAmount (final confirmed)",
+          feeFiatSum: "fee_charged.feeAmount (CHF)",
+          finality: "invoice.confirmed minus invoice.confirmed_reversed",
+        },
+      };
+
       downloadTextFile(filename, csv, "text/csv;charset=utf-8");
+      downloadTextFile(
+        filename.replace(/\.csv$/i, "") + ".sha256.txt",
+        `${hash}  ${filename}\n\n${JSON.stringify(meta, null, 2)}\n`,
+        "text/plain;charset=utf-8"
+      );
+
       setOpen(false);
     } catch (e) {
       console.error(e);

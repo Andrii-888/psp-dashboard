@@ -15,8 +15,11 @@ export default function AccountingTableClient({
   const searchParams = useSearchParams();
 
   function handleInvoiceClick(invoiceId: string) {
+    const id = String(invoiceId ?? "").trim();
+    if (!id) return;
+
     const qs = new URLSearchParams(searchParams.toString());
-    qs.set("invoiceId", invoiceId);
+    qs.set("invoiceId", id);
 
     router.push(`/accounting/invoice?${qs.toString()}`);
   }

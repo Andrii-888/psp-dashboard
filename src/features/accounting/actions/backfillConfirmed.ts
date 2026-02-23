@@ -9,7 +9,7 @@ import { toFetchHeaders } from "../lib/serverUtils";
 
 export async function backfillConfirmedAction(formData: FormData) {
   const merchantId = String(formData.get("merchantId") ?? "");
-  const limit = String(formData.get("limit") ?? "20");
+  const limit = String(formData.get("limit") ?? "200");
   const from = String(formData.get("from") ?? "");
   const to = String(formData.get("to") ?? "");
 

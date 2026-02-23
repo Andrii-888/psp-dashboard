@@ -1,4 +1,3 @@
-
 import type { Asset, Network } from "./types";
 
 type ExplorerKind = "tx" | "address";
@@ -14,7 +13,7 @@ function normalizeNetwork(n?: string | null): Network | null {
   if (!n) return null;
   const v = String(n).toUpperCase().trim();
   if (v === "TRON") return "TRON";
-  if (v === "ETHEREUM" || v === "ETH") return "ETHEREUM";
+  if (v === "ETHEREUM" || v === "ETH") return "ETH";
   return null;
 }
 
@@ -27,7 +26,7 @@ export function isAllowedPair(asset?: Asset | null, network?: Network | null) {
   if (!asset || !network) return false;
   return (
     (asset === "USDT" && network === "TRON") ||
-    (asset === "USDC" && network === "ETHEREUM")
+    (asset === "USDC" && network === "ETH")
   );
 }
 

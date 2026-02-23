@@ -1,5 +1,10 @@
 import type { AccountingEntryRaw, Asset, Network } from "./types";
 
+import {
+  normalizeAmlStatus,
+  normalizeDecisionStatus,
+} from "@/features/accounting/lib/types";
+
 const CHF = "CHF";
 
 export type AccountingKpisSummary = {
@@ -79,6 +84,15 @@ export type ReconciliationModel = {
   issues: ReconciliationIssue[];
 } | null;
 
+export type GuidedAction = {
+  id: string;
+  title: string;
+  severity: "ok" | "warn" | "error";
+  cause?: string;
+  impact?: string;
+  action: string;
+};
+
 export type AccountingUiModel = {
   kpisSummary: AccountingKpisSummary;
   fees: FeesModel;
@@ -86,6 +100,7 @@ export type AccountingUiModel = {
   byAsset: ByAssetModel;
 
   reconciliation: ReconciliationModel;
+  guidedActions: GuidedAction[];
 
   ui: {
     status: "ok" | "warn" | "error";
@@ -424,13 +439,17 @@ function computeTotals(
   const grossSum = base.reduce((s, e) => s + n(e.grossAmount), 0);
   const netSum = base.reduce((s, e) => s + n(e.netAmount), 0);
 
-  // ✅ fees = только fee_charged (SSOT rule)
+  // ✅ feeSum = crypto fee (from finalized invoice.confirmed rows)
+  const confirmedRows = all.filter((e) =>
+    isFinalConfirmed(e, reversedInvoiceIds)
+  );
+  const feeSum = confirmedRows.reduce((s, e) => s + n(e.feeAmount), 0);
+
+  // ✅ feeFiatSum = fiat fee (from fee_charged rows, CHF-first)
   const feeRows = all.filter(
     (e) => String(e.eventType ?? "").trim() === "fee_charged"
   );
-  const feeSum = feeRows.reduce((s, e) => s + n(e.feeAmount), 0);
-
-  const feeFiatSum = feeSum;
+  const feeFiatSum = feeRows.reduce((s, e) => s + n(e.feeAmount), 0);
   const feeFiatCurrency = deriveFeeFiatCurrency(feeRows);
 
   return {
@@ -481,16 +500,25 @@ export function toAccountingUiModel(args: {
 }): AccountingUiModel {
   const { entries, totalsEntries, summary, merchantId, from, to } = args;
 
+  const normalizeRow = (e: AccountingEntryRaw): AccountingEntryRaw => ({
+    ...e,
+    amlStatus: normalizeAmlStatus(e.amlStatus),
+    decisionStatus: normalizeDecisionStatus(e.decisionStatus),
+  });
+
+  const entriesN = (entries ?? []).map(normalizeRow);
+  const totalsEntriesN = (totalsEntries ?? []).map(normalizeRow);
+
   const reversedInvoiceIds = buildReversedInvoiceIdSet([
-    ...(entries ?? []),
-    ...(totalsEntries ?? []),
+    ...entriesN,
+    ...totalsEntriesN,
   ]);
 
   const fromOrNull = from || null;
   const toOrNull = to || null;
 
-  const entriesTotals = computeTotals(entries ?? [], reversedInvoiceIds);
-  const totalsTotals = computeTotals(totalsEntries ?? [], reversedInvoiceIds);
+  const entriesTotals = computeTotals(entriesN, reversedInvoiceIds);
+  const totalsTotals = computeTotals(totalsEntriesN, reversedInvoiceIds);
 
   const kpisSummary: AccountingKpisSummary = {
     merchantId,
@@ -790,6 +818,43 @@ export function toAccountingUiModel(args: {
         })
       : undefined;
 
+  const guidedActions: GuidedAction[] = [];
+
+  const hasCritical = reconIssues.some((i) => i.severity === "critical");
+  const hasHigh = reconIssues.some((i) => i.severity === "high");
+  const hasMedium = reconIssues.some((i) => i.severity === "medium");
+
+  if (hasCritical) {
+    guidedActions.push({
+      id: "fix-critical-reconciliation",
+      title: "Resolve critical reconciliation issues",
+      severity: "error",
+      cause: "SSOT totals do not match derived totals for this window.",
+      impact: "KPI, exports, and operator decisions may be unreliable.",
+      action:
+        "Open Reconciliation → inspect issue details → run safe backfill if missing ledger rows; otherwise verify taxonomy (event types/currency normalization) and summary policy.",
+    });
+  } else if (hasHigh || hasMedium) {
+    guidedActions.push({
+      id: "review-reconciliation",
+      title: "Review reconciliation warnings",
+      severity: "warn",
+      cause: "Totals differ or fee policy is not comparable for this window.",
+      impact:
+        "Some totals may be partial or non-comparable (fees / reversals / window mismatch).",
+      action:
+        "Open Reconciliation → confirm feeSource policy (fee_charged) and reversals handling → re-check totals after any corrections.",
+    });
+  } else {
+    guidedActions.push({
+      id: "accounting-ok",
+      title: "Accounting is consistent",
+      severity: "ok",
+      action:
+        "No action required. You can export the report or review recent invoices.",
+    });
+  }
+
   return {
     kpisSummary,
     totalsSummary,
@@ -822,6 +887,8 @@ export function toAccountingUiModel(args: {
       checkedAt,
       action: uiAction,
     },
+
+    guidedActions,
 
     reconciliation,
   };
