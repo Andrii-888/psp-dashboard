@@ -15,14 +15,14 @@ export default function AccountingTable({
       <table className="min-w-full w-full text-sm">
         <thead className="sticky top-0 z-10 bg-white/95 backdrop-blur">
           <tr className="border-b border-zinc-200 text-left text-xs font-medium text-zinc-600">
-            <th className="px-4 py-3">Created</th>
-            <th className="px-4 py-3">Invoice</th>
-            <th className="px-4 py-3">Event</th>
-            <th className="px-4 py-3 text-right">Gross</th>
-            <th className="px-4 py-3 text-right">Fee</th>
-            <th className="px-4 py-3 text-right">Net</th>
-            <th className="px-4 py-3">Asset</th>
-            <th className="px-4 py-3">Network</th>
+            <th className="px-4 py-2">Created</th>
+            <th className="px-4 py-2">Invoice</th>
+            <th className="px-4 py-2 text-center">Gross</th>
+            <th className="px-4 py-2 text-center">Fee</th>
+            <th className="px-4 py-2 text-center">Net</th>
+            <th className="px-4 py-2 text-center">Asset</th>
+            <th className="px-4 py-2 text-center">Network</th>
+            <th className="w-10 px-3 py-2"></th>
           </tr>
         </thead>
 
@@ -33,22 +33,7 @@ export default function AccountingTable({
             return (
               <tr
                 key={`${e.invoiceId}-${e.eventType}-${idx}`}
-                className={clickable ? "cursor-pointer hover:bg-zinc-50" : ""}
-                onClick={
-                  clickable ? () => onInvoiceClick?.(e.invoiceId) : undefined
-                }
-                role={clickable ? "button" : undefined}
-                tabIndex={clickable ? 0 : undefined}
-                onKeyDown={
-                  clickable
-                    ? (ev) => {
-                        if (ev.key === "Enter" || ev.key === " ") {
-                          ev.preventDefault();
-                          onInvoiceClick?.(e.invoiceId);
-                        }
-                      }
-                    : undefined
-                }
+                className="hover:bg-zinc-50"
               >
                 <AccountingRow entry={e} />
               </tr>

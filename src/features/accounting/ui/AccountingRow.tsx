@@ -1,5 +1,7 @@
 // src/app/accounting/components/AccountingRow.tsx
 
+import Link from "next/link";
+import { ReceiptText } from "lucide-react";
 import type { AccountingEntryRaw } from "@/features/accounting/lib/types";
 import { fmtDate, toNumber } from "@/features/accounting/lib/format";
 
@@ -71,36 +73,26 @@ export default function AccountingRow({
   return (
     <>
       {/* Created */}
-      <td className="px-4 py-3 font-mono text-xs text-zinc-500">
+      <td className="px-4 py-2 font-mono text-xs text-zinc-500">
         {fmtDate(entry.createdAt)}
       </td>
 
       {/* Invoice */}
       <td className="px-4 py-3">
-        <div
-          className={[
-            "font-mono text-xs leading-snug break-all",
-            tone.invoiceText,
-          ].join(" ")}
-        >
-          {entry.invoiceId}
+        <div className="flex items-start justify-between gap-2">
+          <div
+            className={[
+              "font-mono text-xs leading-snug break-all",
+              tone.invoiceText,
+            ].join(" ")}
+          >
+            {entry.invoiceId}
+          </div>
         </div>
       </td>
 
-      {/* Event */}
-      <td className="px-4 py-3">
-        <span
-          className={[
-            "inline-flex items-center rounded-md px-2 py-1 font-mono text-[11px] leading-none",
-            tone.eventBadge,
-          ].join(" ")}
-        >
-          {entry.eventType}
-        </span>
-      </td>
-
       {/* Gross */}
-      <td className="px-4 py-3 text-right font-mono text-xs font-medium tabular-nums text-zinc-600">
+      <td className="px-4 py-2 text-center font-mono text-xs font-medium tabular-nums text-zinc-600">
         {gross
           ? `${fmt(gross, isFeeRow(entry.eventType) ? 2 : 6)} ${
               isFeeRow(entry.eventType) ? "CHF" : entry.currency
@@ -109,7 +101,7 @@ export default function AccountingRow({
       </td>
 
       {/* Fee */}
-      <td className="px-4 py-3 text-right font-mono text-xs tabular-nums text-amber-700">
+      <td className="px-4 py-2 text-center font-mono text-xs tabular-nums text-amber-700">
         {fee
           ? `${fmt(fee, isFeeRow(entry.eventType) ? 2 : 6)} ${
               isFeeRow(entry.eventType) ? "CHF" : entry.currency
@@ -118,7 +110,7 @@ export default function AccountingRow({
       </td>
 
       {/* Net */}
-      <td className="px-4 py-3 text-right font-mono text-xs font-medium tabular-nums text-zinc-800">
+      <td className="px-4 py-2 text-center font-mono text-xs font-medium tabular-nums text-zinc-800">
         {net
           ? `${fmt(net, isFeeRow(entry.eventType) ? 2 : 6)} ${
               isFeeRow(entry.eventType) ? "CHF" : entry.currency
@@ -127,17 +119,30 @@ export default function AccountingRow({
       </td>
 
       {/* Asset */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-2 text-center">
         <span className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs font-medium uppercase tracking-wide text-zinc-800">
           {entry.currency}
         </span>
       </td>
 
       {/* Network */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-2 text-center">
         <span className="inline-flex items-center rounded-md border border-zinc-200 bg-white px-2 py-0.5 font-mono text-[11px] uppercase tracking-wide text-zinc-500">
           {entry.network}
         </span>
+      </td>
+
+      {/* Receipt */}
+      <td className="px-3 py-2 text-right">
+        <Link
+          href={`/accounting/invoice?invoiceId=${encodeURIComponent(
+            String(entry.invoiceId)
+          )}`}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50"
+          title="Open receipt"
+        >
+          <ReceiptText className="h-4 w-4" />
+        </Link>
       </td>
     </>
   );
