@@ -1,12 +1,23 @@
 // src/app/accounting/components/AccountingRow.tsx
 
 import type { AccountingEntryRaw } from "@/features/accounting/lib/types";
-import { fmtDate, fmtMoney, toNumber } from "@/features/accounting/lib/format";
+import { fmtDate, toNumber } from "@/features/accounting/lib/format";
 
 type Tone = {
   invoiceText: string;
   eventBadge: string;
 };
+
+const fmt = (v: unknown, decimals: number) => {
+  const n = typeof v === "number" ? v : Number(v);
+  const safe = Number.isFinite(n) ? n : 0;
+  return new Intl.NumberFormat("de-CH", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(safe);
+};
+
+const isFeeRow = (t?: string) => String(t ?? "").trim() === "fee_charged";
 
 function toneForEvent(eventType?: string): Tone {
   const t = String(eventType ?? "").trim();
@@ -90,17 +101,29 @@ export default function AccountingRow({
 
       {/* Gross */}
       <td className="px-4 py-3 text-right font-mono text-xs font-medium tabular-nums text-zinc-600">
-        {gross ? fmtMoney(gross) : "—"}
+        {gross
+          ? `${fmt(gross, isFeeRow(entry.eventType) ? 2 : 6)} ${
+              isFeeRow(entry.eventType) ? "CHF" : entry.currency
+            }`
+          : "—"}
       </td>
 
       {/* Fee */}
       <td className="px-4 py-3 text-right font-mono text-xs tabular-nums text-amber-700">
-        {fee ? fmtMoney(fee) : "—"}
+        {fee
+          ? `${fmt(fee, isFeeRow(entry.eventType) ? 2 : 6)} ${
+              isFeeRow(entry.eventType) ? "CHF" : entry.currency
+            }`
+          : "—"}
       </td>
 
       {/* Net */}
       <td className="px-4 py-3 text-right font-mono text-xs font-medium tabular-nums text-zinc-800">
-        {net ? fmtMoney(net) : "—"}
+        {net
+          ? `${fmt(net, isFeeRow(entry.eventType) ? 2 : 6)} ${
+              isFeeRow(entry.eventType) ? "CHF" : entry.currency
+            }`
+          : "—"}
       </td>
 
       {/* Asset */}
