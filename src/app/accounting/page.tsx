@@ -255,6 +255,11 @@ export default async function AccountingPage({
   items = sortByCreatedAtDesc(items);
   totalsItems = sortByCreatedAtDesc(totalsItems);
 
+  // ✅ Table UX: 1 invoice = 1 row (show only finalized value-movement rows)
+  const tableItems = items.filter(
+    (r) => String(r.eventType ?? "").trim() === "invoice.confirmed"
+  );
+
   // ✅ Single, clean UI contract (no casts in JSX)
   const ui = toAccountingUiModel({
     entries: items,
@@ -270,7 +275,7 @@ export default async function AccountingPage({
       <AccountingHeader
         merchantId={merchantId}
         limit={limit}
-        rows={items.length}
+        rows={tableItems.length}
         hasNonChf={hasHiddenNonChfFiat}
       />
 
@@ -333,10 +338,10 @@ export default async function AccountingPage({
 
       {errorMsg ? (
         <ErrorState description={errorMsg} />
-      ) : items.length === 0 ? (
+      ) : tableItems.length === 0 ? (
         <EmptyState />
       ) : (
-        <AccountingTableClient entries={items} />
+        <AccountingTableClient entries={tableItems} />
       )}
     </div>
   );
