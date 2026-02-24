@@ -10,21 +10,126 @@ type Tone = {
   eventBadge: string;
 };
 
-const fmt = (v: unknown, decimals: number) => {
-  const n = typeof v === "number" ? v : Number(v);
-  const safe = Number.isFinite(n) ? n : 0;
-  return new Intl.NumberFormat("de-CH", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(safe);
-};
+const fmtChf = (n: number) =>
+  new Intl.NumberFormat("de-CH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
 
-const isFeeRow = (t?: string) => String(t ?? "").trim() === "fee_charged";
+const fmtMoney = (n: number) =>
+  new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 8,
+  }).format(n);
+
+const isObj = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null;
+
+const get = (obj: unknown, key: string): unknown =>
+  isObj(obj) ? obj[key] : undefined;
+
+function pickPrimaryMoney(entry: AccountingEntryRaw) {
+  const toFinite = (v: unknown): number | null => {
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string") {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+    return null;
+  };
+
+  const upper = (v: unknown): string =>
+    typeof v === "string" ? v.trim().toUpperCase() : "";
+
+  const parseFxPair = (
+    pairRaw: unknown
+  ): { base: string; quote: string } | null => {
+    const p = upper(pairRaw);
+    if (!p) return null;
+
+    // supports: "USDC/CHF", "USDC-CHF", "USDC_CHF"
+    const parts = p.split(/[^A-Z]+/).filter(Boolean);
+    if (parts.length >= 2) return { base: parts[0], quote: parts[1] };
+
+    // supports: "CHFUSD", "USDCHF" (3+3)
+    if (/^[A-Z]{6}$/.test(p))
+      return { base: p.slice(0, 3), quote: p.slice(3, 6) };
+
+    return null;
+  };
+
+  // 1) If backend ever provides explicit fiat amounts, use them first
+  const fiatCur = upper(get(entry, "fiatCurrency"));
+
+  const grossFiatN = toFinite(get(entry, "grossFiatAmount"));
+  const feeFiatN = toFinite(get(entry, "feeFiatAmount"));
+  const netFiatN = toFinite(get(entry, "netFiatAmount"));
+
+  const hasFiatAmounts =
+    fiatCur === "CHF" &&
+    (grossFiatN !== null || feeFiatN !== null || netFiatN !== null);
+
+  if (hasFiatAmounts) {
+    return {
+      unit: "CHF",
+      gross: grossFiatN ?? 0,
+      fee: feeFiatN ?? 0,
+      net: netFiatN ?? 0,
+      mode: "fiat" as const,
+    };
+  }
+
+  // 2) CHF-first derived from fxRate/fxPair
+  const fxRate = toFinite(get(entry, "fxRate"));
+  const fxPair = parseFxPair(get(entry, "fxPair"));
+
+  // normalize stablecoins to USD for FX purposes
+  const curRaw = String(entry.currency ?? "").toUpperCase();
+  const cur = curRaw === "USDC" || curRaw === "USDT" ? "USD" : curRaw;
+
+  const gross = toNumber(entry.grossAmount, 0);
+  const fee = toNumber(entry.feeAmount, 0);
+  const net = toNumber(entry.netAmount, 0);
+
+  // Interpret fxPair as BASE/QUOTE
+  // Example you have: CHFUSD with fxRate=0.774688 => 1 CHF = 0.774688 USD
+  // So USD -> CHF = USD / fxRate
+  if (fxRate !== null && fxPair) {
+    const hasChf = fxPair.base === "CHF" || fxPair.quote === "CHF";
+    const hasCur = fxPair.base === cur || fxPair.quote === cur;
+
+    if (hasChf && hasCur) {
+      const chf =
+        fxPair.base === cur && fxPair.quote === "CHF"
+          ? (n: number) => n * fxRate
+          : fxPair.base === "CHF" && fxPair.quote === cur
+          ? (n: number) => n / fxRate
+          : null;
+
+      if (chf) {
+        return {
+          unit: "CHF",
+          gross: chf(gross),
+          fee: chf(fee),
+          net: chf(net),
+          mode: "fiat" as const,
+        };
+      }
+    }
+  }
+
+  // 3) fallback: crypto axis
+  return {
+    unit: curRaw,
+    gross,
+    fee,
+    net,
+    mode: "crypto" as const,
+  };
+}
 
 function toneForEvent(eventType?: string): Tone {
   const t = String(eventType ?? "").trim();
 
-  // One source of truth: the same "tone" drives both invoiceId + badge
   switch (t) {
     case "invoice.confirmed":
       return {
@@ -45,7 +150,6 @@ function toneForEvent(eventType?: string): Tone {
       };
 
     case "invoice.expired":
-      // make it POP (not grey)
       return {
         invoiceText: "text-orange-700",
         eventBadge: "text-orange-700 bg-orange-50",
@@ -64,9 +168,19 @@ export default function AccountingRow({
 }: {
   entry: AccountingEntryRaw;
 }) {
-  const gross = toNumber(entry.grossAmount, 0);
-  const fee = toNumber(entry.feeAmount, 0);
-  const net = toNumber(entry.netAmount, 0);
+  const primary = pickPrimaryMoney(entry);
+
+  const gross = primary.gross;
+  const fee = primary.fee;
+  const net = primary.net;
+
+  const cryptoGross = toNumber(entry.grossAmount, 0);
+  const cryptoFee = toNumber(entry.feeAmount, 0);
+  const cryptoNet = toNumber(entry.netAmount, 0);
+
+  const showCryptoSecondary =
+    primary.mode === "fiat" &&
+    (cryptoGross !== 0 || cryptoFee !== 0 || cryptoNet !== 0);
 
   const tone = toneForEvent(entry.eventType);
 
@@ -94,28 +208,46 @@ export default function AccountingRow({
       {/* Gross */}
       <td className="px-4 py-2 text-center font-mono text-xs font-medium tabular-nums text-zinc-600">
         {gross
-          ? `${fmt(gross, isFeeRow(entry.eventType) ? 2 : 6)} ${
-              isFeeRow(entry.eventType) ? "CHF" : entry.currency
-            }`
+          ? primary.unit === "CHF"
+            ? `${fmtChf(gross)} CHF`
+            : `${fmtMoney(gross)} ${primary.unit}`
           : "—"}
+        {showCryptoSecondary ? (
+          <div className="mt-1 text-[11px] text-zinc-400">
+            {cryptoGross ? fmtMoney(cryptoGross) : "—"}{" "}
+            {String(entry.currency ?? "").toUpperCase()}
+          </div>
+        ) : null}
       </td>
 
       {/* Fee */}
       <td className="px-4 py-2 text-center font-mono text-xs tabular-nums text-amber-700">
         {fee
-          ? `${fmt(fee, isFeeRow(entry.eventType) ? 2 : 6)} ${
-              isFeeRow(entry.eventType) ? "CHF" : entry.currency
-            }`
+          ? primary.unit === "CHF"
+            ? `− ${fmtChf(fee)} CHF`
+            : `− ${fmtMoney(fee)} ${primary.unit}`
           : "—"}
+        {showCryptoSecondary ? (
+          <div className="mt-1 text-[11px] text-zinc-400">
+            {cryptoFee ? `− ${fmtMoney(cryptoFee)}` : "—"}{" "}
+            {String(entry.currency ?? "").toUpperCase()}
+          </div>
+        ) : null}
       </td>
 
       {/* Net */}
       <td className="px-4 py-2 text-center font-mono text-xs font-medium tabular-nums text-zinc-800">
         {net
-          ? `${fmt(net, isFeeRow(entry.eventType) ? 2 : 6)} ${
-              isFeeRow(entry.eventType) ? "CHF" : entry.currency
-            }`
+          ? primary.unit === "CHF"
+            ? `${fmtChf(net)} CHF`
+            : `${fmtMoney(net)} ${primary.unit}`
           : "—"}
+        {showCryptoSecondary ? (
+          <div className="mt-1 text-[11px] text-zinc-400">
+            {cryptoNet ? fmtMoney(cryptoNet) : "—"}{" "}
+            {String(entry.currency ?? "").toUpperCase()}
+          </div>
+        ) : null}
       </td>
 
       {/* Asset */}

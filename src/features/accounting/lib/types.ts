@@ -110,6 +110,7 @@ export type AssetStatus = "clean" | "suspicious" | "unknown" | string;
  * NOTE:
  * Keep optional fields aligned with live backend JSON.
  */
+
 export interface AccountingEntryRaw {
   invoiceId: string;
   eventType: AccountingEventType;
@@ -117,6 +118,16 @@ export interface AccountingEntryRaw {
   grossAmount: string | number;
   feeAmount: string | number;
   netAmount: string | number;
+
+  // NEW: invoice snapshot fields (optional)
+  fiatAmount?: number | null;
+  feeBps?: number | null;
+  feePayer?: string | null;
+  confirmedAt?: string | null;
+
+  grossFiatAmount?: number | null;
+  feeFiatAmount?: number | null;
+  netFiatAmount?: number | null;
 
   currency: AccountingCurrency; // CHF | USDT | USDC
   network: Network; // TRON | ETH
@@ -128,29 +139,18 @@ export interface AccountingEntryRaw {
 
   createdAt: string; // ISO
 
-  /**
-   * Merchant scoping:
-   * Some backends include merchantId on each row, some filter by merchantId and omit it.
-   * Make it optional to avoid TS mismatch with real SSOT JSON.
-   */
   merchantId?: string;
 
   // Fiat fields exist on ledger entries; pipeline rows may not have them.
   fiatCurrency?: FiatCurrency | null;
   feeFiatCurrency?: FiatCurrency | null;
 
-  /**
-   * AML / Compliance snapshot (optional but present in SSOT rows today).
-   */
   amlStatus?: AmlStatusRaw | null;
   riskScore?: number | null;
 
   assetStatus?: AssetStatus | null;
   assetRiskScore?: number | null;
 
-  /**
-   * Operator decision snapshot (optional but present in SSOT rows today).
-   */
   decisionStatus?: DecisionStatusRaw | null;
   decisionReasonCode?: string | null;
   decisionReasonText?: string | null;
@@ -158,10 +158,6 @@ export interface AccountingEntryRaw {
   decidedAt?: string | null; // ISO
   decidedBy?: string | null;
 
-  /**
-   * FX audit fields (from ledger meta or pipeline enrichment).
-   * Backend currently returns fxRate as number and fxPair like "CHFUSD".
-   */
   fxRate?: number | null;
   fxPair?: string | null;
 }
