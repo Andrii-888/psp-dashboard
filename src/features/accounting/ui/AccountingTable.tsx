@@ -5,7 +5,6 @@ import AccountingRow from "./AccountingRow";
 
 export default function AccountingTable({
   entries,
-  onInvoiceClick,
 }: {
   entries: AccountingEntryRaw[];
   onInvoiceClick?: (invoiceId: string) => void;
@@ -28,8 +27,6 @@ export default function AccountingTable({
 
         <tbody className="text-zinc-900">
           {entries.map((e, idx) => {
-            const clickable = typeof onInvoiceClick === "function";
-
             return (
               <tr
                 key={`${e.invoiceId}-${e.eventType}-${idx}`}
