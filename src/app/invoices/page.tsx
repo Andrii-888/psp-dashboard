@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { FiltersBar } from "@/features/invoices/ui/FiltersBar";
 import { InvoicesTable } from "@/features/invoices/ui/InvoicesTable";
@@ -21,7 +21,7 @@ import { useInvoicesActions } from "@/features/invoices/actions/useInvoicesActio
 /* =========================
    Page
 ========================= */
-export default function InvoicesPage() {
+function InvoicesPageInner() {
   const sp = useSearchParams();
   const decision = sp.get("decision") ?? undefined;
   const risk = sp.get("risk") ?? undefined;
@@ -221,5 +221,17 @@ export default function InvoicesPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function InvoicesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-6 text-sm text-slate-300">Loading invoices…</div>
+      }
+    >
+      <InvoicesPageInner />
+    </Suspense>
   );
 }
