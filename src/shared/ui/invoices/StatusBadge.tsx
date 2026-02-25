@@ -60,14 +60,17 @@ export function StatusBadge({
 // ✅ экспортируем helper, чтобы хедер мог красить invoiceId тем же цветом
 export function getStatusTextClass(status: unknown) {
   const s = normalizeStatus(status);
-  if (!s) return "text-zinc-400";
+  if (!s) return "text-slate-300 bg-white/5 ring-1 ring-white/10";
 
   const map: Record<Status, string> = {
-    confirmed: "text-emerald-600",
-    waiting: "text-amber-600",
-    expired: "text-orange-600",
-    rejected: "text-rose-600",
+    confirmed:
+      "text-emerald-200 bg-emerald-500/10 ring-1 ring-emerald-500/25 shadow-[0_0_0_1px_rgba(16,185,129,0.15)]",
+    waiting:
+      "text-amber-200 bg-amber-500/10 ring-1 ring-amber-500/25 shadow-[0_0_0_1px_rgba(245,158,11,0.14)]",
+    expired:
+      "text-orange-200 bg-orange-500/10 ring-1 ring-orange-500/25 shadow-[0_0_0_1px_rgba(249,115,22,0.14)]",
+    rejected:
+      "text-rose-200 bg-rose-500/10 ring-1 ring-rose-500/25 shadow-[0_0_0_1px_rgba(244,63,94,0.14)]",
   };
-
   return map[s];
 }

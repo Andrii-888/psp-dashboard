@@ -212,13 +212,32 @@ export function InvoicesTable({
           {!loading && invoices.length === 0 && !error && (
             <tr>
               <td colSpan={8}>
-                <div className="flex flex-col items-center justify-center gap-1 py-10 text-center">
-                  <p className="text-sm font-medium text-slate-200">
-                    No invoices found
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Try adjusting filters or wait for new payments.
-                  </p>
+                <div className="mx-auto my-6 max-w-xl rounded-2xl border border-white/10 bg-white/5 p-6 text-center shadow-[0_10px_30px_rgba(0,0,0,0.25)] backdrop-blur-md">
+                  <div className="text-sm font-semibold text-white">
+                    No invoices match current filters
+                  </div>
+                  <div className="mt-1 text-xs text-slate-300">
+                    If you opened this from a KPI, it may simply mean there are
+                    zero items in the current dataset.
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => router.push("/invoices")}
+                      className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white ring-1 ring-white/15 hover:bg-white/15"
+                    >
+                      Reset filters
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => router.push("/invoices?decision=queue")}
+                      className="rounded-full bg-white/5 px-3 py-1 text-xs font-medium text-slate-200 ring-1 ring-white/10 hover:bg-white/10"
+                    >
+                      Open queue
+                    </button>
+                  </div>
                 </div>
               </td>
             </tr>
@@ -226,6 +245,14 @@ export function InvoicesTable({
 
           {invoices.map((row) => {
             const inv = row as unknown as InvoiceRow;
+
+            const risk = Number(inv.riskScore);
+            const asset = Number(inv.assetRiskScore);
+            const maxRisk = Math.max(
+              Number.isFinite(risk) ? risk : 0,
+              Number.isFinite(asset) ? asset : 0
+            );
+            const isHighRisk = maxRisk >= 70;
 
             return (
               <tr
@@ -235,7 +262,12 @@ export function InvoicesTable({
                 aria-label={`Open invoice ${inv.id}`}
                 onClick={() => openDetails(inv.id)}
                 onKeyDown={(e) => onRowKeyDown(e, inv.id)}
-                className="group cursor-pointer rounded-2xl bg-slate-900/60 text-xs text-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-all hover:bg-slate-900/90 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                className={[
+                  "group cursor-pointer rounded-2xl bg-slate-900/60 text-xs text-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-all hover:bg-slate-900/90 focus:outline-none focus:ring-2 focus:ring-violet-500/50",
+                  isHighRisk
+                    ? "ring-1 ring-rose-500/25 bg-rose-500/5 hover:bg-rose-500/10"
+                    : "",
+                ].join(" ")}
               >
                 <td
                   className={[

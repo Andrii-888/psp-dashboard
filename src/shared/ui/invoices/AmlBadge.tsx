@@ -18,13 +18,13 @@ interface AmlBadgeProps {
 function getAmlClasses(status: string | null) {
   switch (status) {
     case "clean":
-      return "bg-emerald-500/15 text-emerald-100 border border-emerald-500/40 shadow-[0_14px_40px_rgba(16,185,129,0.45)]";
-    case "warning":
-      return "bg-amber-500/15 text-amber-100 border border-amber-500/40 shadow-[0_14px_40px_rgba(245,158,11,0.45)]";
-    case "risky":
-      return "bg-rose-500/15 text-rose-100 border border-rose-500/40 shadow-[0_14px_40px_rgba(244,63,94,0.45)]";
+      return "bg-emerald-500/10 text-emerald-100 ring-1 ring-emerald-500/25";
+    case "suspicious":
+      return "bg-amber-500/10 text-amber-100 ring-1 ring-amber-500/25";
+    case "blocked":
+      return "bg-rose-500/10 text-rose-100 ring-1 ring-rose-500/25";
     default:
-      return "bg-slate-800/70 text-slate-200 border border-slate-600/60";
+      return "bg-white/5 text-slate-200 ring-1 ring-white/10";
   }
 }
 
@@ -32,13 +32,13 @@ function getAmlClasses(status: string | null) {
 function getAssetClasses(status: string | null | undefined) {
   switch (status) {
     case "clean":
-      return "bg-emerald-500/10 text-emerald-100 border border-emerald-500/40";
+      return "bg-emerald-500/10 text-emerald-100 ring-1 ring-emerald-500/25";
     case "suspicious":
-      return "bg-amber-500/10 text-amber-100 border border-amber-500/40";
+      return "bg-amber-500/10 text-amber-100 ring-1 ring-amber-500/25";
     case "blocked":
-      return "bg-rose-500/10 text-rose-100 border border-rose-500/40";
+      return "bg-rose-500/10 text-rose-100 ring-1 ring-rose-500/25";
     default:
-      return "bg-slate-800/70 text-slate-200 border border-slate-600/60";
+      return "bg-white/5 text-slate-200 ring-1 ring-white/10";
   }
 }
 

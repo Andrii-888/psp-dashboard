@@ -93,13 +93,28 @@ export function useInvoicesPage(
       ? searchParams.risk.toLowerCase()
       : undefined;
 
+  const statusParam =
+    typeof searchParams?.status === "string"
+      ? searchParams.status.toLowerCase()
+      : undefined;
+
+  const amlParam =
+    typeof searchParams?.aml === "string"
+      ? searchParams.aml.toLowerCase()
+      : undefined;
+
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [amlFilter, setAmlFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>(
+    statusParam && statusParam.length > 0 ? statusParam : "all"
+  );
+
+  const [amlFilter, setAmlFilter] = useState<string>(
+    amlParam && amlParam.length > 0 ? amlParam : "all"
+  );
   const [search, setSearch] = useState<string>("");
 
   const [minAmount, setMinAmount] = useState<string>("");

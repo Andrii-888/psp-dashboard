@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { FiltersBar } from "@/features/invoices/ui/FiltersBar";
 import { InvoicesTable } from "@/features/invoices/ui/InvoicesTable";
 import { InvoicesPageHeader } from "@/features/invoices/ui/InvoicesPageHeader";
@@ -25,6 +25,11 @@ function InvoicesPageInner() {
   const sp = useSearchParams();
   const decision = sp.get("decision") ?? undefined;
   const risk = sp.get("risk") ?? undefined;
+
+  const status = sp.get("status") ?? undefined;
+  const aml = sp.get("aml") ?? undefined;
+
+  const router = useRouter();
 
   const {
     invoices,
@@ -62,7 +67,7 @@ function InvoicesPageInner() {
 
     reload,
     lastUpdatedAt,
-  } = useInvoicesPage({ decision, risk });
+  } = useInvoicesPage({ decision, risk, status, aml });
 
   const { toasts, pushToast, removeToast } = useToasts();
 
@@ -142,6 +147,26 @@ function InvoicesPageInner() {
     resetKey: viewKey,
   });
 
+  useEffect(() => {
+    // Берём текущий query напрямую из URL, чтобы не зависеть от sp (который меняется при replace)
+    const current = new URLSearchParams(window.location.search);
+
+    if (statusFilter && statusFilter !== "all")
+      current.set("status", statusFilter);
+    else current.delete("status");
+
+    if (amlFilter && amlFilter !== "all") current.set("aml", amlFilter);
+    else current.delete("aml");
+
+    const nextQuery = current.toString();
+    const nextUrl = nextQuery ? `/invoices?${nextQuery}` : "/invoices";
+
+    // Guard: если URL уже такой же — не трогаем (убирает дёргание)
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    if (currentUrl === nextUrl) return;
+
+    router.replace(nextUrl);
+  }, [statusFilter, amlFilter, router]);
   /* =========================
      Render
   ========================= */
@@ -196,6 +221,65 @@ function InvoicesPageInner() {
               onMerchantIdChange={setMerchantSearch}
             />
           </section>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-slate-400">Active filters:</span>
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  decision === "queue"
+                    ? "/invoices"
+                    : "/invoices?decision=queue"
+                )
+              }
+              className={[
+                "rounded-full px-3 py-1 ring-1 transition",
+                decision === "queue"
+                  ? "bg-amber-500/15 text-amber-200 ring-amber-500/30"
+                  : "bg-white/5 text-slate-200 ring-white/10 hover:bg-white/10",
+              ].join(" ")}
+            >
+              Queue
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  risk === "high" ? "/invoices" : "/invoices?risk=high"
+                )
+              }
+              className={[
+                "rounded-full px-3 py-1 ring-1 transition",
+                risk === "high"
+                  ? "bg-rose-500/15 text-rose-200 ring-rose-500/30"
+                  : "bg-white/5 text-slate-200 ring-white/10 hover:bg-white/10",
+              ].join(" ")}
+            >
+              High risk
+            </button>
+
+            {decision === "queue" && (
+              <span className="rounded-full bg-amber-500/15 px-3 py-1 text-amber-200 ring-1 ring-amber-500/30">
+                Queue (pending / hold)
+              </span>
+            )}
+
+            {risk === "high" && (
+              <span className="rounded-full bg-rose-500/15 px-3 py-1 text-rose-200 ring-1 ring-rose-500/30">
+                High risk (≥ 70)
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={() => router.push("/invoices")}
+              className="ml-2 rounded-full bg-white/5 px-3 py-1 text-slate-200 ring-1 ring-white/10 hover:bg-white/10"
+            >
+              Clear
+            </button>
+          </div>
         </div>
 
         {/* Scrollable content */}

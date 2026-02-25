@@ -295,7 +295,17 @@ export function HomeHero() {
               tone="default"
             />
 
-            <Link href="/invoices?decision=queue" className="block">
+            <Link
+              href="/invoices?decision=queue"
+              className={[
+                "group block rounded-2xl",
+                "cursor-pointer",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50",
+                "transition-transform hover:-translate-y-0.5",
+                "hover:shadow-[0_18px_55px_rgba(0,0,0,0.55)]",
+                "hover:ring-1 hover:ring-white/15",
+              ].join(" ")}
+            >
               <KpiCard
                 label="Pending decisions"
                 value={
@@ -308,7 +318,17 @@ export function HomeHero() {
               />
             </Link>
 
-            <Link href="/invoices?risk=high" className="block">
+            <Link
+              href="/invoices?risk=high"
+              className={[
+                "group block rounded-2xl",
+                "cursor-pointer",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50",
+                "transition-transform hover:-translate-y-0.5",
+                "hover:shadow-[0_18px_55px_rgba(0,0,0,0.55)]",
+                "hover:ring-1 hover:ring-white/15",
+              ].join(" ")}
+            >
               <KpiCard
                 label="High risk"
                 value={
