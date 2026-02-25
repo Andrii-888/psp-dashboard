@@ -80,7 +80,19 @@ function fingerprint(invoices: Invoice[]): string {
     .join("\n");
 }
 
-export function useInvoicesPage(): UseInvoicesPageResult {
+export function useInvoicesPage(
+  searchParams?: Record<string, string | string[] | undefined>
+): UseInvoicesPageResult {
+  const decisionParam =
+    typeof searchParams?.decision === "string"
+      ? searchParams.decision.toLowerCase()
+      : undefined;
+
+  const riskParam =
+    typeof searchParams?.risk === "string"
+      ? searchParams.risk.toLowerCase()
+      : undefined;
+
   const [allInvoices, setAllInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -199,10 +211,38 @@ export function useInvoicesPage(): UseInvoicesPageResult {
     ]
   );
 
-  const invoices = useMemo(
-    () => filterInvoices(allInvoices, filterParams),
-    [allInvoices, filterParams]
-  );
+  const invoices = useMemo(() => {
+    let base = filterInvoices(allInvoices, filterParams);
+
+    const norm = (v: unknown) => String(v ?? "").toLowerCase();
+
+    // decision filter
+    if (decisionParam) {
+      if (decisionParam === "queue") {
+        base = base.filter((inv) => {
+          const ds = norm(inv.decisionStatus);
+          return ds === "pending" || ds === "hold" || ds === "";
+        });
+      } else {
+        base = base.filter((inv) => norm(inv.decisionStatus) === decisionParam);
+      }
+    }
+
+    // risk filter
+    if (riskParam === "high") {
+      base = base.filter((inv) => {
+        const risk = Number(inv.riskScore);
+        const asset = Number(inv.assetRiskScore);
+        const r = Math.max(
+          Number.isFinite(risk) ? risk : 0,
+          Number.isFinite(asset) ? asset : 0
+        );
+        return r >= 70;
+      });
+    }
+
+    return base;
+  }, [allInvoices, filterParams, decisionParam, riskParam]);
 
   const totalCount = invoices.length;
   const confirmedCount = invoices.filter(

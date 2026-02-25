@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useApiHealth } from "@/shared/hooks/useApiHealth";
 
 function StatusPill({
@@ -74,6 +75,67 @@ function QuickCard({
   );
 }
 
+function KpiCard({
+  label,
+  value,
+  sub,
+  tone = "default",
+}: {
+  label: string;
+  value: React.ReactNode;
+  sub?: string;
+  tone?: "default" | "warn" | "danger" | "good";
+}) {
+  const toneClasses =
+    tone === "good"
+      ? "border-emerald-500/20 bg-emerald-500/10"
+      : tone === "warn"
+      ? "border-amber-500/20 bg-amber-500/10"
+      : tone === "danger"
+      ? "border-rose-500/20 bg-rose-500/10"
+      : "border-white/10 bg-white/5";
+
+  const valueClasses =
+    tone === "good"
+      ? "text-emerald-100"
+      : tone === "warn"
+      ? "text-amber-100"
+      : tone === "danger"
+      ? "text-rose-100"
+      : "text-white";
+
+  return (
+    <div
+      className={[
+        "rounded-2xl border p-5 shadow-[0_10px_30px_rgba(0,0,0,0.25)] backdrop-blur-md",
+        "transition hover:border-white/20 hover:bg-white/10",
+        "min-h-30p",
+        toneClasses,
+      ].join(" ")}
+    >
+      <div className="flex h-full flex-col items-center justify-center text-center">
+        <div className="text-[11px] font-semibold uppercase tracking-widest text-slate-300">
+          {label}
+        </div>
+
+        <div
+          className={[
+            "mt-2 font-mono font-semibold tabular-nums leading-none",
+            "text-[clamp(18px,2.4vw,28px)]",
+            valueClasses,
+          ].join(" ")}
+        >
+          {value}
+        </div>
+
+        <div className="mt-2 text-[11px] text-slate-400">
+          {sub ? sub : "\u00A0"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function GuidedActions({ apiOk }: { apiOk: boolean | null }) {
   if (apiOk === null) {
     return (
@@ -115,6 +177,83 @@ function GuidedActions({ apiOk }: { apiOk: boolean | null }) {
 export function HomeHero() {
   const { apiOk, apiError } = useApiHealth();
 
+  const [kpi, setKpi] = useState<{
+    confirmed?: number;
+    total?: number;
+    pendingDecisions?: number;
+    highRisk?: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (apiOk !== true) return;
+
+    let alive = true;
+
+    async function load() {
+      try {
+        const invoicesRes = await fetch("/api/psp/invoices?limit=200&offset=0");
+        const invoicesJson: unknown = invoicesRes.ok
+          ? await invoicesRes.json()
+          : null;
+
+        if (process.env.NODE_ENV === "development") {
+        }
+
+        const isRecord = (v: unknown): v is Record<string, unknown> =>
+          typeof v === "object" && v !== null;
+
+        const extractInvoices = (data: unknown): Record<string, unknown>[] => {
+          if (!data) return [];
+
+          if (isRecord(data) && Array.isArray(data.items)) {
+            return data.items.filter(isRecord);
+          }
+
+          if (Array.isArray(data)) {
+            return data.filter(isRecord);
+          }
+
+          return [];
+        };
+
+        const invoices = extractInvoices(invoicesJson);
+
+        if (!alive) return;
+        setKpi({
+          total: invoices.length,
+          confirmed: invoices.filter((i) => i["status"] === "confirmed").length,
+
+          pendingDecisions: invoices.filter((i) => {
+            const s = String(i["decisionStatus"] ?? "").toLowerCase();
+            return s === "pending" || s === "hold" || s === "";
+          }).length,
+
+          highRisk: invoices.filter((i) => {
+            const risk = Number(i["riskScore"]);
+            const asset = Number(i["assetRiskScore"]);
+
+            const r = Math.max(
+              Number.isFinite(risk) ? risk : 0,
+              Number.isFinite(asset) ? asset : 0
+            );
+
+            return r >= 70;
+          }).length,
+        });
+      } catch {
+        if (!alive) return;
+        setKpi(null);
+      }
+    }
+
+    load();
+    return () => {
+      alive = false;
+    };
+  }, [apiOk]);
+
+  const fmtInt = useMemo(() => new Intl.NumberFormat("en-US"), []);
+
   return (
     <section className="relative flex min-h-[85vh] w-full items-center justify-center overflow-hidden px-4">
       {/* background */}
@@ -133,6 +272,54 @@ export function HomeHero() {
 
           <div className="mt-3 text-xs text-slate-300">
             Operator view — status, money flows, and audit-ready documents.
+          </div>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+            <KpiCard
+              label="Confirmed"
+              value={
+                typeof kpi?.confirmed === "number"
+                  ? fmtInt.format(kpi.confirmed)
+                  : "—"
+              }
+              sub="Invoices (limit 200)"
+              tone="default"
+            />
+
+            <KpiCard
+              label="Total invoices"
+              value={
+                typeof kpi?.total === "number" ? fmtInt.format(kpi.total) : "—"
+              }
+              sub="Loaded (limit 200)"
+              tone="default"
+            />
+
+            <Link href="/invoices?decision=queue" className="block">
+              <KpiCard
+                label="Pending decisions"
+                value={
+                  typeof kpi?.pendingDecisions === "number"
+                    ? fmtInt.format(kpi.pendingDecisions)
+                    : "—"
+                }
+                sub="Open queue →"
+                tone={(kpi?.pendingDecisions ?? 0) > 0 ? "warn" : "default"}
+              />
+            </Link>
+
+            <Link href="/invoices?risk=high" className="block">
+              <KpiCard
+                label="High risk"
+                value={
+                  typeof kpi?.highRisk === "number"
+                    ? fmtInt.format(kpi.highRisk)
+                    : "—"
+                }
+                sub="riskScore ≥ 70"
+                tone={(kpi?.highRisk ?? 0) > 0 ? "danger" : "default"}
+              />
+            </Link>
           </div>
         </div>
 

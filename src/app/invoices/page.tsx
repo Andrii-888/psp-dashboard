@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { FiltersBar } from "@/features/invoices/ui/FiltersBar";
 import { InvoicesTable } from "@/features/invoices/ui/InvoicesTable";
 import { InvoicesPageHeader } from "@/features/invoices/ui/InvoicesPageHeader";
@@ -21,6 +22,10 @@ import { useInvoicesActions } from "@/features/invoices/actions/useInvoicesActio
    Page
 ========================= */
 export default function InvoicesPage() {
+  const sp = useSearchParams();
+  const decision = sp.get("decision") ?? undefined;
+  const risk = sp.get("risk") ?? undefined;
+
   const {
     invoices,
     loading,
@@ -57,7 +62,7 @@ export default function InvoicesPage() {
 
     reload,
     lastUpdatedAt,
-  } = useInvoicesPage();
+  } = useInvoicesPage({ decision, risk });
 
   const { toasts, pushToast, removeToast } = useToasts();
 
