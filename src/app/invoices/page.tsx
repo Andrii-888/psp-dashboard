@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { FiltersBar } from "@/features/invoices/ui/FiltersBar";
 import { InvoicesTable } from "@/features/invoices/ui/InvoicesTable";
 import { InvoicesPageHeader } from "@/features/invoices/ui/InvoicesPageHeader";
@@ -107,6 +108,21 @@ export default function InvoicesPage() {
   ========================= */
   const PAGE_SIZE = 20;
 
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      setScrolled(el.scrollTop > 4);
+    };
+
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, []);
+
   const {
     page,
     setPage,
@@ -125,64 +141,79 @@ export default function InvoicesPage() {
      Render
   ========================= */
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-6 text-slate-50 md:px-8 md:py-8">
+    <main className="h-screen overflow-hidden bg-slate-950 px-4 py-6 text-slate-50 md:px-8 md:py-8">
       <ToastStack toasts={toasts} onRemove={removeToast} />
 
-      <div className="mx-auto flex w-full max-w-none flex-col gap-4 md:gap-6">
-        <InvoicesPageHeader
-          apiOk={apiOk}
-          apiError={apiError}
-          lastUpdatedAt={lastUpdatedAt ?? null}
-          liveOn={liveOn}
-          soundOn={soundOn}
-          toggleSound={toggleSound}
-          loading={loading}
-          refreshing={refreshing}
-          onRefresh={refresh}
-        />
+      <div className="mx-auto flex h-full w-full max-w-none flex-col">
+        {/* Sticky top area */}
+        <div
+          className={[
+            "sticky top-0 z-30 -mx-4 bg-slate-950/95 px-4 pb-4 backdrop-blur md:-mx-8 md:px-8 transition-shadow",
+            scrolled
+              ? "shadow-[0_2px_8px_rgba(0,0,0,0.4)] border-b border-slate-800"
+              : "",
+          ].join(" ")}
+        >
+          <div className="pt-0 md:pt-0">
+            <InvoicesPageHeader
+              apiOk={apiOk}
+              apiError={apiError}
+              lastUpdatedAt={lastUpdatedAt ?? null}
+              liveOn={liveOn}
+              soundOn={soundOn}
+              toggleSound={toggleSound}
+              loading={loading}
+              refreshing={refreshing}
+              onRefresh={refresh}
+            />
+          </div>
 
-        {/* Filters */}
-        <section className="apple-card-section">
-          <FiltersBar
-            status={statusFilter}
-            onStatusChange={setStatusFilter}
-            amlStatus={amlFilter}
-            onAmlStatusChange={setAmlFilter}
-            search={search}
-            onSearchChange={setSearch}
-            minAmount={minAmount}
-            maxAmount={maxAmount}
-            onMinAmountChange={setMinAmount}
-            onMaxAmountChange={setMaxAmount}
-            datePreset={datePreset}
-            onDatePresetChange={setDatePreset}
-            txHash={txHashSearch}
-            onTxHashChange={setTxHashSearch}
-            walletAddress={walletSearch}
-            onWalletAddressChange={setWalletSearch}
-            merchantId={merchantSearch}
-            onMerchantIdChange={setMerchantSearch}
-          />
-        </section>
+          {/* Filters */}
+          <section className="apple-card-section mt-4">
+            <FiltersBar
+              status={statusFilter}
+              onStatusChange={setStatusFilter}
+              amlStatus={amlFilter}
+              onAmlStatusChange={setAmlFilter}
+              search={search}
+              onSearchChange={setSearch}
+              minAmount={minAmount}
+              maxAmount={maxAmount}
+              onMinAmountChange={setMinAmount}
+              onMaxAmountChange={setMaxAmount}
+              datePreset={datePreset}
+              onDatePresetChange={setDatePreset}
+              txHash={txHashSearch}
+              onTxHashChange={setTxHashSearch}
+              walletAddress={walletSearch}
+              onWalletAddressChange={setWalletSearch}
+              merchantId={merchantSearch}
+              onMerchantIdChange={setMerchantSearch}
+            />
+          </section>
+        </div>
 
-        {/* Table */}
-        <section className="apple-card overflow-hidden">
-          <InvoicesTable
-            invoices={pagedInvoices}
-            loading={loading}
-            error={error}
-          />
+        {/* Scrollable content */}
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pt-4">
+          {/* Table */}
+          <section className="apple-card overflow-hidden">
+            <InvoicesTable
+              invoices={pagedInvoices}
+              loading={loading}
+              error={error}
+            />
 
-          <PaginationBar
-            page={page}
-            totalPages={totalPages}
-            pageFrom={pageFrom}
-            pageTo={pageTo}
-            totalCount={totalCount}
-            onPrev={() => setPage(page - 1)}
-            onNext={() => setPage(page + 1)}
-          />
-        </section>
+            <PaginationBar
+              page={page}
+              totalPages={totalPages}
+              pageFrom={pageFrom}
+              pageTo={pageTo}
+              totalCount={totalCount}
+              onPrev={() => setPage(page - 1)}
+              onNext={() => setPage(page + 1)}
+            />
+          </section>
+        </div>
       </div>
     </main>
   );

@@ -64,7 +64,6 @@ export default async function AccountingPage({
 }) {
   const sp = await searchParams;
 
-  // ✅ Next 15+: headers() is async
   const hReadonly = await headers();
   const h = toFetchHeaders(hReadonly);
 
@@ -88,8 +87,6 @@ export default async function AccountingPage({
 
   const totalsLimit = 200;
 
-  // ✅ Operator-grade rule: Accounting shows POSTED ledger only.
-  // Pipeline fallback is allowed only in explicit debug mode (never for boss/regulators).
   const mode = pick(sp, "mode", "");
   const allowPipeline = mode === "pipeline";
 
@@ -116,8 +113,6 @@ export default async function AccountingPage({
 
   let errorMsg = "";
 
-  // ✅ CHF-first (UI): allow all crypto rows, but restrict ANY fiat fields to CHF only.
-  // Ledger truth is unchanged; this is presentation filtering only.
   const CHF = "CHF";
 
   type WithFiatFields = {
@@ -131,8 +126,6 @@ export default async function AccountingPage({
     return "fiatCurrency" in r || "feeFiatCurrency" in r;
   };
 
-  // ✅ CHF-first (UI): allow all crypto rows, but restrict ANY fiat fields to CHF only.
-  // Ledger truth is unchanged; this is presentation filtering only.
   const onlyChfFiatKeepCrypto = (
     rows: AccountingEntryRaw[]
   ): AccountingEntryRaw[] =>
@@ -149,7 +142,6 @@ export default async function AccountingPage({
         .trim()
         .toUpperCase();
 
-      // if any fiat is present -> strictly CHF
       return fiat === CHF && feeFiat === CHF;
     });
 
@@ -164,7 +156,6 @@ export default async function AccountingPage({
         .trim()
         .toUpperCase();
 
-      // If a fiat field exists and is not empty, it must be CHF. Otherwise it is non-CHF.
       const fiatNonChf = fiat !== "" && fiat !== CHF;
       const feeFiatNonChf = feeFiat !== "" && feeFiat !== CHF;
 
@@ -185,7 +176,7 @@ export default async function AccountingPage({
       headers: h,
       from,
       to,
-    }), // totals
+    }),
   ] as const);
 
   const [
