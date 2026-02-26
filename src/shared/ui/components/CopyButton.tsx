@@ -92,7 +92,13 @@ export function CopyButton({
   const [copied, setCopied] = React.useState(false);
   const [hovered, setHovered] = React.useState(false);
   const timeoutRef = React.useRef<number | null>(null);
-  const btnRef = React.useRef<HTMLButtonElement | null>(null);
+  const [anchorEl, setAnchorEl] = React.useState<HTMLButtonElement | null>(
+    null
+  );
+
+  const setBtnRef = React.useCallback((node: HTMLButtonElement | null) => {
+    setAnchorEl(node);
+  }, []);
 
   React.useEffect(() => {
     return () => {
@@ -125,7 +131,7 @@ export function CopyButton({
   return (
     <>
       <button
-        ref={btnRef}
+        ref={setBtnRef}
         type="button"
         onClick={onCopy}
         onMouseEnter={() => setHovered(true)}
@@ -158,11 +164,7 @@ export function CopyButton({
         )}
       </button>
 
-      <Tooltip
-        anchorEl={btnRef.current}
-        text={tooltipText}
-        visible={showTooltip}
-      />
+      <Tooltip anchorEl={anchorEl} text={tooltipText} visible={showTooltip} />
     </>
   );
 }

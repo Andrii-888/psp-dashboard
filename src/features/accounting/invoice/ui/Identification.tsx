@@ -62,7 +62,7 @@ export default function Identification({ invoice }: { invoice: Invoice }) {
       : "—";
 
   const status = String(invoice.status ?? "—").toUpperCase();
-  const receiptText = buildAccountingReceiptText(invoice as any);
+  const receiptText = buildAccountingReceiptText(invoice);
 
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm">
