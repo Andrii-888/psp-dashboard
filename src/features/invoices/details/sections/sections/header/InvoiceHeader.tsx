@@ -34,10 +34,13 @@ export function InvoiceHeader({ invoice, uiState }: InvoiceHeaderProps) {
             Invoice ID
           </div>
 
-          <div className="mt-1 flex items-center gap-1.5">
-            <div className="truncate font-mono text-xs font-medium tracking-[0.02em] text-slate-50 md:text-sm">
+          <div className="mt-1 flex items-center gap-2">
+            <span
+              className="truncate font-mono text-[11px] tracking-[0.04em] text-slate-300/90"
+              title={invoiceId}
+            >
               {invoiceId}
-            </div>
+            </span>
 
             <CopyButton value={invoiceId} size="sm" />
           </div>
@@ -59,7 +62,7 @@ export function InvoiceHeader({ invoice, uiState }: InvoiceHeaderProps) {
           <div className="flex flex-wrap justify-end gap-2">
             <span
               className={[
-                "rounded-full px-2.5 py-1 text-[11px] font-medium ring-1",
+                "whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-[0.04em] ring-1",
                 uiState.invoice.tone === "ok"
                   ? "bg-emerald-500/10 text-emerald-200 ring-emerald-500/20"
                   : uiState.invoice.tone === "warn"
@@ -72,7 +75,7 @@ export function InvoiceHeader({ invoice, uiState }: InvoiceHeaderProps) {
 
             <span
               className={[
-                "rounded-full px-2.5 py-1 text-[11px] font-medium ring-1",
+                "whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-[0.04em] ring-1",
                 uiState.tx.tone === "ok"
                   ? "bg-emerald-500/10 text-emerald-200 ring-emerald-500/20"
                   : uiState.tx.tone === "warn"
@@ -90,7 +93,7 @@ export function InvoiceHeader({ invoice, uiState }: InvoiceHeaderProps) {
 
             <span
               className={[
-                "rounded-full px-2.5 py-1 text-[11px] font-medium ring-1",
+                "whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-[0.04em] ring-1",
                 uiState.decision.tone === "ok"
                   ? "bg-emerald-500/10 text-emerald-200 ring-emerald-500/20"
                   : uiState.decision.tone === "warn"

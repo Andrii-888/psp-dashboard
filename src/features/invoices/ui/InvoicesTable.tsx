@@ -168,17 +168,6 @@ export function InvoicesTable({
     return () => window.clearInterval(t);
   }, []);
 
-  const openDetails = (id: string) => {
-    router.push(`/invoices/${id}`);
-  };
-
-  const onRowKeyDown = (e: React.KeyboardEvent, id: string) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      openDetails(id);
-    }
-  };
-
   return (
     <div className="overflow-x-auto">
       {error && (
@@ -257,16 +246,9 @@ export function InvoicesTable({
             return (
               <tr
                 key={inv.id}
-                tabIndex={0}
-                role="button"
-                aria-label={`Open invoice ${inv.id}`}
-                onClick={() => openDetails(inv.id)}
-                onKeyDown={(e) => onRowKeyDown(e, inv.id)}
                 className={[
-                  "group cursor-pointer rounded-2xl bg-slate-900/60 text-xs text-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-all hover:bg-slate-900/90 focus:outline-none focus:ring-2 focus:ring-violet-500/50",
-                  isHighRisk
-                    ? "ring-1 ring-rose-500/25 bg-rose-500/5 hover:bg-rose-500/10"
-                    : "",
+                  "rounded-2xl bg-slate-900/60 text-xs text-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-colors",
+                  isHighRisk ? "ring-1 ring-rose-500/25 bg-rose-500/5" : "",
                 ].join(" ")}
               >
                 <td
@@ -294,7 +276,13 @@ export function InvoicesTable({
                       <CopyButton value={String(inv.id)} />
                     </div>
 
-                    <span className="truncate">{inv.id}</span>
+                    <Link
+                      href={`/invoices/${inv.id}`}
+                      className="truncate rounded-md bg-emerald-500/10 px-2 py-0.5 font-mono text-[11px] text-emerald-300 ring-1 ring-emerald-500/20 transition hover:bg-emerald-500/20"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {inv.id}
+                    </Link>
                   </div>
                 </td>
 

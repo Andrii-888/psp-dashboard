@@ -1,5 +1,7 @@
 "use client";
 
+import { BackButton } from "@/shared/ui/components/BackButton";
+import { CopyButton } from "@/shared/ui/components/CopyButton";
 import { useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { notFound } from "next/navigation";
@@ -169,31 +171,22 @@ export default function PaymentRecordPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(`/invoices/${encodeURIComponent(invoiceId)}`)
-                }
-                className="rounded-xl border border-slate-700/70 bg-slate-950/70 px-3 py-1.5 text-[11px] text-slate-100 hover:bg-slate-950 focus:outline-none focus:ring-1 focus:ring-slate-500/60"
-              >
-                Back to Invoice
-              </button>
+            <div className="flex items-center gap-1.5 pr-1">
+              {invoiceId ? (
+                <BackButton
+                  href={`/invoices/${encodeURIComponent(invoiceId)}`}
+                  label="Back to Invoice"
+                  className="h-8 w-8"
+                />
+              ) : null}
 
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!receipt) return;
-                  try {
-                    await navigator.clipboard.writeText(receipt);
-                  } catch {
-                    // ignore
-                  }
-                }}
-                className="rounded-xl border border-slate-700/70 bg-slate-950/70 px-3 py-1.5 text-[11px] text-slate-100 hover:bg-slate-950 focus:outline-none focus:ring-1 focus:ring-slate-500/60"
-              >
-                Copy
-              </button>
+              {receipt ? (
+                <CopyButton value={receipt} size="sm" className="h-8 w-8" />
+              ) : (
+                <div className="opacity-40 pointer-events-none">
+                  <CopyButton value="" size="sm" className="h-8 w-8" />
+                </div>
+              )}
             </div>
           </div>
         </section>

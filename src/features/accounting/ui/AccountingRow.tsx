@@ -102,7 +102,7 @@ function pickPrimaryMoney(entry: AccountingEntryRaw) {
         fxPair.base === cur && fxPair.quote === "CHF"
           ? (n: number) => n * fxRate
           : fxPair.base === "CHF" && fxPair.quote === cur
-          ? (n: number) => n / fxRate
+          ? (n: number) => n * fxRate
           : null;
 
       if (chf) {

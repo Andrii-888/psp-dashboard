@@ -260,18 +260,6 @@ function InvoicesPageInner() {
               High risk
             </button>
 
-            {decision === "queue" && (
-              <span className="rounded-full bg-amber-500/15 px-3 py-1 text-amber-200 ring-1 ring-amber-500/30">
-                Queue (pending / hold)
-              </span>
-            )}
-
-            {risk === "high" && (
-              <span className="rounded-full bg-rose-500/15 px-3 py-1 text-rose-200 ring-1 ring-rose-500/30">
-                High risk (≥ 70)
-              </span>
-            )}
-
             <button
               type="button"
               onClick={() => router.push("/invoices")}
