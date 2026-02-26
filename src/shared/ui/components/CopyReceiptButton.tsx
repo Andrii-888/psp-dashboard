@@ -1,8 +1,4 @@
-"use client";
-
-import * as React from "react";
 import type { Invoice } from "@/domain/invoices/types";
-import { CopyButton } from "./CopyButton";
 
 function upper(v?: string | null): string {
   return (
@@ -35,7 +31,10 @@ function fmtUtc(iso?: string | null): string {
   );
 }
 
-function buildReceiptText(invoice: Invoice): string {
+/**
+ * Operator-grade accounting receipt text for clipboard copy.
+ */
+export function buildAccountingReceiptText(invoice: Invoice): string {
   const merchantId = safe(invoice.merchantId);
 
   const status = upper(invoice.status);
@@ -97,10 +96,10 @@ function buildReceiptText(invoice: Invoice): string {
   lines.push("Compliance");
 
   // If invoice is already approved, don't scare ops with "warning".
-  // Show a resolved/final compliance label.
   const ds = String(
     invoice.decisionStatus ?? invoice.decision?.status ?? ""
   ).toLowerCase();
+
   const amlOut =
     ds === "approve" || ds === "approved"
       ? "clean/approved"
@@ -118,26 +117,4 @@ function buildReceiptText(invoice: Invoice): string {
   lines.push(`Decided by: ${safe(invoice.decidedBy)}`);
 
   return lines.join("\n");
-}
-
-export function CopyReceiptButton({
-  invoice,
-  className = "",
-  size = "sm",
-}: {
-  invoice: Invoice;
-  label?: string;
-  className?: string;
-  size?: "sm" | "md";
-}) {
-  const text = React.useMemo(() => buildReceiptText(invoice), [invoice]);
-
-  return (
-    <CopyButton
-      value={text}
-      label="Copy receipt"
-      size={size}
-      className={className}
-    />
-  );
 }

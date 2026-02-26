@@ -1,7 +1,9 @@
 "use client";
 
+import React from "react";
 import type { Invoice } from "../types/invoice";
-import { CopyReceiptButton } from "@/shared/ui/components/CopyReceiptButton";
+import { CopyButton } from "@/shared/ui/components/CopyButton";
+import { buildAccountingReceiptText } from "@/shared/ui/components/CopyReceiptButton";
 
 function fmtUtc(ts?: string | null): string {
   const v = String(ts ?? "").trim();
@@ -60,6 +62,7 @@ export default function Identification({ invoice }: { invoice: Invoice }) {
       : "—";
 
   const status = String(invoice.status ?? "—").toUpperCase();
+  const receiptText = buildAccountingReceiptText(invoice as any);
 
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm">
@@ -70,7 +73,7 @@ export default function Identification({ invoice }: { invoice: Invoice }) {
             Identification
           </div>
 
-          <CopyReceiptButton invoice={invoice} label="Copy" />
+          <CopyButton value={receiptText} size="sm" />
         </div>
 
         <div className="mt-4 divide-y divide-zinc-100">
