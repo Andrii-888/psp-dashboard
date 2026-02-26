@@ -64,8 +64,9 @@ function normalizeDecision(invoice: Invoice): {
   reason: string;
   decidedAt: string;
   decidedBy: string;
+  raw: string; // lowercased raw decision for logic
 } {
-  const status =
+  const statusRaw =
     (invoice.decisionStatus != null
       ? invoice.decisionStatus
       : invoice.decision?.status) ?? null;
@@ -80,24 +81,42 @@ function normalizeDecision(invoice: Invoice): {
   const decidedAt = invoice.decidedAt ?? invoice.decision?.decidedAt ?? null;
   const decidedBy = invoice.decidedBy ?? invoice.decision?.decidedBy ?? null;
 
+  const raw = String(statusRaw ?? "")
+    .trim()
+    .toLowerCase();
+
   return {
-    status: upper(String(status ?? "")),
+    status: upper(String(statusRaw ?? "")),
     reason: txt(String(reason ?? "")),
     decidedAt: fmtUtc(decidedAt),
     decidedBy: txt(decidedBy),
+    raw,
   };
 }
 
 export default function Compliance({ invoice }: { invoice: Invoice }) {
-  const amlStatus = txt(invoice.amlStatus);
-  const riskScore =
-    typeof invoice.riskScore === "number" ? String(invoice.riskScore) : "—";
-  const assetRiskScore =
-    typeof invoice.assetRiskScore === "number"
-      ? String(invoice.assetRiskScore)
-      : "—";
-
   const decision = normalizeDecision(invoice);
+
+  const riskScoreNum =
+    typeof invoice.riskScore === "number" ? invoice.riskScore : null;
+  const assetRiskScoreNum =
+    typeof invoice.assetRiskScore === "number" ? invoice.assetRiskScore : null;
+
+  const riskScore = riskScoreNum !== null ? String(riskScoreNum) : "—";
+  const assetRiskScore =
+    assetRiskScoreNum !== null ? String(assetRiskScoreNum) : "—";
+
+  const rawAmlStatus = txt(invoice.amlStatus);
+
+  // Accounting logic:
+  // If the invoice is CONFIRMED + APPROVED and both scores are 0,
+  // treat AML as resolved to avoid false "warning" in accounting receipts.
+  const amlStatus =
+    (decision.raw === "approve" || decision.raw === "approved") &&
+    riskScoreNum === 0 &&
+    assetRiskScoreNum === 0
+      ? "clean/approved"
+      : rawAmlStatus;
 
   return (
     <section className="mt-4 rounded-2xl border border-zinc-200 bg-white shadow-sm">

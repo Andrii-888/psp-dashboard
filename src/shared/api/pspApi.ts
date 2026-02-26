@@ -285,7 +285,7 @@ function normalizeAmlStatus(v: unknown): Invoice["amlStatus"] {
   if (!s) return null;
 
   // PSP-Core может отдавать "review" — в UI трактуем как warning (нужна проверка)
-  if (s === "review") return "warning";
+  if (s === "review") return null;
 
   if (s === "clean") return "clean";
   if (s === "warning") return "warning";

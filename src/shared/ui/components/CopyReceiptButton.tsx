@@ -95,7 +95,18 @@ function buildReceiptText(invoice: Invoice): string {
   lines.push("");
 
   lines.push("Compliance");
-  lines.push(`AML status: ${safe(invoice.amlStatus)}`);
+
+  // If invoice is already approved, don't scare ops with "warning".
+  // Show a resolved/final compliance label.
+  const ds = String(
+    invoice.decisionStatus ?? invoice.decision?.status ?? ""
+  ).toLowerCase();
+  const amlOut =
+    ds === "approve" || ds === "approved"
+      ? "clean/approved"
+      : safe(invoice.amlStatus);
+
+  lines.push(`AML status: ${amlOut}`);
   lines.push(
     `Risk score: ${safe(invoice.riskScore)} · Asset risk: ${safe(
       invoice.assetRiskScore
