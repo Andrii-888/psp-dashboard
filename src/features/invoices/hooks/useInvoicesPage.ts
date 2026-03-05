@@ -147,7 +147,7 @@ export function useInvoicesPage(
         setError(null);
       }
 
-      const items = await fetchOperatorInvoices({ limit: 500 });
+      const items = await fetchOperatorInvoices({ limit: 50 });
 
       const nextChf = items.filter((i) => {
         // CHF-first: invoices with missing/unknown fiatCurrency are dropped (no non-CHF / no null in UI)

@@ -33,9 +33,6 @@ function getAudioContextCtor(): (new () => AudioContext) | null {
 
 export function useLiveInvoices({
   invoices,
-  reload,
-  creating = false,
-  intervalMs = 3000,
   resetKey,
   onNewInvoices,
 }: UseLiveInvoicesParams): UseLiveInvoicesResult {
@@ -43,8 +40,6 @@ export function useLiveInvoices({
 
   const [soundOn, setSoundOn] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
-
-  const inFlightRef = useRef(false);
   const seenIdsRef = useRef<Set<string> | null>(null);
 
   const ensureAudioContext = useCallback((): AudioContext | null => {
@@ -125,33 +120,6 @@ export function useLiveInvoices({
   useEffect(() => {
     seenIdsRef.current = null;
   }, [resetKey]);
-
-  // ✅ Live polling (silent!)
-  useEffect(() => {
-    if (!liveOn) return;
-
-    async function tick() {
-      if (typeof document !== "undefined" && document.hidden) return;
-      if (creating) return;
-      if (inFlightRef.current) return;
-
-      inFlightRef.current = true;
-      try {
-        await reload({ silent: true }); // ✅ ключевой фикс от “дёрганья”
-      } catch {
-        // тихо
-      } finally {
-        inFlightRef.current = false;
-      }
-    }
-
-    const id = setInterval(() => void tick(), intervalMs);
-    void tick();
-
-    return () => {
-      clearInterval(id);
-    };
-  }, [liveOn, intervalMs, reload, creating]);
 
   // ✅ Детектор новых инвойсов + звук
   useEffect(() => {
