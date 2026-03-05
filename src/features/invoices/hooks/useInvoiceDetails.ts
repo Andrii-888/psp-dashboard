@@ -60,12 +60,19 @@ function shouldPollInvoice(args: {
   status?: Invoice["status"] | null;
   txHash?: string | null;
   amlStatus?: Invoice["amlStatus"] | null;
+  decisionStatus?: Invoice["decisionStatus"] | null;
 }) {
+  const decision = (args.decisionStatus ?? "").toString().trim().toLowerCase();
+  const decided = decision !== "" && decision !== "none";
+
+  // If operator decision is already made — stop polling.
+  if (decided) return false;
+
   const isOpen = args.status === "waiting";
   const hasTx = Boolean(args.txHash?.trim());
   const amlPending = hasTx && args.amlStatus === null;
 
-  // poll пока invoice открыт ИЛИ пока ждём AML после txHash
+  // poll while invoice open OR while waiting AML after txHash
   return isOpen || amlPending;
 }
 
@@ -223,7 +230,15 @@ export function useInvoiceDetails(
     const amlStatus = invoice?.amlStatus ?? null;
 
     // ❌ nothing to poll
-    if (!shouldPollInvoice({ status, txHash, amlStatus })) return;
+    if (
+      !shouldPollInvoice({
+        status,
+        txHash,
+        amlStatus,
+        decisionStatus: invoice?.decisionStatus ?? null,
+      })
+    )
+      return;
 
     // ❌ do not poll during mutations
     if (isMutating) return;
@@ -268,6 +283,7 @@ export function useInvoiceDetails(
           status: next?.status ?? null,
           txHash: next?.txHash ?? null,
           amlStatus: next?.amlStatus ?? null,
+          decisionStatus: (next as Invoice | null)?.decisionStatus ?? null,
         });
       } catch {
         // transient error → retry later
@@ -300,6 +316,7 @@ export function useInvoiceDetails(
     invoice?.status,
     invoice?.txHash,
     invoice?.amlStatus,
+    invoice?.decisionStatus,
     isMutating,
   ]);
 

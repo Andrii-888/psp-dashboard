@@ -418,6 +418,22 @@ async function proxy(req: NextRequest, ctx: RouteContext): Promise<Response> {
       redirect: "manual",
     });
 
+    // ✅ Webhooks endpoint may be absent in some environments.
+    // Do not surface 404 to the browser (operator-grade: no red errors in Network).
+    if (
+      !isCsv &&
+      /^invoices\/[^/]+\/webhooks$/i.test(pathname) &&
+      upstream.status === 404
+    ) {
+      return NextResponse.json(
+        { ok: true, items: [] },
+        {
+          status: 200,
+          headers: { "cache-control": "no-store" },
+        }
+      );
+    }
+
     // ✅ Return only safe headers back to client
     const resHeaders = new Headers();
     const outCt = upstream.headers.get("content-type");

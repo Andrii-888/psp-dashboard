@@ -386,20 +386,45 @@ export async function fetchOperatorInvoices(
 export async function fetchInvoiceById(
   invoiceId: string
 ): Promise<{ ok: boolean; invoice: Invoice }> {
-  const res = await apiGet<unknown>(`/invoices/${invoiceId}`);
+  // Operator-first: invoice details page is operator-grade and should not depend on merchant scope
+  try {
+    const op = await apiGet<unknown>(`/operator/invoices/${invoiceId}`);
+    if (op && typeof op === "object" && "invoice" in op) {
+      const out = op as { ok: boolean; invoice: Invoice };
+      return { ...out, invoice: normalizeInvoice(out.invoice) };
+    }
+    return { ok: true, invoice: normalizeInvoice(op) };
+  } catch (e: unknown) {
+    // Fallback to merchant endpoint (keeps compatibility if operator route is not available)
 
-  if (res && typeof res === "object" && "invoice" in res) {
-    const out = res as { ok: boolean; invoice: Invoice };
-    return { ...out, invoice: normalizeInvoice(out.invoice) };
+    const status = e instanceof PspApiError ? e.status : 0;
+
+    // Only fallback on "not found" / missing operator route
+    if (status !== 404) throw e;
+
+    const res = await apiGet<unknown>(`/invoices/${invoiceId}`);
+    if (res && typeof res === "object" && "invoice" in res) {
+      const out = res as { ok: boolean; invoice: Invoice };
+      return { ...out, invoice: normalizeInvoice(out.invoice) };
+    }
+    return { ok: true, invoice: normalizeInvoice(res) };
   }
-
-  return { ok: true, invoice: normalizeInvoice(res) };
 }
 
 export async function fetchInvoiceWebhooks(
   invoiceId: string
 ): Promise<{ ok: boolean; items: WebhookEvent[] }> {
-  const res = await apiGet<unknown>(`/invoices/${invoiceId}/webhooks`);
+  let res: unknown;
+
+  try {
+    res = await apiGet<unknown>(`/invoices/${invoiceId}/webhooks`);
+  } catch (e: unknown) {
+    // If webhooks endpoint returns 404 (not available / not found) — do not break invoice page
+    if (e instanceof PspApiError && e.status === 404) {
+      return { ok: true, items: [] };
+    }
+    throw e;
+  }
 
   // case 1: backend returns array directly
   if (Array.isArray(res)) {
