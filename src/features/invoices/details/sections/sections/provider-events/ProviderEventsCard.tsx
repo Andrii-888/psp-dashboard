@@ -33,7 +33,9 @@ export function ProviderEventsCard({ events, loading }: Props) {
           <tbody>
             {events.map((ev, idx) => (
               <tr
-                key={`${ev.provider}-${ev.externalId ?? idx}`}
+                key={`${ev.provider}-${ev.externalId ?? "no-ext"}-${
+                  ev.receivedAt ?? "no-ts"
+                }-${idx}`}
                 className="rounded-2xl bg-slate-900/60 text-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.55)]"
               >
                 <td className="px-2 py-2">{ev.provider}</td>
