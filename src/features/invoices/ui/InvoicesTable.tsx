@@ -371,7 +371,7 @@ export function InvoicesTable({
                 </td>
 
                 {/* AML */}
-                <td className="px-3 py-3 align-top">
+                <td className="px-3 py-3 align-middle text-center">
                   <AmlBadge
                     amlStatus={inv.amlStatus ?? null}
                     riskScore={inv.riskScore ?? null}
