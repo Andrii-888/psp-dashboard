@@ -379,8 +379,16 @@ export async function fetchOperatorInvoices(
     offset: params.offset ?? 0,
     status: params.status,
   });
+  const res = await apiGet<unknown>(`/operator/invoices${q}`, opts);
 
-  return apiGet<Invoice[]>(`/operator/invoices${q}`, opts);
+  // Поддержка всех форматов PSP Core
+  if (Array.isArray(res)) return res.map((x) => normalizeInvoice(x));
+  if (res && typeof res === "object") {
+    const obj = res as Record<string, unknown>;
+    const arr = obj.data ?? obj.items ?? obj.invoices;
+    if (Array.isArray(arr)) return arr.map((x) => normalizeInvoice(x));
+  }
+  return [];
 }
 
 export async function fetchInvoiceById(
