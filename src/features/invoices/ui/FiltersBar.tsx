@@ -47,6 +47,8 @@ export function FiltersBar({
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) =>
     onSearchChange(e.target.value);
 
+  const handleSearchClear = () => onSearchChange("");
+
   return (
     <div className="px-4 py-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -81,8 +83,12 @@ export function FiltersBar({
         </div>
 
         {/* RIGHT: search */}
-        <div className="w-full lg:max-w-sm shrink-0">
-          <SearchFilter search={search} onSearchChange={handleSearchChange} />
+        <div className="w-full shrink-0 lg:max-w-sm">
+          <SearchFilter
+            search={search}
+            onSearchChange={handleSearchChange}
+            onSearchClear={handleSearchClear}
+          />
         </div>
       </div>
     </div>

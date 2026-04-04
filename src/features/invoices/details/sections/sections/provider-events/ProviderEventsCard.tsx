@@ -5,11 +5,12 @@ import { formatDateTimeCH } from "@/shared/lib/formatters";
 import { CopyButton } from "@/shared/ui/components/CopyButton";
 
 interface Props {
-  events: ProviderEvent[];
+  events: ProviderEvent[] | null | undefined;
   loading: boolean;
 }
 
-export function ProviderEventsCard({ events, loading }: Props) {
+export function ProviderEventsCard({ events: rawEvents, loading }: Props) {
+  const events = Array.isArray(rawEvents) ? rawEvents : [];
   return (
     <div className="space-y-4">
       {loading ? (

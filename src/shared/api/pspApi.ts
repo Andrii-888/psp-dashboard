@@ -394,27 +394,48 @@ export async function fetchOperatorInvoices(
 export async function fetchInvoiceById(
   invoiceId: string
 ): Promise<{ ok: boolean; invoice: Invoice }> {
-  // Operator-first: invoice details page is operator-grade and should not depend on merchant scope
   try {
     const op = await apiGet<unknown>(`/operator/invoices/${invoiceId}`);
-    if (op && typeof op === "object" && "invoice" in op) {
-      const out = op as { ok: boolean; invoice: Invoice };
-      return { ...out, invoice: normalizeInvoice(out.invoice) };
+
+    if (op && typeof op === "object") {
+      const obj = op as Record<string, unknown>;
+
+      // { invoice: { ... } }
+      if (obj.invoice && typeof obj.invoice === "object") {
+        return { ok: true, invoice: normalizeInvoice(obj.invoice) };
+      }
+
+      // { success: true, data: { ... } }  ← формат psp-core
+      if (obj.data && typeof obj.data === "object") {
+        return { ok: true, invoice: normalizeInvoice(obj.data) };
+      }
+
+      // invoice напрямую (есть поле id)
+      if (obj.id) {
+        return { ok: true, invoice: normalizeInvoice(op) };
+      }
     }
+
     return { ok: true, invoice: normalizeInvoice(op) };
   } catch (e: unknown) {
-    // Fallback to merchant endpoint (keeps compatibility if operator route is not available)
-
     const status = e instanceof PspApiError ? e.status : 0;
-
-    // Only fallback on "not found" / missing operator route
     if (status !== 404) throw e;
 
     const res = await apiGet<unknown>(`/invoices/${invoiceId}`);
-    if (res && typeof res === "object" && "invoice" in res) {
-      const out = res as { ok: boolean; invoice: Invoice };
-      return { ...out, invoice: normalizeInvoice(out.invoice) };
+    if (res && typeof res === "object") {
+      const obj = res as Record<string, unknown>;
+
+      if (obj.invoice && typeof obj.invoice === "object") {
+        return { ok: true, invoice: normalizeInvoice(obj.invoice) };
+      }
+      if (obj.data && typeof obj.data === "object") {
+        return { ok: true, invoice: normalizeInvoice(obj.data) };
+      }
+      if (obj.id) {
+        return { ok: true, invoice: normalizeInvoice(res) };
+      }
     }
+
     return { ok: true, invoice: normalizeInvoice(res) };
   }
 }

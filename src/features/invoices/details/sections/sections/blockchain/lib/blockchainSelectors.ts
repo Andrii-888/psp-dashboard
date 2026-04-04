@@ -138,10 +138,15 @@ export function getOnChainSSOT(invoice: Invoice): OnChainTransactionSSOT {
 
   const network =
     cleanString(inv?.["network"]) ?? cleanString(pay?.["network"]);
-  const asset = cleanString(inv?.["asset"]) ?? cleanString(pay?.["currency"]);
-  const amount =
-    amountStringOrNull(inv?.["amount"]) ?? amountStringOrNull(pay?.["amount"]);
+  const asset =
+    cleanString(inv?.["asset"]) ??
+    cleanString(inv?.["cryptoCurrency"]) ??
+    cleanString(pay?.["currency"]);
 
+  const amount =
+    amountStringOrNull(inv?.["amount"]) ??
+    amountStringOrNull(inv?.["cryptoAmount"]) ??
+    amountStringOrNull(pay?.["amount"]);
   return {
     direction: toDirection(inv?.["direction"]),
 
@@ -149,8 +154,12 @@ export function getOnChainSSOT(invoice: Invoice): OnChainTransactionSSOT {
     asset,
     amount,
 
-    fromAddress: cleanString(inv?.["walletAddress"]),
-    toAddress: cleanString(pay?.["address"]),
+    fromAddress:
+      cleanString(inv?.["senderAddress"]) ??
+      cleanString(pay?.["fromAddress"]) ??
+      null,
+    toAddress:
+      cleanString(inv?.["walletAddress"]) ?? cleanString(pay?.["address"]),
 
     txHash: cleanString(inv?.["txHash"]),
     txStatus: toTxStatus(inv?.["txStatus"]),

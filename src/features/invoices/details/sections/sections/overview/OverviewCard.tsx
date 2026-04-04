@@ -25,7 +25,7 @@ export function OverviewCard({
   savingTx,
   onAttachTx,
 }: OverviewCardProps) {
-  const payAmountNum = parseNum(invoice.pay?.amount);
+  const payAmountNum = invoice.pay != null ? parseNum(invoice.pay.amount) : NaN;
   const cryptoAmountNum =
     typeof invoice.cryptoAmount === "number" &&
     Number.isFinite(invoice.cryptoAmount)
