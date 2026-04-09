@@ -583,7 +583,7 @@ export async function fetchAccountingEntries(params: {
   headers: Headers;
   from?: string;
   to?: string;
-}): Promise<unknown> {
+}): Promise<unknown[]> {
   const qs = toQuery({
     merchantId: params.merchantId,
     limit: params.limit,
@@ -591,10 +591,20 @@ export async function fetchAccountingEntries(params: {
     to: params.to,
   });
 
-  // NOTE: server-safe call (absolute URL + forwarded auth headers)
-  return apiGet<unknown>(`/accounting/entries${qs}`, {
+  const res = await apiGet<unknown>(`/accounting/entries${qs}`, {
     forwardHeaders: params.headers,
   });
+
+  if (res && typeof res === "object") {
+    const obj = res as Record<string, unknown>;
+    const data = obj.data;
+    if (data && typeof data === "object") {
+      const dataObj = data as Record<string, unknown>;
+      if (Array.isArray(dataObj.items)) return dataObj.items;
+      if (Array.isArray(data)) return data as unknown[];
+    }
+  }
+  return Array.isArray(res) ? (res as unknown[]) : [];
 }
 
 export async function fetchAccountingSummary(params: {
@@ -609,10 +619,17 @@ export async function fetchAccountingSummary(params: {
     to: params.to,
   });
 
-  // NOTE: server-safe call (absolute URL + forwarded auth headers)
-  return apiGet<unknown>(`/accounting/summary${qs}`, {
+  const res = await apiGet<unknown>(`/accounting/summary${qs}`, {
     forwardHeaders: params.headers,
   });
+
+  if (res && typeof res === "object") {
+    const obj = res as Record<string, unknown>;
+    if (obj.success === true && obj.data !== undefined) {
+      return obj.data;
+    }
+  }
+  return res;
 }
 
 export async function runBackfillConfirmed(params: {
@@ -633,4 +650,36 @@ export async function runBackfillConfirmed(params: {
   );
 
   return data;
+}
+
+export type InvoiceLedgerEvent = {
+  id: string;
+  invoiceId: string;
+  eventType: string;
+  fiatAmount: number | null;
+  fiatCurrency: string | null;
+  cryptoAmount: number | null;
+  cryptoCurrency: string | null;
+  fxRate: number | null;
+  txHash: string | null;
+  metaJson: string | null;
+  createdAt: string;
+};
+
+export async function fetchInvoiceLedger(
+  invoiceId: string,
+  opts?: ApiOpts
+): Promise<InvoiceLedgerEvent[]> {
+  const data = await apiGet<
+    InvoiceLedgerEvent[] | { items?: InvoiceLedgerEvent[] }
+  >(`/invoices/${invoiceId}/ledger?limit=100`, opts);
+  if (Array.isArray(data)) return data;
+  if (
+    data &&
+    typeof data === "object" &&
+    Array.isArray((data as { items?: InvoiceLedgerEvent[] }).items)
+  ) {
+    return (data as { items: InvoiceLedgerEvent[] }).items;
+  }
+  return [];
 }

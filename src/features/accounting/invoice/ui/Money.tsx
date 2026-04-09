@@ -54,6 +54,16 @@ function Row({
 }
 
 export default function Money({ invoice }: { invoice: Invoice }) {
+  if (!invoice) {
+    return (
+      <section className="rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <div className="px-6 py-5 text-sm text-zinc-500">
+          Invoice data unavailable.
+        </div>
+      </section>
+    );
+  }
+
   const fiatCurrency = upper(invoice.fiatCurrency);
   const cryptoCurrency = upper(invoice.cryptoCurrency);
 

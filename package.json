@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build 2>&1 | grep -v \"baseline-browser-mapping\"",
     "start": "next start",
     "lint": "eslint",
     "lint:format-guards": "rg -n \"toLocaleString\\(|Date\\.now\\(|Math\\.random\\(\" src/components src/app | rg -v \"src/app/api/\" && exit 1 || exit 0",
@@ -34,7 +34,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "baseline-browser-mapping": "^2.9.19",
+    "baseline-browser-mapping": "^2.10.16",
     "eslint": "^9",
     "eslint-config-next": "16.0.7",
     "husky": "^9.1.7",
