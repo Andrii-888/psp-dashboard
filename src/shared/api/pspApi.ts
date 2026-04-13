@@ -536,7 +536,7 @@ export async function setInvoiceDecision(
       ? "rejected"
       : "hold";
 
-  return apiPost<unknown>(`/operator/invoices/${invoiceId}/decision`, {
+  return apiPost<unknown>(`/invoices/${invoiceId}/decision`, {
     status,
     reasonCode: null,
     comment: reason ?? null,
