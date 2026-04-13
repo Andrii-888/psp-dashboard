@@ -95,6 +95,7 @@ function txFinalityLabel(
 function decisionAxis(invoice: Invoice): UiAxis & { needsDecision: boolean } {
   const needsDecision =
     Boolean(invoice.ui?.needsDecision) ||
+    (invoice.status === "waiting" && !invoice.decisionStatus) ||
     (invoice.decisionStatus == null &&
       (invoice.amlStatus === "review" ||
         invoice.amlStatus === "warning" ||
