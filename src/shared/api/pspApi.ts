@@ -536,11 +536,11 @@ export async function setInvoiceDecision(
       ? "rejected"
       : "hold";
 
-  return apiPost<unknown>(`/invoices/${invoiceId}/decision`, {
-    status,
-    reasonCode: null,
-    comment: reason ?? null,
-  });
+  // Mark `reason` as intentionally unused for now (silences eslint warning)
+  void reason;
+
+  // Отправляем только поле, которое ожидает backend
+  return apiPost<unknown>(`/invoices/${invoiceId}/decision`, { status });
 }
 
 export async function expireInvoice(
