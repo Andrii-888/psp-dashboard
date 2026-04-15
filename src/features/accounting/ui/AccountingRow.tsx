@@ -1,5 +1,3 @@
-// src/app/accounting/components/AccountingRow.tsx
-
 import Link from "next/link";
 import { ReceiptText } from "lucide-react";
 import type { AccountingEntryRaw } from "@/features/accounting/lib/types";
@@ -174,14 +172,14 @@ export default function AccountingRow({
   const fee = primary.fee;
   const net = primary.net;
 
-  const cryptoGross = toNumber(entry.grossAmount, 0);
-  const cryptoFee = toNumber(entry.feeAmount, 0);
-  const cryptoNet = toNumber(entry.netAmount, 0);
+  // Prefer explicit crypto_* fields when available, otherwise fall back to gross/fee/net.
+  const cryptoGross = toNumber(entry.cryptoGrossAmount ?? entry.grossAmount, 0);
+  const cryptoFee = toNumber(entry.cryptoFeeAmount ?? entry.feeAmount, 0);
+  const cryptoNet = toNumber(entry.cryptoNetAmount ?? entry.netAmount, 0);
 
+  // Показываем крипто-значения, если основной режим — fiat, и крипто суммы не нулевые
   const showCryptoSecondary =
-    primary.mode === "fiat" &&
-    (cryptoGross !== 0 || cryptoFee !== 0 || cryptoNet !== 0);
-
+    cryptoGross !== 0 || cryptoFee !== 0 || cryptoNet !== 0;
   const tone = toneForEvent(entry.eventType);
 
   return (
@@ -207,53 +205,59 @@ export default function AccountingRow({
 
       {/* Gross */}
       <td className="px-4 py-2 text-center font-mono text-xs font-medium tabular-nums text-zinc-600">
-        {gross
-          ? primary.unit === "CHF"
-            ? `${fmtChf(gross)} CHF`
-            : `${fmtMoney(gross)} ${primary.unit}`
-          : "—"}
-        {showCryptoSecondary ? (
+        <div>
+          {gross
+            ? primary.unit === "CHF"
+              ? `${fmtChf(gross)} CHF`
+              : `${fmtMoney(gross)} ${primary.unit}`
+            : "—"}
+        </div>
+        {showCryptoSecondary && cryptoGross !== 0 && (
           <div className="mt-1 text-[11px] text-zinc-400">
-            {cryptoGross ? fmtMoney(cryptoGross) : "—"}{" "}
-            {String(entry.currency ?? "").toUpperCase()}
+            {fmtMoney(cryptoGross)}{" "}
+            {String(entry.cryptoCurrency ?? entry.currency ?? "").toUpperCase()}
           </div>
-        ) : null}
+        )}
       </td>
 
       {/* Fee */}
       <td className="px-4 py-2 text-center font-mono text-xs tabular-nums text-amber-700">
-        {fee
-          ? primary.unit === "CHF"
-            ? `− ${fmtChf(fee)} CHF`
-            : `− ${fmtMoney(fee)} ${primary.unit}`
-          : "—"}
-        {showCryptoSecondary ? (
+        <div>
+          {fee
+            ? primary.unit === "CHF"
+              ? `− ${fmtChf(fee)} CHF`
+              : `− ${fmtMoney(fee)} ${primary.unit}`
+            : "—"}
+        </div>
+        {showCryptoSecondary && cryptoFee !== 0 && (
           <div className="mt-1 text-[11px] text-zinc-400">
-            {cryptoFee ? `− ${fmtMoney(cryptoFee)}` : "—"}{" "}
-            {String(entry.currency ?? "").toUpperCase()}
+            − {fmtMoney(cryptoFee)}{" "}
+            {String(entry.cryptoCurrency ?? entry.currency ?? "").toUpperCase()}
           </div>
-        ) : null}
+        )}
       </td>
 
       {/* Net */}
       <td className="px-4 py-2 text-center font-mono text-xs font-medium tabular-nums text-zinc-800">
-        {net
-          ? primary.unit === "CHF"
-            ? `${fmtChf(net)} CHF`
-            : `${fmtMoney(net)} ${primary.unit}`
-          : "—"}
-        {showCryptoSecondary ? (
+        <div>
+          {net
+            ? primary.unit === "CHF"
+              ? `${fmtChf(net)} CHF`
+              : `${fmtMoney(net)} ${primary.unit}`
+            : "—"}
+        </div>
+        {showCryptoSecondary && cryptoNet !== 0 && (
           <div className="mt-1 text-[11px] text-zinc-400">
-            {cryptoNet ? fmtMoney(cryptoNet) : "—"}{" "}
-            {String(entry.currency ?? "").toUpperCase()}
+            {fmtMoney(cryptoNet)}{" "}
+            {String(entry.cryptoCurrency ?? entry.currency ?? "").toUpperCase()}
           </div>
-        ) : null}
+        )}
       </td>
 
       {/* Asset */}
       <td className="px-4 py-2 text-center">
         <span className="inline-flex items-center rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs font-medium uppercase tracking-wide text-zinc-800">
-          {entry.currency}
+          {entry.cryptoCurrency ?? entry.currency}
         </span>
       </td>
 

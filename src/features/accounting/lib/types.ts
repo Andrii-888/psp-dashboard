@@ -129,6 +129,13 @@ export interface AccountingEntryRaw {
   feeFiatAmount?: number | null;
   netFiatAmount?: number | null;
 
+  // NEW: explicit crypto axis fields returned by backend (nullable)
+  // Prefer these when present; fallback to grossAmount/feeAmount/netAmount + currency otherwise.
+  cryptoGrossAmount?: string | null;
+  cryptoFeeAmount?: string | null;
+  cryptoNetAmount?: string | null;
+  cryptoCurrency?: string | null;
+
   currency: AccountingCurrency; // CHF | USDT | USDC
   network: Network; // TRON | ETH
 
