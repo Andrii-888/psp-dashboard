@@ -34,11 +34,12 @@ yarn-error.log*
 .env*
 
 # vercel
-.vercel
+.vercel/
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 
+# project specific
 PROJECT_NOTES.md
 ipn-detected.json
