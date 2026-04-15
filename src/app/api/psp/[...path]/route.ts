@@ -64,7 +64,15 @@ async function proxy(req: NextRequest, pathParts: string[]) {
 
     const data = await upstream.json().catch(() => ({ error: "Non-JSON response" }));
     return NextResponse.json(data, { status: upstream.status, headers: resHeaders });
-  } catch (e) {
-    return NextResponse.json({ error: "Proxy failed", message: String(e) }, { status: 502 });
-  }
+    } catch (e) {
+      return NextResponse.json({ 
+        success: false, 
+        error: "Proxy failed", 
+        debug: { 
+          attemptedUrl: url.toString(), 
+          error: String(e), 
+          pspApiUrlEnv: process.env.PSP_API_URL || "NOT_SET"
+        } 
+      }, { status: 502 });
+    }
 }
