@@ -38,23 +38,6 @@ function pickPrimaryMoney(entry: AccountingEntryRaw) {
   const upper = (v: unknown): string =>
     typeof v === "string" ? v.trim().toUpperCase() : "";
 
-  const parseFxPair = (
-    pairRaw: unknown
-  ): { base: string; quote: string } | null => {
-    const p = upper(pairRaw);
-    if (!p) return null;
-
-    // supports: "USDC/CHF", "USDC-CHF", "USDC_CHF"
-    const parts = p.split(/[^A-Z]+/).filter(Boolean);
-    if (parts.length >= 2) return { base: parts[0], quote: parts[1] };
-
-    // supports: "CHFUSD", "USDCHF" (3+3)
-    if (/^[A-Z]{6}$/.test(p))
-      return { base: p.slice(0, 3), quote: p.slice(3, 6) };
-
-    return null;
-  };
-
   // 1) fiatAmount from backend (single gross fiat value, Phase 2 write after decision)
   //    Backend stores: fiat_amount = grossFiat, fiat_currency = CHF, fx_rate = locked rate
   const fiatCur = upper(get(entry, "fiatCurrency"));
