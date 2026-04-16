@@ -55,72 +55,82 @@ function pickPrimaryMoney(entry: AccountingEntryRaw) {
     return null;
   };
 
-  // 1) If backend ever provides explicit fiat amounts, use them first
+  // 1) fiatAmount from backend (single gross fiat value, Phase 2 write after decision)
+  //    Backend stores: fiat_amount = grossFiat, fiat_currency = CHF, fx_rate = locked rate
   const fiatCur = upper(get(entry, "fiatCurrency"));
+  const fiatAmountN = toFinite(get(entry, "fiatAmount"));
+  const fxRate = toFinite(get(entry, "fxRate"));
 
-  const grossFiatN = toFinite(get(entry, "grossFiatAmount"));
-  const feeFiatN = toFinite(get(entry, "feeFiatAmount"));
-  const netFiatN = toFinite(get(entry, "netFiatAmount"));
+  const curRaw = String(entry.currency ?? "").toUpperCase();
+  const cryptoCur = String(entry.cryptoCurrency ?? curRaw).toUpperCase();
 
-  const hasFiatAmounts =
-    fiatCur === "CHF" &&
-    (grossFiatN !== null || feeFiatN !== null || netFiatN !== null);
+  const cryptoGross = toFinite(get(entry, "cryptoGrossAmount")) ?? toNumber(entry.grossAmount, 0);
+  const cryptoFee   = toFinite(get(entry, "cryptoFeeAmount"))   ?? toNumber(entry.feeAmount, 0);
+  const cryptoNet   = toFinite(get(entry, "cryptoNetAmount"))    ?? toNumber(entry.netAmount, 0);
 
-  if (hasFiatAmounts) {
+  // Case A: backend provides fiatAmount directly (new entries after our fix)
+  if (fiatCur === "CHF" && fiatAmountN !== null && fiatAmountN > 0) {
+    const feeBps = toFinite(get(entry, "feeBps")) ?? 100;
+    const grossFiat = fiatAmountN;
+    const feeFiat   = Math.round((grossFiat * feeBps) / 10000 * 100) / 100;
+    const netFiat   = Math.round((grossFiat - feeFiat) * 100) / 100;
     return {
       unit: "CHF",
-      gross: grossFiatN ?? 0,
-      fee: feeFiatN ?? 0,
-      net: netFiatN ?? 0,
+      gross: grossFiat,
+      fee: feeFiat,
+      net: netFiat,
+      cryptoGross,
+      cryptoCur,
       mode: "fiat" as const,
     };
   }
 
-  // 2) CHF-first derived from fxRate/fxPair
-  const fxRate = toFinite(get(entry, "fxRate"));
-  const fxPair = parseFxPair(get(entry, "fxPair"));
-
-  // normalize stablecoins to USD for FX purposes
-  const curRaw = String(entry.currency ?? "").toUpperCase();
-  const cur = curRaw === "USDC" || curRaw === "USDT" ? "USD" : curRaw;
-
-  const gross = toNumber(entry.grossAmount, 0);
-  const fee = toNumber(entry.feeAmount, 0);
-  const net = toNumber(entry.netAmount, 0);
-
-  // Interpret fxPair as BASE/QUOTE
-  // Example you have: CHFUSD with fxRate=0.774688 => 1 CHF = 0.774688 USD
-  // So USD -> CHF = USD / fxRate
-  if (fxRate !== null && fxPair) {
-    const hasChf = fxPair.base === "CHF" || fxPair.quote === "CHF";
-    const hasCur = fxPair.base === cur || fxPair.quote === cur;
-
-    if (hasChf && hasCur) {
-      const chf =
-        fxPair.base === cur && fxPair.quote === "CHF"
-          ? (n: number) => n * fxRate
-          : fxPair.base === "CHF" && fxPair.quote === cur
-          ? (n: number) => n * fxRate
-          : null;
-
-      if (chf) {
-        return {
-          unit: "CHF",
-          gross: chf(gross),
-          fee: chf(fee),
-          net: chf(net),
-          mode: "fiat" as const,
-        };
-      }
+  // Case B: derive CHF from fxRate (USDT->CHF: cryptoAmount * fxRate)
+  // fxPair = "USDT->CHF" means 1 USDT = fxRate CHF
+  if (fxRate !== null && fxRate > 0 && cryptoGross > 0) {
+    const fxPairRaw = String(get(entry, "fxPair") ?? "").toUpperCase();
+    // "USDT->CHF" or "USDC->CHF": crypto * rate = CHF
+    const isCryptoToChf = fxPairRaw.endsWith("->CHF") || fxPairRaw.endsWith("/CHF");
+    if (isCryptoToChf) {
+      const grossFiat = Math.round(cryptoGross * fxRate * 100) / 100;
+      const feeFiat   = Math.round(cryptoFee   * fxRate * 100) / 100;
+      const netFiat   = Math.round(cryptoNet   * fxRate * 100) / 100;
+      return {
+        unit: "CHF",
+        gross: grossFiat,
+        fee: feeFiat,
+        net: netFiat,
+        cryptoGross,
+        cryptoCur,
+        mode: "fiat" as const,
+      };
     }
   }
 
-  // 3) fallback: crypto axis
+  // Case C: currency IS CHF (old entries stored in CHF directly)
+  if (curRaw === "CHF") {
+    const gross = toNumber(entry.grossAmount, 0);
+    const fee   = toNumber(entry.feeAmount, 0);
+    const net   = toNumber(entry.netAmount, 0);
+    return {
+      unit: "CHF",
+      gross,
+      fee,
+      net,
+      cryptoGross: cryptoCur !== "CHF" ? cryptoGross : 0,
+      cryptoCur,
+      mode: "fiat" as const,
+    };
+  }
+
+  // Case D: fallback — crypto only (no fiat data available)
   return {
-    unit: curRaw,
-    gross,
-    fee,
-    net,
+    unit: cryptoCur || curRaw,
+    gross: cryptoGross,
+    fee: cryptoFee,
+    net: cryptoNet,
+    cryptoGross: 0,
+    cryptoCur,
     mode: "crypto" as const,
   };
 }
@@ -172,14 +182,15 @@ export default function AccountingRow({
   const fee = primary.fee;
   const net = primary.net;
 
-  // Prefer explicit crypto_* fields when available, otherwise fall back to gross/fee/net.
-  const cryptoGross = toNumber(entry.cryptoGrossAmount ?? entry.grossAmount, 0);
+  // Use crypto values from primary (already resolved)
+  const cryptoGross = primary.cryptoGross ?? 0;
   const cryptoFee = toNumber(entry.cryptoFeeAmount ?? entry.feeAmount, 0);
   const cryptoNet = toNumber(entry.cryptoNetAmount ?? entry.netAmount, 0);
+  const cryptoCurLabel = primary.cryptoCur ?? String(entry.cryptoCurrency ?? entry.currency ?? "").toUpperCase();
 
-  // Показываем крипто-значения, если основной режим — fiat, и крипто суммы не нулевые
+  // Show crypto secondary line only when primary is fiat AND crypto values exist
   const showCryptoSecondary =
-    cryptoGross !== 0 || cryptoFee !== 0 || cryptoNet !== 0;
+    primary.mode === "fiat" && (cryptoGross !== 0 || cryptoFee !== 0 || cryptoNet !== 0);
   const tone = toneForEvent(entry.eventType);
 
   return (
@@ -215,7 +226,7 @@ export default function AccountingRow({
         {showCryptoSecondary && cryptoGross !== 0 && (
           <div className="mt-1 text-[11px] text-zinc-400">
             {fmtMoney(cryptoGross)}{" "}
-            {String(entry.cryptoCurrency ?? entry.currency ?? "").toUpperCase()}
+            {cryptoCurLabel}
           </div>
         )}
       </td>
@@ -232,7 +243,7 @@ export default function AccountingRow({
         {showCryptoSecondary && cryptoFee !== 0 && (
           <div className="mt-1 text-[11px] text-zinc-400">
             − {fmtMoney(cryptoFee)}{" "}
-            {String(entry.cryptoCurrency ?? entry.currency ?? "").toUpperCase()}
+            {cryptoCurLabel}
           </div>
         )}
       </td>
@@ -249,7 +260,7 @@ export default function AccountingRow({
         {showCryptoSecondary && cryptoNet !== 0 && (
           <div className="mt-1 text-[11px] text-zinc-400">
             {fmtMoney(cryptoNet)}{" "}
-            {String(entry.cryptoCurrency ?? entry.currency ?? "").toUpperCase()}
+            {cryptoCurLabel}
           </div>
         )}
       </td>
